@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
+
+  --color-bb-navy: #0b3d66;
+  --color-bb-blue: #0f6bb3;
+  --color-bb-blue-dark: #0a4f85;
+  --color-bb-blue-light: #e8f2fb;
+
+  --color-status-sinuri: #f2994a;
+  --color-status-inimbestigahan: #2f80ed;
+  --color-status-nalutas: #27ae60;
+  --color-status-pending: #f2994a;
+  --color-status-suspended: #eb5757;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+}
