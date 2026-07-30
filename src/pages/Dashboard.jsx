@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom'
 import {
   UserCheck,
   ClipboardList,
@@ -12,8 +11,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
-import { NAV_ITEMS } from '../config/navigation'
-import { ROLES, hasModuleAccess } from '../config/permissions'
+import { ROLES } from '../config/permissions'
 import StatTile from '../components/StatTile'
 import MiniBarChart from '../components/MiniBarChart'
 import Pill from '../components/Pill'
@@ -72,24 +70,18 @@ export default function Dashboard() {
 
   const activityFeed = auditLog.slice(0, 8)
 
-  const shortcuts = NAV_ITEMS.filter(
-    (item) =>
-      item.module !== 'dashboard' &&
-      item.module !== 'profile' &&
-      hasModuleAccess(user?.role, item.module),
-  )
-
   const isFullOverview = user?.role === ROLES.SECRETARY || user?.role === ROLES.CAPTAIN
+  const hasActivityFeed = user?.role === ROLES.ADMIN
 
   return (
     <div>
       <h2 className="text-xl font-bold text-gray-900">Dashboard</h2>
-      <p className="mt-1 text-sm text-gray-500">
+      <p className="mt-0.5 text-sm text-gray-500">
         Buod ng kasalukuyang aktibidad ng barangay para kay {user?.role}.
       </p>
 
       {/* Role-scoped counters */}
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {isFullOverview && (
           <>
             <StatTile icon={UserCheck} label="Naghihintay na Verification" value={pendingVerifications} accent="orange" />
@@ -123,26 +115,26 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className={`mt-4 grid grid-cols-1 gap-4 ${hasActivityFeed ? 'lg:grid-cols-2' : ''}`}>
         {/* Analytics panel */}
-        <div className="space-y-4 lg:col-span-2">
-          <h3 className="text-sm font-semibold text-gray-500">Analytics</h3>
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Analytics</h3>
 
           {isFullOverview && (
-            <>
+            <div
+              className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${hasActivityFeed ? '' : 'xl:grid-cols-3'}`}
+            >
               <MiniBarChart title="Insidente ayon sa Klasipikasyon" data={classificationData} />
               <MiniBarChart title="Insidente ayon sa Kalubhaan" data={severityData} />
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <MiniBarChart title="Paglago ng Rehistradong Residente" data={registrationData} />
-                <MiniBarChart title="Chatbot Query Volume (sample)" data={chatbotQueryData} />
-              </div>
-              <div className="rounded-xl border border-gray-200 p-4">
-                <p className="text-xs text-gray-500">
-                  Average na turnaround mula submission hanggang resolution
-                </p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">3.5 araw</p>
-              </div>
-            </>
+              <StatTile
+                icon={Clock}
+                label="Avg. turnaround (submission → resolution)"
+                value="3.5 araw"
+                accent="blue"
+              />
+              <MiniBarChart title="Paglago ng Rehistradong Residente" data={registrationData} />
+              <MiniBarChart title="Chatbot Query Volume (sample)" data={chatbotQueryData} />
+            </div>
           )}
 
           {user?.role === ROLES.KAGAWAD && (
@@ -165,26 +157,28 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Activity feed + shortcuts */}
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-500">Live Activity Feed</h3>
-            <div className="mt-2 space-y-2 rounded-xl border border-gray-200 p-3">
+        {/* Live activity feed (Admin only — everyone else navigates via the sidebar) */}
+        {hasActivityFeed && (
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+              Live Activity Feed
+            </h3>
+            <div className="max-h-[calc(100vh-360px)] min-h-[220px] space-y-2.5 overflow-y-auto rounded-xl border border-gray-200 p-4">
               {activityFeed.length === 0 && (
-                <p className="p-2 text-xs text-gray-400">Wala pang aktibidad.</p>
+                <p className="p-2 text-sm text-gray-400">Wala pang aktibidad.</p>
               )}
               {activityFeed.map((entry) => (
-                <div key={entry.id} className="flex items-start justify-between gap-2 border-b border-gray-100 pb-2 last:border-0 last:pb-0">
+                <div key={entry.id} className="flex items-start justify-between gap-3 border-b border-gray-100 pb-2.5 last:border-0 last:pb-0">
                   <div>
-                    <p className="text-xs font-semibold text-gray-700">{entry.actorName}</p>
+                    <p className="text-sm font-semibold text-gray-700">{entry.actorName}</p>
                     <p className="text-xs text-gray-400">{entry.actorRole}</p>
                   </div>
                   <div className="text-right">
                     <Pill color={entry.color} solid>
                       {entry.action}
                     </Pill>
-                    <p className="mt-1 flex items-center justify-end gap-1 text-[10px] text-gray-400">
-                      <Clock size={10} />
+                    <p className="mt-1 flex items-center justify-end gap-1 text-xs text-gray-400">
+                      <Clock size={11} />
                       {entry.timestamp}
                     </p>
                   </div>
@@ -192,23 +186,7 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-
-          <div>
-            <h3 className="text-sm font-semibold text-gray-500">Mabilisang Access</h3>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              {shortcuts.map(({ label, path, icon: Icon }) => (
-                <Link
-                  key={path}
-                  to={path}
-                  className="flex flex-col items-center gap-1.5 rounded-lg border border-gray-200 p-3 text-center text-xs font-semibold text-gray-700 hover:border-bb-blue hover:bg-bb-blue-light hover:text-bb-blue transition-colors"
-                >
-                  <Icon size={18} />
-                  {label}
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   )

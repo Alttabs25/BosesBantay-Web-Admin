@@ -159,7 +159,7 @@ export default function Reports() {
       </div>
 
       {generated && (
-        <div className="mt-6 space-y-4 print:mt-0">
+        <div className="mt-4 space-y-3 print:mt-0">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <StatTile icon={FileBarChart} label="Kabuuang Insidente" value={scopedIncidents.length} accent="blue" />
             <StatTile icon={FileBarChart} label="Blotter Records" value={blotterReports.length} accent="orange" />
@@ -167,18 +167,18 @@ export default function Reports() {
           </div>
 
           {(user.role === ROLES.SECRETARY || user.role === ROLES.CAPTAIN || user.role === ROLES.ADMIN) && (
-            <>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               <MiniBarChart title="Bilang ayon sa Uri ng Insidente" data={typeData} />
               <MiniBarChart title="Status Breakdown (Under Review / Investigating / Resolved / Spam)" data={statusData} />
               <MiniBarChart title="Kabuuan ayon sa Sektor" data={sectorData} />
-            </>
+            </div>
           )}
 
           {user.role === ROLES.KAGAWAD && (
-            <>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <MiniBarChart title="Bilang ayon sa Uri ng Insidente (Committee View)" data={typeData} />
               <MiniBarChart title="Kabuuan ayon sa Sektor" data={sectorData} />
-            </>
+            </div>
           )}
 
           {canExport && (

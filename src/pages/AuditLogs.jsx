@@ -31,9 +31,9 @@ export default function AuditLogs() {
         />
       </div>
 
-      <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
+      <div className="mt-4 max-h-[calc(100vh-260px)] overflow-auto rounded-lg border border-gray-200">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+          <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
             <tr>
               <th className="px-4 py-3 font-semibold">Pangalan</th>
               <th className="px-4 py-3 font-semibold">Role</th>

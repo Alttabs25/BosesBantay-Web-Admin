@@ -5,6 +5,13 @@ import { MOCK_INCIDENTS } from '../data/mockIncidents'
 import { MOCK_BLOTTER } from '../data/mockBlotter'
 import { MOCK_DOCUMENTS } from '../data/mockDocuments'
 import { MOCK_AUDIT_LOGS } from '../data/mockAuditLogs'
+import {
+  ROLES,
+  ALWAYS_ON_MODULES,
+  ASSIGNABLE_MODULE_ROLES,
+  defaultModuleAccessMap,
+  hasModuleAccess,
+} from '../config/permissions'
 
 const DataContext = createContext(null)
 
@@ -31,6 +38,7 @@ export function DataProvider({ children }) {
   const [documents, setDocuments] = useState(MOCK_DOCUMENTS)
   const [alertHistory, setAlertHistory] = useState([])
   const [auditLog, setAuditLog] = useState(seedAuditLog)
+  const [roleModuleAccess, setRoleModuleAccess] = useState(defaultModuleAccessMap)
 
   const addAuditEntry = (action, { color = 'blue', actorName, actorRole } = {}) => {
     setAuditLog((prev) => [
@@ -76,6 +84,22 @@ export function DataProvider({ children }) {
 
   const addAlert = (entry) => setAlertHistory((prev) => [entry, ...prev])
 
+  const setModuleAccess = (role, moduleKey, enabled) => {
+    if (!ASSIGNABLE_MODULE_ROLES.includes(role)) return
+    setRoleModuleAccess((prev) => ({
+      ...prev,
+      [role]: { ...prev[role], [moduleKey]: enabled },
+    }))
+  }
+
+  const hasDynamicModuleAccess = (role, moduleKey) => {
+    if (ALWAYS_ON_MODULES.includes(moduleKey)) return true
+    if (role === ROLES.ADMIN) return hasModuleAccess(role, moduleKey)
+    const override = roleModuleAccess[role]?.[moduleKey]
+    if (override !== undefined) return override
+    return hasModuleAccess(role, moduleKey)
+  }
+
   return (
     <DataContext.Provider
       value={{
@@ -96,6 +120,9 @@ export function DataProvider({ children }) {
         addAlert,
         auditLog,
         addAuditEntry,
+        roleModuleAccess,
+        setModuleAccess,
+        hasDynamicModuleAccess,
       }}
     >
       {children}

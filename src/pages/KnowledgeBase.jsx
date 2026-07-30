@@ -90,10 +90,10 @@ export default function KnowledgeBase() {
         chatbot references verified and precise.
       </p>
 
-      <div className="mt-4 flex flex-col gap-6 lg:flex-row">
-        <div className="flex-1 overflow-x-auto rounded-lg border border-gray-200">
+      <div className="mt-4 flex flex-col gap-4 lg:flex-row">
+        <div className="max-h-[calc(100vh-260px)] flex-1 overflow-auto rounded-lg border border-gray-200">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+            <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
               <tr>
                 <th className="px-4 py-3 font-semibold">Document Title</th>
                 <th className="px-4 py-3 font-semibold">Date Uploaded</th>

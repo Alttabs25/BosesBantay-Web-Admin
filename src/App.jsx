@@ -1,5 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Login from './pages/Login'
+import ForgotPassword from './pages/ForgotPassword'
+import FirstLoginPasswordChange from './pages/FirstLoginPasswordChange'
 import AdminLayout from './layouts/AdminLayout'
 import ProtectedRoute from './components/ProtectedRoute'
 import RoleGuard from './components/RoleGuard'
@@ -17,6 +19,15 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route
+        path="/first-login"
+        element={
+          <ProtectedRoute>
+            <FirstLoginPasswordChange />
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         element={

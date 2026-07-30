@@ -97,3 +97,35 @@ export function can(role, moduleKey, action) {
 export function hasModuleAccess(role, moduleKey) {
   return Boolean(PERMISSIONS[moduleKey]?.[role]?.length)
 }
+
+// Modules the System Administrator can toggle on/off per role. Dashboard and
+// Profile are deliberately excluded — every role needs a guaranteed landing
+// page and account/password access, so they stay always-on to avoid a role
+// being locked out of the portal entirely.
+export const ASSIGNABLE_MODULES = [
+  { key: 'gis', label: 'GIS Command Center' },
+  { key: 'blotter', label: 'Digital Blotter' },
+  { key: 'userAccounts', label: 'User Accounts' },
+  { key: 'knowledgeBase', label: 'Knowledge Base' },
+  { key: 'alerts', label: 'In-App notification' },
+  { key: 'reports', label: 'Reports' },
+  { key: 'auditLogs', label: 'Audit Logs' },
+]
+
+// Roles whose module access the System Administrator can reassign. ADMIN is
+// excluded so the System Administrator can never toggle away their own access.
+export const ASSIGNABLE_MODULE_ROLES = [SECRETARY, TANOD, LUPON, KAGAWAD, CAPTAIN]
+
+// Modules that are always visible/accessible regardless of any per-role override.
+export const ALWAYS_ON_MODULES = ['dashboard', 'profile']
+
+export function defaultModuleAccessMap() {
+  const map = {}
+  ASSIGNABLE_MODULE_ROLES.forEach((role) => {
+    map[role] = {}
+    ASSIGNABLE_MODULES.forEach(({ key }) => {
+      map[role][key] = hasModuleAccess(role, key)
+    })
+  })
+  return map
+}

@@ -10,6 +10,10 @@ import {
   Trash2,
   Check,
   X as XIcon,
+  ShieldCheck,
+  KeyRound,
+  Dices,
+  SlidersHorizontal,
 } from 'lucide-react'
 import Pill from '../components/Pill'
 import SearchInput from '../components/SearchInput'
@@ -18,7 +22,28 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
-import { ROLES, ROLES_REQUIRING_PB_APPROVAL } from '../config/permissions'
+import {
+  ROLES,
+  ROLES_REQUIRING_PB_APPROVAL,
+  ASSIGNABLE_MODULES,
+  ASSIGNABLE_MODULE_ROLES,
+} from '../config/permissions'
+
+const PORTAL_ROLES = [
+  ROLES.SECRETARY,
+  ROLES.TANOD,
+  ROLES.LUPON,
+  ROLES.KAGAWAD,
+  ROLES.CAPTAIN,
+  ROLES.ADMIN,
+]
+
+const BLANK_ADMIN_ACCOUNT = { name: '', email: '', role: PORTAL_ROLES[0], tempPassword: '' }
+
+function generateTempPassword() {
+  const digits = Math.floor(1000 + Math.random() * 9000)
+  return `Barangay#${digits}`
+}
 
 const STATUS_COLOR = {
   Active: 'green',
@@ -28,15 +53,30 @@ const STATUS_COLOR = {
 }
 
 const ACTION_BY_STATUS = {
-  Pending: { label: 'Approve', next: 'Active', className: 'bg-green-600 hover:bg-green-700' },
-  Active: { label: 'Suspend', next: 'Suspended', className: 'bg-orange-500 hover:bg-orange-600' },
-  Suspended: { label: 'Deactivate', next: 'Deactivated', className: 'bg-red-600 hover:bg-red-700' },
-}
-
-const TOAST_BY_NEXT_STATUS = {
-  Active: 'Na-approve ang account.',
-  Suspended: 'Na-suspend ang account.',
-  Deactivated: 'Na-deactivate ang account.',
+  Pending: {
+    label: 'Approve',
+    next: 'Active',
+    className: 'bg-green-600 hover:bg-green-700',
+    toast: 'Na-approve ang account.',
+  },
+  Active: {
+    label: 'Suspend',
+    next: 'Suspended',
+    className: 'bg-orange-500 hover:bg-orange-600',
+    toast: 'Na-suspend ang account.',
+  },
+  Suspended: {
+    label: 'Deactivate',
+    next: 'Deactivated',
+    className: 'bg-red-600 hover:bg-red-700',
+    toast: 'Na-deactivate ang account.',
+  },
+  Deactivated: {
+    label: 'I-reactivate',
+    next: 'Active',
+    className: 'bg-blue-600 hover:bg-blue-700',
+    toast: 'Na-reactivate ang account. Aktibo na muli ito.',
+  },
 }
 
 const ASSIGNABLE_ROLES = [
@@ -59,12 +99,19 @@ function nextUserId(users) {
 }
 
 export default function UserAccounts() {
-  const { user } = useAuth()
-  const { users, updateUser, addUser, removeUser, addAuditEntry } = useData()
+  const { user, accounts, createAdminAccount, resetAdminAccountPassword, deleteAdminAccount } = useAuth()
+  const { users, updateUser, addUser, removeUser, addAuditEntry, roleModuleAccess, setModuleAccess } = useData()
   const { showToast } = useToast()
 
   const isAdmin = user.role === ROLES.ADMIN
   const isCaptain = user.role === ROLES.CAPTAIN
+
+  const [activeTab, setActiveTab] = useState('residents') // 'residents' | 'admin' | 'modules'
+  const [addingAdminAccount, setAddingAdminAccount] = useState(false)
+  const [newAdminAccount, setNewAdminAccount] = useState(BLANK_ADMIN_ACCOUNT)
+  const [pendingResetId, setPendingResetId] = useState(null)
+  const [pendingAdminDeleteId, setPendingAdminDeleteId] = useState(null)
+  const [pendingModuleToggle, setPendingModuleToggle] = useState(null)
 
   const [query, setQuery] = useState('')
   const [viewingId, setViewingId] = useState(null)
@@ -90,7 +137,7 @@ export default function UserAccounts() {
     updateUser(id, { status: action.next })
     const colorByNext = { Active: 'green', Suspended: 'orange', Deactivated: 'red' }
     addAuditEntry(`${action.label} User ID ${target.id}`, { color: colorByNext[action.next] })
-    showToast(TOAST_BY_NEXT_STATUS[action.next] ?? 'Na-update ang account.')
+    showToast(action.toast ?? 'Na-update ang account.')
   }
 
   function openProfile(id) {
@@ -175,24 +222,138 @@ export default function UserAccounts() {
     setAddingAccount(false)
   }
 
+  function submitNewAdminAccount(e) {
+    e.preventDefault()
+    if (!newAdminAccount.name.trim() || !newAdminAccount.email.trim() || !newAdminAccount.tempPassword.trim()) {
+      showToast('Kumpletuhin ang pangalan, email, at pansamantalang password.', 'error')
+      return
+    }
+    const result = createAdminAccount({
+      name: newAdminAccount.name,
+      email: newAdminAccount.email,
+      role: newAdminAccount.role,
+      tempPassword: newAdminAccount.tempPassword.trim(),
+    })
+    if (!result.success) {
+      showToast('May account na gumagamit ng email na iyan.', 'error')
+      return
+    }
+    addAuditEntry(
+      `Gumawa ng bagong admin portal account para kay ${newAdminAccount.name.trim()} (${newAdminAccount.role})`,
+      { color: 'green' },
+    )
+    showToast(`Nagawa ang admin account ni ${newAdminAccount.name.trim()}. Kailangan niyang baguhin ang password sa unang login.`)
+    setNewAdminAccount(BLANK_ADMIN_ACCOUNT)
+    setAddingAdminAccount(false)
+  }
+
+  function confirmResetAdminPassword() {
+    const account = accounts.find((a) => a.id === pendingResetId)
+    if (!account) return
+    const tempPassword = generateTempPassword()
+    resetAdminAccountPassword(account.id, tempPassword)
+    addAuditEntry(`Nag-reset ng password para sa admin account ni ${account.name}`, { color: 'orange' })
+    showToast(`Bagong pansamantalang password para kay ${account.name}: ${tempPassword}`)
+  }
+
+  function confirmDeleteAdminAccount() {
+    const account = accounts.find((a) => a.id === pendingAdminDeleteId)
+    if (!account) return
+    deleteAdminAccount(account.id)
+    addAuditEntry(`Tinanggal ang admin portal account ni ${account.name}`, { color: 'red' })
+    showToast(`Tinanggal ang admin account ni ${account.name}.`)
+  }
+
+  function requestModuleToggle(role, moduleKey, moduleLabel, enabled) {
+    setPendingModuleToggle({ role, moduleKey, moduleLabel, enabled })
+  }
+
+  function confirmModuleToggle() {
+    if (!pendingModuleToggle) return
+    const { role, moduleKey, moduleLabel, enabled } = pendingModuleToggle
+    setModuleAccess(role, moduleKey, enabled)
+    addAuditEntry(
+      `Binago ang access sa module na "${moduleLabel}" para sa ${role}: ${enabled ? 'Naka-on' : 'Naka-off'}`,
+      { color: enabled ? 'green' : 'orange' },
+    )
+    showToast(
+      enabled
+        ? `Na-on ang "${moduleLabel}" para sa ${role}.`
+        : `Na-off ang "${moduleLabel}" para sa ${role}.`,
+    )
+  }
+
+  const showResidents = !isAdmin || activeTab === 'residents'
+  const showAdminAccounts = isAdmin && activeTab === 'admin'
+  const showModuleAccess = isAdmin && activeTab === 'modules'
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Mga Account ng User</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Review, validate, and update User Accounts.
+          <h2 className="text-xl font-bold text-gray-900">
+            {showAdminAccounts
+              ? 'Mga Admin Portal Account'
+              : showModuleAccess
+                ? 'Pamamahagi ng Access sa Module'
+                : 'Mga Account ng User'}
+          </h2>
+          <p className="mt-0.5 text-sm text-gray-500">
+            {showAdminAccounts
+              ? 'Mga account na maaaring mag-login sa Command Center na ito.'
+              : showModuleAccess
+                ? 'Piliin kung aling mga module ang makikita at ma-a-access ng bawat tungkulin (role).'
+                : 'Review, validate, and update User Accounts.'}
           </p>
         </div>
-        {isAdmin && (
-          <button
-            onClick={() => setAddingAccount(true)}
-            className="flex items-center gap-1.5 rounded-full bg-bb-blue px-4 py-2 text-sm font-semibold text-white hover:bg-bb-blue-dark transition-colors"
-          >
-            <Plus size={16} />
-            Magdagdag ng Account
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <div className="flex rounded-full border border-gray-200 p-0.5">
+              <button
+                onClick={() => setActiveTab('residents')}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  activeTab === 'residents' ? 'bg-bb-blue text-white' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Mga Residente
+              </button>
+              <button
+                onClick={() => setActiveTab('admin')}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  activeTab === 'admin' ? 'bg-bb-blue text-white' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Admin Portal
+              </button>
+              <button
+                onClick={() => setActiveTab('modules')}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  activeTab === 'modules' ? 'bg-bb-blue text-white' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Module Access
+              </button>
+            </div>
+          )}
+          {isAdmin && activeTab === 'residents' && (
+            <button
+              onClick={() => setAddingAccount(true)}
+              className="flex items-center gap-1.5 rounded-full bg-bb-blue px-4 py-2 text-sm font-semibold text-white hover:bg-bb-blue-dark transition-colors"
+            >
+              <Plus size={16} />
+              Magdagdag ng Account
+            </button>
+          )}
+          {showAdminAccounts && (
+            <button
+              onClick={() => setAddingAdminAccount(true)}
+              className="flex items-center gap-1.5 rounded-full bg-bb-navy px-4 py-2 text-sm font-semibold text-white hover:bg-bb-blue-dark transition-colors"
+            >
+              <Plus size={16} />
+              Gumawa ng Admin Account
+            </button>
+          )}
+        </div>
       </div>
 
       {isCaptain && pendingRequests.length > 0 && (
@@ -236,13 +397,15 @@ export default function UserAccounts() {
         </div>
       )}
 
+      {showResidents && (
+      <>
       <div className="mt-4 max-w-md">
         <SearchInput value={query} onChange={setQuery} placeholder="Hanapin ang User..." />
       </div>
 
-      <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
+      <div className="mt-4 max-h-[calc(100vh-360px)] overflow-auto rounded-lg border border-gray-200">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+          <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
             <tr>
               <th className="px-4 py-3 font-semibold">User ID</th>
               <th className="px-4 py-3 font-semibold">Pangalan</th>
@@ -322,6 +485,254 @@ export default function UserAccounts() {
           </tbody>
         </table>
       </div>
+      </>
+      )}
+
+      {showAdminAccounts && (
+        <div className="mt-4 max-h-[calc(100vh-260px)] overflow-auto rounded-lg border border-gray-200">
+            <table className="w-full text-left text-sm">
+              <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Admin ID</th>
+                  <th className="px-4 py-3 font-semibold">Pangalan</th>
+                  <th className="px-4 py-3 font-semibold">Email</th>
+                  <th className="px-4 py-3 font-semibold">Tungkulin</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Aksyon</th>
+                </tr>
+              </thead>
+              <tbody>
+                {accounts.map((a) => (
+                  <tr key={a.id} className="border-b border-gray-100 last:border-0">
+                    <td className="px-4 py-3 font-medium text-gray-700">{a.id}</td>
+                    <td className="px-4 py-3 text-gray-700">{a.name}</td>
+                    <td className="px-4 py-3 text-gray-500">{a.email}</td>
+                    <td className="px-4 py-3 text-gray-500">{a.role}</td>
+                    <td className="px-4 py-3">
+                      {a.mustChangePassword ? (
+                        <Pill color="orange" solid>
+                          Pansamantalang Password
+                        </Pill>
+                      ) : (
+                        <Pill color="green" solid>
+                          Aktibo
+                        </Pill>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => setPendingResetId(a.id)}
+                          className="flex items-center gap-1 rounded-full bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-600"
+                        >
+                          <KeyRound size={12} />
+                          I-reset ang Password
+                        </button>
+                        <button
+                          onClick={() => setPendingAdminDeleteId(a.id)}
+                          disabled={a.id === user.id}
+                          className="flex items-center gap-1 rounded-full bg-gray-400 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+        </div>
+      )}
+
+      {showModuleAccess && (
+        <div className="mt-4">
+          <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-700">
+            <SlidersHorizontal size={15} className="mt-0.5 shrink-0" />
+            <span>
+              Palaging naka-on ang Dashboard at Profile Management para sa lahat ng tungkulin.
+              Ang mga naka-off na module dito ay hindi lalabas sa sidebar at hindi ma-a-access
+              ng tungkuling iyon.
+            </span>
+          </div>
+
+          <div className="mt-3 max-h-[calc(100vh-320px)] overflow-auto rounded-lg border border-gray-300">
+            <table className="w-full border-collapse text-left text-sm">
+              <thead className="sticky top-0 z-10 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                <tr>
+                  <th className="border-b border-r border-gray-300 px-4 py-3 font-semibold">Module</th>
+                  {ASSIGNABLE_MODULE_ROLES.map((role, idx) => (
+                    <th
+                      key={role}
+                      className={`border-b border-gray-300 px-4 py-3 text-center font-semibold ${
+                        idx !== ASSIGNABLE_MODULE_ROLES.length - 1 ? 'border-r' : ''
+                      }`}
+                    >
+                      {role}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {ASSIGNABLE_MODULES.map(({ key, label }) => (
+                  <tr key={key} className="border-b border-gray-200 last:border-b-0 even:bg-gray-50/60">
+                    <td className="border-r border-gray-300 px-4 py-3 font-medium text-gray-700">
+                      {label}
+                    </td>
+                    {ASSIGNABLE_MODULE_ROLES.map((role, idx) => {
+                      const enabled = roleModuleAccess[role]?.[key] ?? false
+                      return (
+                        <td
+                          key={role}
+                          className={`px-4 py-3 text-center ${
+                            idx !== ASSIGNABLE_MODULE_ROLES.length - 1 ? 'border-r border-gray-200' : ''
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={enabled}
+                            aria-label={`${label} para sa ${role}`}
+                            onClick={() => requestModuleToggle(role, key, label, !enabled)}
+                            className={`group relative inline-flex h-6 w-12 items-center rounded-full border transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
+                              enabled
+                                ? 'border-green-600 bg-green-500 hover:bg-green-600 focus-visible:ring-green-500'
+                                : 'border-gray-300 bg-gray-200 hover:bg-gray-300 focus-visible:ring-gray-400'
+                            }`}
+                          >
+                            <span
+                              className={`flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/5 transition-transform duration-200 ${
+                                enabled ? 'translate-x-[26px]' : 'translate-x-0.5'
+                              }`}
+                            >
+                              {enabled ? (
+                                <Check size={12} strokeWidth={3} className="text-green-600" />
+                              ) : (
+                                <XIcon size={12} strokeWidth={3} className="text-gray-400" />
+                              )}
+                            </span>
+                          </button>
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <Modal
+        open={addingAdminAccount}
+        onClose={() => setAddingAdminAccount(false)}
+        title="Gumawa ng Admin Portal Account"
+      >
+        <form onSubmit={submitNewAdminAccount} className="space-y-4">
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Buong Pangalan</span>
+            <input
+              type="text"
+              required
+              value={newAdminAccount.name}
+              onChange={(e) => setNewAdminAccount((a) => ({ ...a, name: e.target.value }))}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Opisyal na Email</span>
+            <input
+              type="email"
+              required
+              value={newAdminAccount.email}
+              onChange={(e) => setNewAdminAccount((a) => ({ ...a, email: e.target.value }))}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Tungkulin</span>
+            <select
+              value={newAdminAccount.role}
+              onChange={(e) => setNewAdminAccount((a) => ({ ...a, role: e.target.value }))}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+            >
+              {PORTAL_ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold text-gray-700">
+              Pansamantalang Password
+            </span>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                required
+                value={newAdminAccount.tempPassword}
+                onChange={(e) => setNewAdminAccount((a) => ({ ...a, tempPassword: e.target.value }))}
+                placeholder="hal. Barangay#1234"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm placeholder:text-gray-400 focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  setNewAdminAccount((a) => ({ ...a, tempPassword: generateTempPassword() }))
+                }
+                className="flex shrink-0 items-center gap-1.5 rounded-lg bg-gray-100 px-3 text-xs font-semibold text-gray-600 hover:bg-gray-200"
+              >
+                <Dices size={14} />
+                Bumuo
+              </button>
+            </div>
+            <span className="mt-1 block text-xs text-gray-400">
+              Kailangan itong palitan ng user sa unang pag-login.
+            </span>
+          </label>
+          <button
+            type="submit"
+            className="w-full rounded-lg bg-bb-navy py-2.5 font-semibold text-white hover:bg-bb-blue-dark transition-colors"
+          >
+            Gumawa ng Account
+          </button>
+        </form>
+      </Modal>
+
+      <ConfirmDialog
+        open={pendingResetId != null}
+        onClose={() => setPendingResetId(null)}
+        onConfirm={confirmResetAdminPassword}
+        title="I-reset ang Password"
+        message="Isang bagong pansamantalang password ang bubuuin, at kakailanganin ng user na palitan ito sa susunod niyang pag-login."
+        confirmLabel="I-reset"
+        danger={false}
+      />
+
+      <ConfirmDialog
+        open={pendingModuleToggle != null}
+        onClose={() => setPendingModuleToggle(null)}
+        onConfirm={confirmModuleToggle}
+        title={pendingModuleToggle?.enabled ? 'I-on ang Module' : 'I-off ang Module'}
+        message={
+          pendingModuleToggle
+            ? pendingModuleToggle.enabled
+              ? `Sigurado ka bang gusto mong i-on ang "${pendingModuleToggle.moduleLabel}" para sa tungkuling ${pendingModuleToggle.role}? Makikita na nila ito sa sidebar at magkakaroon sila ng access dito.`
+              : `Sigurado ka bang gusto mong i-off ang "${pendingModuleToggle.moduleLabel}" para sa tungkuling ${pendingModuleToggle.role}? Mawawala ito sa sidebar nila at hindi na nila maaring ma-access ang module na ito.`
+            : ''
+        }
+        confirmLabel={pendingModuleToggle?.enabled ? 'I-on' : 'I-off'}
+        danger={!pendingModuleToggle?.enabled}
+      />
+
+      <ConfirmDialog
+        open={pendingAdminDeleteId != null}
+        onClose={() => setPendingAdminDeleteId(null)}
+        onConfirm={confirmDeleteAdminAccount}
+        title="Tanggalin ang Admin Account"
+        message="Sigurado ka bang gusto mong tanggalin ang admin portal account na ito? Hindi na ito maibabalik."
+        confirmLabel="Tanggalin"
+      />
 
       <Modal open={!!viewingUser} onClose={() => setViewingId(null)} title="Buong Profile ng User">
         {viewingUser && (

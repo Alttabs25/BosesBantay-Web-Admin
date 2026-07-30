@@ -74,7 +74,7 @@ export default function Alerts() {
       {canCompose ? (
         <form
           onSubmit={handleSubmit}
-          className="mt-4 max-w-3xl space-y-5 rounded-xl border border-gray-200 p-6"
+          className="mt-4 max-w-3xl space-y-4 rounded-xl border border-gray-200 p-6"
         >
           <h3 className="font-semibold text-bb-blue">
             Dispatch Live Push Notification Broadcast
@@ -118,7 +118,7 @@ export default function Alerts() {
             </span>
             <textarea
               required
-              rows={5}
+              rows={4}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="i-type nang malinaw ang opisyal na mensahe ng alerto"
@@ -141,14 +141,14 @@ export default function Alerts() {
         </div>
       )}
 
-      <div className="mt-6 max-w-3xl">
+      <div className="mt-4 max-w-3xl">
         <h3 className="text-sm font-semibold text-gray-500">
           Kasaysayan ng mga Alerto ({alertHistory.length})
         </h3>
         {alertHistory.length === 0 ? (
           <p className="mt-2 text-sm text-gray-400">Wala pang naipadalang alerto.</p>
         ) : (
-          <div className="mt-2 space-y-3">
+          <div className="mt-2 max-h-[calc(100vh-560px)] min-h-[120px] space-y-3 overflow-y-auto pr-1">
             {alertHistory.map((h) => (
               <div key={h.id} className="rounded-lg border border-gray-200 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">

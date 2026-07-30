@@ -353,118 +353,133 @@ export default function GISCommandCenter() {
         </div>
       )}
 
-      <div className="mt-4 flex flex-col gap-4 rounded-xl border border-gray-200 p-4 lg:flex-row">
-        <div className="h-96 shrink-0 overflow-hidden rounded-lg border border-gray-200 lg:h-[560px] lg:flex-1">
-          <MapContainer center={DEFAULT_CENTER} zoom={15} className="h-full w-full">
-            <TileLayer
-              attribution="&copy; OpenStreetMap contributors"
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            <MapController onReady={(map) => (mapRef.current = map)} />
-            <ClickCapture active={isFormMode} onPick={pickPosition} />
+      {mode === 'view' && (
+        <div className="mt-3 rounded-xl border border-gray-200 p-3">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            Mga Filter
+          </h3>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-gray-500">
+                Klasipikasyon ng Insidente
+              </span>
+              <select
+                value={classification}
+                onChange={(e) => setClassification(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+              >
+                <option>{ALL_CLASSIFICATIONS}</option>
+                {reportedClassifications.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </label>
 
-            {view === 'heatmap' && !isFormMode && (
-              <HeatmapLayer pointsBySeverity={heatPointsBySeverity} />
-            )}
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-gray-500">
+                Interval ng Oras ng Araw
+              </span>
+              <select
+                value={interval}
+                onChange={(e) => setIntervalFilter(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+              >
+                {TIME_INTERVALS.map((t) => (
+                  <option key={t}>{t}</option>
+                ))}
+              </select>
+            </label>
 
-            {(view === 'pins' || isFormMode) &&
-              otherIncidents.map((incident) => (
-                <Marker
-                  key={incident.ref}
-                  position={[incident.lat, incident.lng]}
-                  icon={severityIcon(incident.severity, { dimmed: isFormMode })}
-                  eventHandlers={isFormMode ? {} : { click: () => focusIncident(incident) }}
-                />
-              ))}
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-gray-500">
+                Filter ng Kalubhaan
+              </span>
+              <select
+                value={severity}
+                onChange={(e) => setSeverity(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+              >
+                {SEVERITY_FILTERS.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+            </label>
 
-            {isFormMode && draft.lat != null && draft.lng != null && (
-              <Marker
-                position={[draft.lat, draft.lng]}
-                icon={draftIcon()}
-                draggable
-                eventHandlers={{
-                  dragend: (e) => {
-                    const { lat, lng } = e.target.getLatLng()
-                    setAddressSource('auto')
-                    setDraft((d) => ({ ...d, lat, lng }))
-                  },
-                }}
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-gray-500">
+                Saklaw ng Petsa
+              </span>
+              <select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+              >
+                {DATE_RANGES.map((r) => (
+                  <option key={r}>{r}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-3 flex flex-col gap-4 lg:flex-row">
+        <div className="flex flex-col rounded-xl border border-gray-200 p-3 lg:h-[calc(100vh-400px)] lg:min-h-[420px] lg:flex-1">
+          <h3 className="mb-2 shrink-0 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            Mapa
+          </h3>
+          <div className="h-96 overflow-hidden rounded-lg border border-gray-200 lg:h-auto lg:flex-1">
+            <MapContainer center={DEFAULT_CENTER} zoom={15} className="h-full w-full">
+              <TileLayer
+                attribution="&copy; OpenStreetMap contributors"
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
-            )}
-          </MapContainer>
+              <MapController onReady={(map) => (mapRef.current = map)} />
+              <ClickCapture active={isFormMode} onPick={pickPosition} />
+
+              {view === 'heatmap' && !isFormMode && (
+                <HeatmapLayer pointsBySeverity={heatPointsBySeverity} />
+              )}
+
+              {(view === 'pins' || isFormMode) &&
+                otherIncidents.map((incident) => (
+                  <Marker
+                    key={incident.ref}
+                    position={[incident.lat, incident.lng]}
+                    icon={severityIcon(incident.severity, { dimmed: isFormMode })}
+                    eventHandlers={isFormMode ? {} : { click: () => focusIncident(incident) }}
+                  />
+                ))}
+
+              {isFormMode && draft.lat != null && draft.lng != null && (
+                <Marker
+                  position={[draft.lat, draft.lng]}
+                  icon={draftIcon()}
+                  draggable
+                  eventHandlers={{
+                    dragend: (e) => {
+                      const { lat, lng } = e.target.getLatLng()
+                      setAddressSource('auto')
+                      setDraft((d) => ({ ...d, lat, lng }))
+                    },
+                  }}
+                />
+              )}
+            </MapContainer>
+          </div>
         </div>
 
-        <div className="w-full space-y-4 lg:w-96">
+        <div className="flex w-full flex-col rounded-xl border border-gray-200 p-4 lg:h-[calc(100vh-400px)] lg:min-h-[420px] lg:w-96">
           {mode === 'view' && (
             <>
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-semibold text-gray-500">
-                  Klasipikasyon ng Insidente
-                </span>
-                <select
-                  value={classification}
-                  onChange={(e) => setClassification(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-                >
-                  <option>{ALL_CLASSIFICATIONS}</option>
-                  {reportedClassifications.map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </select>
-              </label>
+              <h3 className="mb-3 shrink-0 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Mga Insidente ({filtered.length})
+              </h3>
 
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-semibold text-gray-500">
-                  Interval ng Oras ng Araw
-                </span>
-                <select
-                  value={interval}
-                  onChange={(e) => setIntervalFilter(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-                >
-                  {TIME_INTERVALS.map((t) => (
-                    <option key={t}>{t}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-semibold text-gray-500">
-                  Filter ng Kalubhaan
-                </span>
-                <select
-                  value={severity}
-                  onChange={(e) => setSeverity(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-                >
-                  {SEVERITY_FILTERS.map((s) => (
-                    <option key={s}>{s}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-semibold text-gray-500">
-                  Saklaw ng Petsa
-                </span>
-                <select
-                  value={dateRange}
-                  onChange={(e) => setDateRange(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-                >
-                  {DATE_RANGES.map((r) => (
-                    <option key={r}>{r}</option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-xs font-semibold text-gray-500">
-                  Mga Insidente ({filtered.length})
-                </span>
-              </div>
-
-              <div ref={listRef} className="max-h-[420px] space-y-3 overflow-y-auto pr-1 scroll-smooth">
+              <div
+                ref={listRef}
+                className="space-y-3 scroll-smooth lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1"
+              >
                 {filtered.length === 0 && (
                   <p className="rounded-lg border border-dashed border-gray-300 p-4 text-center text-xs text-gray-400">
                     Walang insidenteng tumutugma sa napiling filter.
@@ -525,7 +540,10 @@ export default function GISCommandCenter() {
           )}
 
           {isFormMode && (
-            <form onSubmit={saveForm} className="space-y-4 rounded-lg border border-bb-blue/40 p-4">
+            <form
+              onSubmit={saveForm}
+              className="space-y-4 overflow-y-auto rounded-lg border border-bb-blue/40 p-4 lg:min-h-0 lg:flex-1"
+            >
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-bb-blue">
                   {mode === 'create' ? 'Bagong Insidente' : `I-edit: ${draft.ref}`}

@@ -1,10 +1,11 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { hasModuleAccess } from '../config/permissions'
+import { useData } from '../context/DataContext'
 
 export default function RoleGuard({ module, children }) {
   const { user } = useAuth()
-  if (!user || !hasModuleAccess(user.role, module)) {
+  const { hasDynamicModuleAccess } = useData()
+  if (!user || !hasDynamicModuleAccess(user.role, module)) {
     return <Navigate to="/dashboard" replace />
   }
   return children

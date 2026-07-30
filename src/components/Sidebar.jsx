@@ -3,15 +3,12 @@ import { LogOut, X } from 'lucide-react'
 import { NAV_ITEMS } from '../config/navigation'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
-import { hasModuleAccess } from '../config/permissions'
 
 export default function Sidebar({ open, onClose }) {
   const { user, logout } = useAuth()
-  const { addAuditEntry } = useData()
+  const { addAuditEntry, hasDynamicModuleAccess } = useData()
 
-  const visibleItems = NAV_ITEMS.filter(
-    (item) => item.module === 'profile' || hasModuleAccess(user?.role, item.module),
-  )
+  const visibleItems = NAV_ITEMS.filter((item) => hasDynamicModuleAccess(user?.role, item.module))
 
   const handleLogout = () => {
     addAuditEntry('Logout', { color: 'blue' })

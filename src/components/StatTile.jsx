@@ -7,13 +7,13 @@ export default function StatTile({ icon: Icon, label, value, accent = 'blue' }) 
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 p-4">
-      <div className="flex items-center gap-3">
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${accents[accent]}`}>
-          <Icon size={20} />
+    <div className="rounded-xl border border-gray-200 p-3">
+      <div className="flex items-center gap-2.5">
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${accents[accent]}`}>
+          <Icon size={18} />
         </div>
         <div>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
+          <p className="text-xl font-bold text-gray-900">{value}</p>
           <p className="text-xs text-gray-500">{label}</p>
         </div>
       </div>

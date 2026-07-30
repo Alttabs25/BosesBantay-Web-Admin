@@ -1,10 +1,7 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
-import { ROLES as ROLE_KEYS } from '../config/permissions'
-
-const ROLES = Object.values(ROLE_KEYS)
 
 export default function Login() {
   const { login } = useAuth()
@@ -12,17 +9,24 @@ export default function Login() {
   const navigate = useNavigate()
   const [credential, setCredential] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState('')
+  const [error, setError] = useState('')
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    const loggedInUser = login({ role })
+    setError('')
+    const result = login({ email: credential, password })
+
+    if (!result.success) {
+      setError('Maling email o password.')
+      return
+    }
+
     addAuditEntry('Login', {
-      actorName: loggedInUser.name,
-      actorRole: loggedInUser.role,
+      actorName: result.user.name,
+      actorRole: result.user.role,
       color: 'blue',
     })
-    navigate('/dashboard')
+    navigate(result.user.mustChangePassword ? '/first-login' : '/dashboard')
   }
 
   return (
@@ -82,26 +86,17 @@ export default function Login() {
             />
           </label>
 
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold">
-              Tungkulin
-            </span>
-            <select
-              required
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="w-full rounded-lg border-0 px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-white"
-            >
-              <option value="" disabled>
-                Pumili ng tungkulin
-              </option>
-              {ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </label>
+          {error && (
+            <p className="rounded-lg bg-red-500/20 px-3 py-2 text-sm font-medium text-white">
+              {error}
+            </p>
+          )}
+
+          <div className="text-right">
+            <Link to="/forgot-password" className="text-sm font-semibold text-white/85 hover:text-white hover:underline">
+              Nakalimutan ang Password?
+            </Link>
+          </div>
 
           <button
             type="submit"

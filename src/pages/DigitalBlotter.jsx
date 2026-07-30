@@ -119,7 +119,7 @@ export default function DigitalBlotter() {
         />
       </div>
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 max-h-[calc(100vh-260px)] space-y-3 overflow-y-auto pr-1">
         {filtered.map((report) => {
           const meta = STATUS_META[report.status]
           const isExpanded = expandedId === report.id
