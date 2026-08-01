@@ -7,6 +7,7 @@ import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { ToastProvider } from './context/ToastContext.jsx'
 import { DataProvider } from './context/DataContext.jsx'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -15,6 +16,7 @@ createRoot(document.getElementById('root')).render(
         <AuthProvider>
           <DataProvider>
             <App />
+            <SpeedInsights />
           </DataProvider>
         </AuthProvider>
       </ToastProvider>
