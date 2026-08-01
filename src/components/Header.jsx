@@ -48,8 +48,12 @@ export default function Header({ onMenuClick }) {
             <p className="whitespace-nowrap text-xs font-semibold sm:text-base">{user?.name}</p>
             <p className="whitespace-nowrap text-[10px] text-white/75 sm:text-sm">{user?.role}</p>
           </div>
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 sm:h-11 sm:w-11">
-            <User size={20} />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/20 sm:h-11 sm:w-11">
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt={user?.name} className="h-full w-full object-cover" />
+            ) : (
+              <User size={20} />
+            )}
           </div>
           <ChevronDown
             size={16}

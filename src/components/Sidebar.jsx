@@ -32,9 +32,7 @@ export default function Sidebar({ open, onClose }) {
       >
         <div className="flex items-center justify-between gap-3 px-6 py-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
-              <div className="h-6 w-6 rounded-full border-2 border-white" />
-            </div>
+            <img src="/logo-icon.png" alt="BosesBantay logo" className="h-10 w-10 object-contain" />
             <span className="text-sm font-bold tracking-wide">BOSESBANTAY</span>
           </div>
           <button onClick={onClose} className="text-white/70 hover:text-white lg:hidden">

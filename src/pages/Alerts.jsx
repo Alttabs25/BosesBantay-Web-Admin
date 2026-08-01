@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { ROLES, can } from '../config/permissions'
 import Pill from '../components/Pill'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 const TARGETS = [
   'Field Patrol Tanods Lamang',
@@ -39,11 +40,15 @@ export default function Alerts() {
   const [target, setTarget] = useState(availableTargets[0])
   const [level, setLevel] = useState(ALERT_LEVELS[0])
   const [message, setMessage] = useState('')
+  const [confirmingSend, setConfirmingSend] = useState(false)
 
-  const handleSubmit = (e) => {
+  const requestSubmit = (e) => {
     e.preventDefault()
     if (!message.trim()) return
+    setConfirmingSend(true)
+  }
 
+  const confirmSend = () => {
     addAlert({
       id: Date.now(),
       target,
@@ -61,6 +66,7 @@ export default function Alerts() {
     addAuditEntry(`Nagpadala ng alerto sa ${target}`, { color: 'blue' })
     showToast(`Naipadala ang alerto sa ${target}.`)
     setMessage('')
+    setConfirmingSend(false)
   }
 
   return (
@@ -73,7 +79,7 @@ export default function Alerts() {
 
       {canCompose ? (
         <form
-          onSubmit={handleSubmit}
+          onSubmit={requestSubmit}
           className="mt-4 max-w-3xl space-y-4 rounded-xl border border-gray-200 p-6"
         >
           <h3 className="font-semibold text-bb-blue">
@@ -167,6 +173,16 @@ export default function Alerts() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmingSend}
+        onClose={() => setConfirmingSend(false)}
+        onConfirm={confirmSend}
+        title="Ipadala ang Alerto"
+        message={`Ipapadala ang isang "${level}" na alerto sa "${target}". Hindi na ito mababawi kapag naipadala. Magpatuloy?`}
+        confirmLabel="Ipadala"
+        danger={level === 'Emergency'}
+      />
     </div>
   )
 }

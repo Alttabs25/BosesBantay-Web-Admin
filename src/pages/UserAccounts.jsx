@@ -58,24 +58,36 @@ const ACTION_BY_STATUS = {
     next: 'Active',
     className: 'bg-green-600 hover:bg-green-700',
     toast: 'Na-approve ang account.',
+    confirmTitle: 'Aprubahan ang Account',
+    confirmMessage: (name) => `Sigurado ka bang gusto mong aprubahan ang account ni ${name}? Magiging Active ito.`,
+    danger: false,
   },
   Active: {
     label: 'Suspend',
     next: 'Suspended',
     className: 'bg-orange-500 hover:bg-orange-600',
     toast: 'Na-suspend ang account.',
+    confirmTitle: 'I-suspend ang Account',
+    confirmMessage: (name) => `Sigurado ka bang gusto mong i-suspend ang account ni ${name}?`,
+    danger: true,
   },
   Suspended: {
     label: 'Deactivate',
     next: 'Deactivated',
     className: 'bg-red-600 hover:bg-red-700',
     toast: 'Na-deactivate ang account.',
+    confirmTitle: 'I-deactivate ang Account',
+    confirmMessage: (name) => `Sigurado ka bang gusto mong i-deactivate ang account ni ${name}? Mawawalan sila ng access.`,
+    danger: true,
   },
   Deactivated: {
     label: 'I-reactivate',
     next: 'Active',
     className: 'bg-blue-600 hover:bg-blue-700',
     toast: 'Na-reactivate ang account. Aktibo na muli ito.',
+    confirmTitle: 'I-reactivate ang Account',
+    confirmMessage: (name) => `Sigurado ka bang gusto mong i-reactivate ang account ni ${name}?`,
+    danger: false,
   },
 }
 
@@ -112,6 +124,9 @@ export default function UserAccounts() {
   const [pendingResetId, setPendingResetId] = useState(null)
   const [pendingAdminDeleteId, setPendingAdminDeleteId] = useState(null)
   const [pendingModuleToggle, setPendingModuleToggle] = useState(null)
+  const [pendingStatusActionId, setPendingStatusActionId] = useState(null)
+  const [pendingRoleAssignment, setPendingRoleAssignment] = useState(null)
+  const [pendingRoleDecision, setPendingRoleDecision] = useState(null)
 
   const [query, setQuery] = useState('')
   const [viewingId, setViewingId] = useState(null)
@@ -129,6 +144,8 @@ export default function UserAccounts() {
   const pendingRequests = useMemo(() => users.filter((u) => u.pendingRoleRequest), [users])
 
   const viewingUser = users.find((u) => u.id === viewingId) ?? null
+  const pendingStatusUser = users.find((u) => u.id === pendingStatusActionId) ?? null
+  const pendingStatusActionMeta = pendingStatusUser ? ACTION_BY_STATUS[pendingStatusUser.status] : null
 
   function applyAction(id) {
     const target = users.find((u) => u.id === id)
@@ -140,17 +157,30 @@ export default function UserAccounts() {
     showToast(action.toast ?? 'Na-update ang account.')
   }
 
+  function confirmStatusAction() {
+    if (!pendingStatusActionId) return
+    applyAction(pendingStatusActionId)
+    setPendingStatusActionId(null)
+    setViewingId(null)
+  }
+
   function openProfile(id) {
     setViewingId(id)
     setRoleChoice('')
   }
 
-  function assignRole(targetUser) {
+  function requestRoleAssignment(targetUser) {
     if (!roleChoice || roleChoice === targetUser.role) return
-    if (ROLES_REQUIRING_PB_APPROVAL.includes(roleChoice)) {
+    setPendingRoleAssignment({ targetUser, role: roleChoice })
+  }
+
+  function confirmRoleAssignment() {
+    if (!pendingRoleAssignment) return
+    const { targetUser, role } = pendingRoleAssignment
+    if (ROLES_REQUIRING_PB_APPROVAL.includes(role)) {
       updateUser(targetUser.id, {
         pendingRoleRequest: {
-          requestedRole: roleChoice,
+          requestedRole: role,
           requestedBy: user.name,
           requestedAt: new Date().toLocaleDateString('en-US', {
             month: 'short',
@@ -159,32 +189,40 @@ export default function UserAccounts() {
           }),
         },
       })
-      addAuditEntry(`Humiling ng tungkuling ${roleChoice} para kay ${targetUser.name}`, { color: 'orange' })
-      showToast(`Naisumite ang kahilingan na gawing ${roleChoice} si ${targetUser.name} — naghihintay ng PB approval.`)
+      addAuditEntry(`Humiling ng tungkuling ${role} para kay ${targetUser.name}`, { color: 'orange' })
+      showToast(`Naisumite ang kahilingan na gawing ${role} si ${targetUser.name} — naghihintay ng PB approval.`)
     } else {
-      updateUser(targetUser.id, { role: roleChoice, status: 'Active' })
-      addAuditEntry(`Nag-assign ng tungkuling ${roleChoice} kay ${targetUser.name}`, { color: 'blue' })
-      showToast(`Na-assign si ${targetUser.name} bilang ${roleChoice}.`)
+      updateUser(targetUser.id, { role, status: 'Active' })
+      addAuditEntry(`Nag-assign ng tungkuling ${role} kay ${targetUser.name}`, { color: 'blue' })
+      showToast(`Na-assign si ${targetUser.name} bilang ${role}.`)
     }
     setRoleChoice('')
     setViewingId(null)
+    setPendingRoleAssignment(null)
   }
 
-  function approveRequest(targetUser) {
-    const requestedRole = targetUser.pendingRoleRequest.requestedRole
-    updateUser(targetUser.id, {
-      role: requestedRole,
-      status: 'Active',
-      pendingRoleRequest: null,
-    })
-    addAuditEntry(`Inaprubahan ang tungkuling ${requestedRole} para kay ${targetUser.name}`, { color: 'green' })
-    showToast(`Na-approve: si ${targetUser.name} ngayon ay ${requestedRole}.`)
+  function requestRoleDecision(targetUser, decision) {
+    setPendingRoleDecision({ targetUser, decision })
   }
 
-  function rejectRequest(targetUser) {
-    updateUser(targetUser.id, { pendingRoleRequest: null })
-    addAuditEntry(`Tinanggihan ang kahilingan sa tungkulin ni ${targetUser.name}`, { color: 'red' })
-    showToast(`Tinanggihan ang kahilingan para kay ${targetUser.name}.`, 'error')
+  function confirmRoleDecision() {
+    if (!pendingRoleDecision) return
+    const { targetUser, decision } = pendingRoleDecision
+    if (decision === 'approve') {
+      const requestedRole = targetUser.pendingRoleRequest.requestedRole
+      updateUser(targetUser.id, {
+        role: requestedRole,
+        status: 'Active',
+        pendingRoleRequest: null,
+      })
+      addAuditEntry(`Inaprubahan ang tungkuling ${requestedRole} para kay ${targetUser.name}`, { color: 'green' })
+      showToast(`Na-approve: si ${targetUser.name} ngayon ay ${requestedRole}.`)
+    } else {
+      updateUser(targetUser.id, { pendingRoleRequest: null })
+      addAuditEntry(`Tinanggihan ang kahilingan sa tungkulin ni ${targetUser.name}`, { color: 'red' })
+      showToast(`Tinanggihan ang kahilingan para kay ${targetUser.name}.`, 'error')
+    }
+    setPendingRoleDecision(null)
   }
 
   function confirmDelete() {
@@ -377,14 +415,14 @@ export default function UserAccounts() {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => approveRequest(u)}
+                    onClick={() => requestRoleDecision(u, 'approve')}
                     className="flex items-center gap-1 rounded-full bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700"
                   >
                     <Check size={12} />
                     Aprubahan
                   </button>
                   <button
-                    onClick={() => rejectRequest(u)}
+                    onClick={() => requestRoleDecision(u, 'reject')}
                     className="flex items-center gap-1 rounded-full bg-gray-400 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-500"
                   >
                     <XIcon size={12} />
@@ -456,7 +494,7 @@ export default function UserAccounts() {
                       </button>
                       {isAdmin && action && (
                         <button
-                          onClick={() => applyAction(u.id)}
+                          onClick={() => setPendingStatusActionId(u.id)}
                           className={`rounded-full px-3 py-1.5 text-xs font-semibold text-white ${action.className}`}
                         >
                           {action.label}
@@ -802,7 +840,7 @@ export default function UserAccounts() {
                       ))}
                     </select>
                     <button
-                      onClick={() => assignRole(viewingUser)}
+                      onClick={() => requestRoleAssignment(viewingUser)}
                       className="shrink-0 rounded-lg bg-bb-navy px-4 py-2 text-sm font-semibold text-white hover:bg-bb-blue-dark"
                     >
                       I-assign
@@ -815,10 +853,7 @@ export default function UserAccounts() {
             {isAdmin && ACTION_BY_STATUS[viewingUser.status] && (
               <div className="mt-4 flex justify-end">
                 <button
-                  onClick={() => {
-                    applyAction(viewingUser.id)
-                    setViewingId(null)
-                  }}
+                  onClick={() => setPendingStatusActionId(viewingUser.id)}
                   className={`rounded-full px-4 py-2 text-sm font-semibold text-white ${ACTION_BY_STATUS[viewingUser.status].className}`}
                 >
                   {ACTION_BY_STATUS[viewingUser.status].label}
@@ -885,6 +920,56 @@ export default function UserAccounts() {
         title="Tanggalin ang Account"
         message="Sigurado ka bang gusto mong tanggalin ang account na ito? Hindi na ito maibabalik."
         confirmLabel="Tanggalin"
+      />
+
+      <ConfirmDialog
+        open={pendingStatusActionId != null}
+        onClose={() => setPendingStatusActionId(null)}
+        onConfirm={confirmStatusAction}
+        title={
+          pendingStatusUser && pendingStatusActionMeta ? pendingStatusActionMeta.confirmTitle : ''
+        }
+        message={
+          pendingStatusUser && pendingStatusActionMeta
+            ? pendingStatusActionMeta.confirmMessage(pendingStatusUser.name)
+            : ''
+        }
+        confirmLabel={pendingStatusActionMeta?.label ?? 'Kumpirmahin'}
+        danger={pendingStatusActionMeta?.danger ?? false}
+      />
+
+      <ConfirmDialog
+        open={pendingRoleAssignment != null}
+        onClose={() => setPendingRoleAssignment(null)}
+        onConfirm={confirmRoleAssignment}
+        title="I-assign ang Tungkulin"
+        message={
+          pendingRoleAssignment
+            ? `Sigurado ka bang gusto mong gawing ${pendingRoleAssignment.role} si ${pendingRoleAssignment.targetUser.name}? ${
+                ROLES_REQUIRING_PB_APPROVAL.includes(pendingRoleAssignment.role)
+                  ? 'Isusumite ito bilang kahilingan para sa PB approval.'
+                  : 'Agad itong magkakabisa.'
+              }`
+            : ''
+        }
+        confirmLabel="I-assign"
+        danger={false}
+      />
+
+      <ConfirmDialog
+        open={pendingRoleDecision != null}
+        onClose={() => setPendingRoleDecision(null)}
+        onConfirm={confirmRoleDecision}
+        title={pendingRoleDecision?.decision === 'approve' ? 'Aprubahan ang Kahilingan' : 'Tanggihan ang Kahilingan'}
+        message={
+          pendingRoleDecision
+            ? pendingRoleDecision.decision === 'approve'
+              ? `Sigurado ka bang gusto mong aprubahan na gawing ${pendingRoleDecision.targetUser.pendingRoleRequest?.requestedRole} si ${pendingRoleDecision.targetUser.name}?`
+              : `Sigurado ka bang gusto mong tanggihan ang kahilingan sa tungkulin ni ${pendingRoleDecision.targetUser.name}?`
+            : ''
+        }
+        confirmLabel={pendingRoleDecision?.decision === 'approve' ? 'Aprubahan' : 'Tanggihan'}
+        danger={pendingRoleDecision?.decision === 'reject'}
       />
     </div>
   )

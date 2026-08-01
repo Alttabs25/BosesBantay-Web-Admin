@@ -32,9 +32,7 @@ export default function Login() {
   return (
     <div className="flex min-h-screen w-full flex-col md:h-screen md:w-screen md:flex-row">
       <div className="flex w-full flex-col items-center justify-center gap-4 bg-white px-6 py-10 text-center sm:px-12 md:w-1/2">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-bb-blue-light">
-          <div className="h-9 w-9 rounded-full border-4 border-bb-blue" />
-        </div>
+        <img src="/logo-icon.png" alt="BosesBantay logo" className="h-20 w-20 object-contain" />
         <h1 className="text-2xl font-extrabold leading-tight text-gray-900 sm:text-3xl">
           ADMINISTRATIVE
           <br />
@@ -52,9 +50,7 @@ export default function Login() {
           className="w-full max-w-sm space-y-5 text-white"
         >
           <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15">
-              <div className="h-6 w-6 rounded-full border-2 border-white" />
-            </div>
+            <img src="/logo-icon.png" alt="BosesBantay logo" className="h-10 w-10 object-contain" />
             <h2 className="text-2xl font-bold">Admin Login</h2>
           </div>
 

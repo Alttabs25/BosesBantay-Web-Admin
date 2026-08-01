@@ -1,8 +1,11 @@
-import { useState } from 'react'
-import { Save, KeyRound } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Save, KeyRound, User as UserIcon, Camera, Trash2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
+import ConfirmDialog from '../components/ConfirmDialog'
+
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024
 
 export default function Profile() {
   const { user, updateUser, changePassword } = useAuth()
@@ -10,10 +13,39 @@ export default function Profile() {
   const { showToast } = useToast()
   const [name, setName] = useState(user?.name ?? '')
   const [email, setEmail] = useState(user?.email ?? '')
+  const fileInputRef = useRef(null)
+  const [confirmingRemoveAvatar, setConfirmingRemoveAvatar] = useState(false)
 
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      showToast('Pumili ng image file lamang (JPG, PNG, atbp).', 'error')
+      return
+    }
+    if (file.size > MAX_AVATAR_BYTES) {
+      showToast('Dapat hindi lalampas sa 2MB ang larawan.', 'error')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      updateUser({ avatarUrl: reader.result })
+      addAuditEntry('Nag-upload ng bagong profile picture', { color: 'blue' })
+      showToast('Na-update ang profile picture.')
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const confirmRemoveAvatar = () => {
+    updateUser({ avatarUrl: null })
+    addAuditEntry('Inalis ang profile picture', { color: 'orange' })
+    showToast('Naalis ang profile picture.')
+  }
 
   const saveInfo = (e) => {
     e.preventDefault()
@@ -61,6 +93,44 @@ export default function Profile() {
 
       <form onSubmit={saveInfo} className="mt-3 max-w-2xl space-y-3 rounded-xl border border-bb-blue/40 p-4">
         <h3 className="font-semibold text-bb-blue">Profile Information</h3>
+
+        <div className="flex items-center gap-4">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-bb-blue-light text-bb-blue">
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt={user?.name} className="h-full w-full object-cover" />
+            ) : (
+              <UserIcon size={28} />
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1.5 rounded-full bg-bb-blue px-3 py-1.5 text-xs font-semibold text-white hover:bg-bb-blue-dark"
+            >
+              <Camera size={13} />
+              Mag-upload ng Larawan
+            </button>
+            {user?.avatarUrl && (
+              <button
+                type="button"
+                onClick={() => setConfirmingRemoveAvatar(true)}
+                className="flex items-center gap-1.5 rounded-full bg-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-300"
+              >
+                <Trash2 size={13} />
+                Alisin
+              </button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarChange}
+              className="hidden"
+            />
+            <span className="w-full text-xs text-gray-400">JPG o PNG, hanggang 2MB.</span>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="block">
@@ -167,6 +237,15 @@ export default function Profile() {
           I-update ang Password
         </button>
       </form>
+
+      <ConfirmDialog
+        open={confirmingRemoveAvatar}
+        onClose={() => setConfirmingRemoveAvatar(false)}
+        onConfirm={confirmRemoveAvatar}
+        title="Alisin ang Profile Picture"
+        message="Sigurado ka bang gusto mong alisin ang iyong profile picture? Babalik ito sa default na icon."
+        confirmLabel="Alisin"
+      />
     </div>
   )
 }

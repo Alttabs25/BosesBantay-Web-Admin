@@ -28,6 +28,7 @@ export default function DigitalBlotter() {
   const [hearingDraft, setHearingDraft] = useState({ hearingDate: '', hearingNote: '' })
   const [outcomeDraft, setOutcomeDraft] = useState('')
   const [pendingSpamId, setPendingSpamId] = useState(null)
+  const [pendingAction, setPendingAction] = useState(null) // { type, report }
 
   const canConfirm = user.role === ROLES.SECRETARY || user.role === ROLES.CAPTAIN
   const canManageInvestigation = user.role === ROLES.LUPON
@@ -104,6 +105,71 @@ export default function DigitalBlotter() {
     setOutcomeDraft('')
   }
 
+  function requestConfirmReport(report) {
+    setPendingAction({ type: 'confirm', report })
+  }
+
+  function requestScheduleHearing(report) {
+    if (!hearingDraft.hearingDate) {
+      showToast('Pumili muna ng petsa ng pagdinig.', 'error')
+      return
+    }
+    setPendingAction({ type: 'scheduleHearing', report })
+  }
+
+  function requestMarkHearingHeld(report) {
+    setPendingAction({ type: 'markHearingHeld', report })
+  }
+
+  function requestFinalize(report) {
+    if (!outcomeDraft) {
+      showToast('Pumili muna ng huling resulta.', 'error')
+      return
+    }
+    setPendingAction({ type: 'finalize', report })
+  }
+
+  function confirmPendingAction() {
+    if (!pendingAction) return
+    const { type, report } = pendingAction
+    if (type === 'confirm') confirmReport(report)
+    else if (type === 'scheduleHearing') scheduleHearing(report)
+    else if (type === 'markHearingHeld') markHearingHeld(report)
+    else if (type === 'finalize') finalizeResolution(report)
+    setPendingAction(null)
+  }
+
+  const PENDING_ACTION_META = {
+    confirm: {
+      title: 'Kumpirmahin ang Blotter Report',
+      message: (report) =>
+        `Isusulong ang ${report.id} mula Sinuri patungong Inimbestigahan bilang permanenteng ledger entry. Magpatuloy?`,
+      confirmLabel: 'Kumpirmahin',
+      danger: false,
+    },
+    scheduleHearing: {
+      title: 'I-iskedyul ang Pagdinig',
+      message: (report) =>
+        `Iiskedyul ang pagdinig sa Barangay Hall para sa ${report.id} sa napiling petsa. Magpatuloy?`,
+      confirmLabel: 'I-iskedyul',
+      danger: false,
+    },
+    markHearingHeld: {
+      title: 'Markahan na Naganap ang Pagdinig',
+      message: (report) =>
+        `Kukumpirmahin na naganap na ang pagdinig para sa ${report.id}, at magiging available na ito para sa case finalization. Magpatuloy?`,
+      confirmLabel: 'Markahan',
+      danger: false,
+    },
+    finalize: {
+      title: 'I-finalize ang Kaso',
+      message: (report) =>
+        `Ito ay markahan ang ${report.id} bilang Nalutas na may resultang "${outcomeDraft}". Hindi na ito babaguhin pagkatapos. Magpatuloy?`,
+      confirmLabel: 'Markahan bilang Nalutas',
+      danger: false,
+    },
+  }
+
   return (
     <div>
       <h2 className="text-xl font-bold text-gray-900">Digital Blotter</h2>
@@ -164,7 +230,7 @@ export default function DigitalBlotter() {
                     {report.status === 'Sinuri' && canConfirm && (
                       <>
                         <button
-                          onClick={() => confirmReport(report)}
+                          onClick={() => requestConfirmReport(report)}
                           className="flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-bb-blue hover:bg-white/90"
                         >
                           <CheckCircle2 size={13} />
@@ -239,7 +305,7 @@ export default function DigitalBlotter() {
                   {canManageInvestigation && (
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
-                        onClick={() => scheduleHearing(report)}
+                        onClick={() => requestScheduleHearing(report)}
                         className="flex items-center gap-1.5 rounded-full bg-bb-blue px-4 py-1.5 text-xs font-semibold text-white hover:bg-bb-blue-dark"
                       >
                         <CalendarClock size={13} />
@@ -247,7 +313,7 @@ export default function DigitalBlotter() {
                       </button>
                       {report.hearingDate && !report.hearingCompleted && (
                         <button
-                          onClick={() => markHearingHeld(report)}
+                          onClick={() => requestMarkHearingHeld(report)}
                           className="flex items-center gap-1.5 rounded-full bg-green-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-green-700"
                         >
                           <CalendarCheck2 size={13} />
@@ -277,7 +343,7 @@ export default function DigitalBlotter() {
                             ))}
                           </select>
                           <button
-                            onClick={() => finalizeResolution(report)}
+                            onClick={() => requestFinalize(report)}
                             className="shrink-0 rounded-full bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-700"
                           >
                             Markahan bilang Nalutas
@@ -338,6 +404,16 @@ export default function DigitalBlotter() {
         title="I-flag bilang Spam"
         message="Ito ay mag-block sa account ng nag-file at hindi na ito magiging opisyal na blotter record. Magpatuloy?"
         confirmLabel="I-flag bilang Spam"
+      />
+
+      <ConfirmDialog
+        open={pendingAction != null}
+        onClose={() => setPendingAction(null)}
+        onConfirm={confirmPendingAction}
+        title={pendingAction ? PENDING_ACTION_META[pendingAction.type].title : ''}
+        message={pendingAction ? PENDING_ACTION_META[pendingAction.type].message(pendingAction.report) : ''}
+        confirmLabel={pendingAction ? PENDING_ACTION_META[pendingAction.type].confirmLabel : 'Kumpirmahin'}
+        danger={pendingAction ? PENDING_ACTION_META[pendingAction.type].danger : false}
       />
     </div>
   )

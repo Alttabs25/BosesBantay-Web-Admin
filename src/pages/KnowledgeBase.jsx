@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Download, ShieldCheck } from 'lucide-react'
 import { DOCUMENT_CATEGORIES } from '../data/mockDocuments'
 import Pill from '../components/Pill'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
@@ -32,17 +33,23 @@ export default function KnowledgeBase() {
   const [file, setFile] = useState(null)
   const [isDragging, setIsDragging] = useState(false)
   const inputRef = useRef(null)
+  const [pendingRetireTitle, setPendingRetireTitle] = useState(null)
+  const [pendingApproveTitle, setPendingApproveTitle] = useState(null)
 
-  const retire = (title) => {
+  const confirmRetire = () => {
+    const title = pendingRetireTitle
     updateDocument(title, { status: 'Retired' })
     addAuditEntry(`Na-retire ang dokumentong "${title}"`, { color: 'red' })
     showToast(`Na-retire ang "${title}".`)
+    setPendingRetireTitle(null)
   }
 
-  const approveOfficial = (title) => {
+  const confirmApproveOfficial = () => {
+    const title = pendingApproveTitle
     updateDocument(title, { officialStatus: 'Opisyal' })
     addAuditEntry(`Inaprubahan bilang opisyal ang dokumentong "${title}"`, { color: 'green' })
     showToast(`Opisyal na ngayon ang "${title}" para sa chatbot.`)
+    setPendingApproveTitle(null)
   }
 
   const handleSubmit = (e) => {
@@ -121,7 +128,7 @@ export default function KnowledgeBase() {
                     <div className="flex flex-wrap gap-2">
                       {canApprove && doc.officialStatus !== 'Opisyal' && doc.status !== 'Retired' && (
                         <button
-                          onClick={() => approveOfficial(doc.title)}
+                          onClick={() => setPendingApproveTitle(doc.title)}
                           className="flex items-center gap-1 rounded-full bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700"
                         >
                           <ShieldCheck size={12} />
@@ -130,7 +137,7 @@ export default function KnowledgeBase() {
                       )}
                       {canDelete && doc.status !== 'Retired' && (
                         <button
-                          onClick={() => retire(doc.title)}
+                          onClick={() => setPendingRetireTitle(doc.title)}
                           className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
                         >
                           Retire File
@@ -239,6 +246,25 @@ export default function KnowledgeBase() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={pendingApproveTitle != null}
+        onClose={() => setPendingApproveTitle(null)}
+        onConfirm={confirmApproveOfficial}
+        title="Gawing Opisyal ang Dokumento"
+        message={`Sigurado ka bang gusto mong gawing opisyal ang "${pendingApproveTitle}"? Magiging available na ito bilang reference ng chatbot.`}
+        confirmLabel="Gawing Opisyal"
+        danger={false}
+      />
+
+      <ConfirmDialog
+        open={pendingRetireTitle != null}
+        onClose={() => setPendingRetireTitle(null)}
+        onConfirm={confirmRetire}
+        title="I-retire ang Dokumento"
+        message={`Sigurado ka bang gusto mong i-retire ang "${pendingRetireTitle}"? Hindi na ito magagamit ng chatbot bilang reference.`}
+        confirmLabel="I-retire"
+      />
     </div>
   )
 }
