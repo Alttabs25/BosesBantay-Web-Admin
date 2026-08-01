@@ -11,10 +11,10 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    const result = login({ email: credential, password })
+    const result = await login({ email: credential, password })
 
     if (!result.success) {
       setError('Maling email o password.')

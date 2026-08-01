@@ -1,184 +1,267 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useState, useEffect } from 'react'
+import { supabase } from '../lib/supabaseClient'
+import { createClient } from '@supabase/supabase-js'
 
 const AuthContext = createContext(null)
 
-// Mock accounts only — no backend wired up yet. Passwords live in plain
-// state for demo purposes; a real backend would hash + never expose these.
-const SEED_ACCOUNTS = [
-  {
-    id: 'ADM-001',
-    name: 'Justine Bryant',
-    role: 'Barangay Captain',
-    email: 'captain.justine@quezoncity.gov.ph',
-    password: 'password123',
-    mustChangePassword: false,
-  },
-  {
-    id: 'ADM-002',
-    name: 'Ma. Ana Villanueva',
-    role: 'Barangay Secretary',
-    email: 'secretary.ana@quezoncity.gov.ph',
-    password: 'password123',
-    mustChangePassword: false,
-  },
-  {
-    id: 'ADM-003',
-    name: 'Carlo B. Ramos',
-    role: 'Tanod / BPSO',
-    email: 'tanod.carlo@quezoncity.gov.ph',
-    password: 'password123',
-    mustChangePassword: false,
-  },
-  {
-    id: 'ADM-004',
-    name: 'Rosario Dimaguila',
-    role: 'Lupon Member',
-    email: 'lupon.rosario@quezoncity.gov.ph',
-    password: 'password123',
-    mustChangePassword: false,
-  },
-  {
-    id: 'ADM-005',
-    name: 'Miguel Santos',
-    role: 'Kagawad (Committee Chair)',
-    email: 'kagawad.miguel@quezoncity.gov.ph',
-    password: 'password123',
-    mustChangePassword: false,
-  },
-  {
-    id: 'ADM-006',
-    name: 'Patricia Reyes',
-    role: 'System Administrator',
-    email: 'admin.patricia@quezoncity.gov.ph',
-    password: 'password123',
-    mustChangePassword: false,
-  },
-  {
-    id: 'ADM-007',
-    name: 'Ramon Villanueva',
-    role: 'Tanod / BPSO',
-    email: 'ramon.villanueva@quezoncity.gov.ph',
-    password: 'Barangay#2026',
-    mustChangePassword: true,
-  },
-]
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-function nextAdminId(accounts) {
-  const max = accounts.reduce((acc, a) => {
-    const n = parseInt(a.id.replace(/\D/g, ''), 10)
-    return Number.isFinite(n) ? Math.max(acc, n) : acc
-  }, 0)
-  return `ADM-${String(max + 1).padStart(3, '0')}`
-}
+// Secondary client that does not persist auth state in localStorage/sessionStorage.
+// This allows the admin to register new accounts without being logged out.
+const authAdminClient = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false
+  }
+})
 
 export function AuthProvider({ children }) {
-  const [accounts, setAccounts] = useState(SEED_ACCOUNTS)
   const [user, setUser] = useState(null)
-  const [pendingResets, setPendingResets] = useState({})
+  const [accounts, setAccounts] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const login = ({ email, password }) => {
-    const normalized = email.trim().toLowerCase()
-    const account = accounts.find((a) => a.email.toLowerCase() === normalized)
-    if (!account || account.password !== password) {
-      return { success: false }
+  // Fetch all admin/staff accounts (users who are not 'Residente')
+  const fetchAccounts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select(`
+          id,
+          first_name,
+          last_name,
+          email,
+          roles (
+            role_name
+          )
+        `)
+      
+      if (error) throw error
+
+      if (data) {
+        const mapped = data
+          .filter(u => u.roles?.role_name !== 'Residente')
+          .map(u => ({
+            id: u.id,
+            name: `${u.first_name} ${u.last_name}`.trim(),
+            role: u.roles?.role_name || 'System Administrator',
+            email: u.email,
+            mustChangePassword: false,
+          }))
+        setAccounts(mapped)
+      }
+    } catch (err) {
+      console.error('Error fetching admin accounts:', err)
     }
-    const nextUser = {
-      id: account.id,
-      name: account.name,
-      role: account.role,
-      email: account.email,
-      mustChangePassword: account.mustChangePassword,
-    }
-    setUser(nextUser)
-    return { success: true, user: nextUser }
   }
 
-  const logout = () => setUser(null)
+  // Set up auth state listener
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        // Fetch matching profile details
+        const { data: profile, error } = await supabase
+          .from('users')
+          .select('*, roles(role_name)')
+          .eq('id', session.user.id)
+          .single()
 
-  const updateUser = (partial) => {
+        if (!error && profile) {
+          setUser({
+            id: session.user.id,
+            name: `${profile.first_name} ${profile.last_name}`.trim(),
+            role: profile.roles?.role_name || 'System Administrator',
+            email: session.user.email,
+            mustChangePassword: session.user.user_metadata?.must_change_password || false,
+          })
+        } else {
+          // Fallback if profile is not created yet
+          setUser({
+            id: session.user.id,
+            name: session.user.user_metadata?.first_name || 'Admin User',
+            role: 'System Administrator',
+            email: session.user.email,
+            mustChangePassword: session.user.user_metadata?.must_change_password || false,
+          })
+        }
+        fetchAccounts()
+      } else {
+        setUser(null)
+        setAccounts([])
+      }
+      setLoading(false)
+    })
+
+    return () => {
+      subscription?.unsubscribe()
+    }
+  }, [])
+
+  const login = async ({ email, password }) => {
+    const normalized = email.trim().toLowerCase()
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: normalized,
+      password,
+    })
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('*, roles(role_name)')
+      .eq('id', data.user.id)
+      .single()
+
+    const loggedInUser = {
+      id: data.user.id,
+      name: profile ? `${profile.first_name} ${profile.last_name}`.trim() : 'Admin User',
+      role: profile?.roles?.role_name || 'System Administrator',
+      email: data.user.email,
+      mustChangePassword: data.user.user_metadata?.must_change_password || false,
+    }
+
+    return { success: true, user: loggedInUser }
+  }
+
+  const logout = async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+  }
+
+  const updateUser = async (partial) => {
     if (!user) return
-    setUser((prev) => (prev ? { ...prev, ...partial } : prev))
-    setAccounts((prev) => prev.map((a) => (a.id === user.id ? { ...a, ...partial } : a)))
+
+    let patch = {}
+    if (partial.name) {
+      const parts = partial.name.trim().split(' ')
+      patch.first_name = parts[0]
+      patch.last_name = parts.slice(1).join(' ')
+    }
+    if (partial.email) patch.email = partial.email
+
+    const { error } = await supabase
+      .from('users')
+      .update(patch)
+      .eq('id', user.id)
+
+    if (!error) {
+      setUser((prev) => (prev ? { ...prev, ...partial } : null))
+      fetchAccounts()
+    }
   }
 
-  const changePassword = ({ currentPassword, newPassword }) => {
+  const changePassword = async ({ currentPassword, newPassword }) => {
     if (!user) return { success: false, error: 'not-authenticated' }
-    const account = accounts.find((a) => a.id === user.id)
-    if (!account || account.password !== currentPassword) {
-      return { success: false, error: 'invalid-current' }
+    
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword
+    })
+
+    if (error) {
+      return { success: false, error: error.message }
     }
-    setAccounts((prev) =>
-      prev.map((a) => (a.id === user.id ? { ...a, password: newPassword, mustChangePassword: false } : a)),
-    )
-    setUser((prev) => (prev ? { ...prev, mustChangePassword: false } : prev))
     return { success: true }
   }
 
-  const completeFirstLogin = (newPassword) => {
+  const completeFirstLogin = async (newPassword) => {
     if (!user) return { success: false }
-    setAccounts((prev) =>
-      prev.map((a) => (a.id === user.id ? { ...a, password: newPassword, mustChangePassword: false } : a)),
-    )
-    setUser((prev) => (prev ? { ...prev, mustChangePassword: false } : prev))
+
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+      data: { must_change_password: false }
+    })
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    setUser((prev) => (prev ? { ...prev, mustChangePassword: false } : null))
     return { success: true }
   }
 
-  const createAdminAccount = ({ name, email, role, tempPassword }) => {
-    const normalized = email.trim().toLowerCase()
-    if (accounts.some((a) => a.email.toLowerCase() === normalized)) {
-      return { success: false, error: 'duplicate-email' }
-    }
-    const newAccount = {
-      id: nextAdminId(accounts),
-      name: name.trim(),
+  const createAdminAccount = async ({ name, email, role, tempPassword }) => {
+    const parts = name.trim().split(' ')
+    const first_name = parts[0] || 'Admin'
+    const last_name = parts.slice(1).join(' ') || 'User'
+
+    const { data, error } = await authAdminClient.auth.signUp({
       email: email.trim(),
-      role,
       password: tempPassword,
+      options: {
+        data: {
+          first_name,
+          last_name,
+          role,
+          must_change_password: true
+        }
+      }
+    })
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    // Force wait a short delay for trigger to fire and profile to exist
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    const newAccount = {
+      id: data.user.id,
+      name: name.trim(),
+      role,
+      email: email.trim(),
       mustChangePassword: true,
     }
+
     setAccounts((prev) => [...prev, newAccount])
     return { success: true, account: newAccount }
   }
 
-  const resetAdminAccountPassword = (accountId, newTempPassword) => {
-    setAccounts((prev) =>
-      prev.map((a) =>
-        a.id === accountId ? { ...a, password: newTempPassword, mustChangePassword: true } : a,
-      ),
-    )
-  }
+  const resetAdminAccountPassword = async (accountId, newTempPassword) => {
+    const target = accounts.find((a) => a.id === accountId)
+    if (!target) return
 
-  const deleteAdminAccount = (accountId) => {
-    setAccounts((prev) => prev.filter((a) => a.id !== accountId))
-  }
-
-  // Always looks like it succeeded from the caller's perspective (no account
-  // enumeration) — only actually creates a pending reset when the email is real.
-  const requestPasswordReset = (email) => {
-    const normalized = email.trim().toLowerCase()
-    const account = accounts.find((a) => a.email.toLowerCase() === normalized)
-    if (!account) return { found: false }
-    const code = String(Math.floor(100000 + Math.random() * 900000))
-    setPendingResets((prev) => ({ ...prev, [normalized]: { code, accountId: account.id } }))
-    return { found: true, code }
-  }
-
-  const resetPasswordWithCode = ({ email, code, newPassword }) => {
-    const normalized = email.trim().toLowerCase()
-    const pending = pendingResets[normalized]
-    if (!pending || pending.code !== code.trim()) {
-      return { success: false }
-    }
-    setAccounts((prev) =>
-      prev.map((a) =>
-        a.id === pending.accountId ? { ...a, password: newPassword, mustChangePassword: false } : a,
-      ),
-    )
-    setPendingResets((prev) => {
-      const next = { ...prev }
-      delete next[normalized]
-      return next
+    // Supabase native password recovery trigger
+    await supabase.auth.resetPasswordForEmail(target.email, {
+      redirectTo: `${window.location.origin}/reset-password`
     })
+  }
+
+  const deleteAdminAccount = async (accountId) => {
+    // Delete profile in public schema. 
+    // In production, cascade/trigger can handle full auth.users deletion or deactivation.
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', accountId)
+
+    if (!error) {
+      setAccounts((prev) => prev.filter((a) => a.id !== accountId))
+    }
+  }
+
+  // Trigger password reset email via native Supabase Auth
+  const requestPasswordReset = async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`
+    })
+
+    if (error) {
+      return { found: false }
+    }
+    return { found: true }
+  }
+
+  const resetPasswordWithCode = async ({ email, code, newPassword }) => {
+    // Note: Supabase handles recovery code logic dynamically when navigating via reset link.
+    // If using user-entered recovery code/pin:
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword
+    })
+
+    if (error) return { success: false }
     return { success: true }
   }
 
@@ -197,9 +280,10 @@ export function AuthProvider({ children }) {
         deleteAdminAccount,
         requestPasswordReset,
         resetPasswordWithCode,
+        loading,
       }}
     >
-      {children}
+      {!loading && children}
     </AuthContext.Provider>
   )
 }

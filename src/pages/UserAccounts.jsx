@@ -260,20 +260,20 @@ export default function UserAccounts() {
     setAddingAccount(false)
   }
 
-  function submitNewAdminAccount(e) {
+  async function submitNewAdminAccount(e) {
     e.preventDefault()
     if (!newAdminAccount.name.trim() || !newAdminAccount.email.trim() || !newAdminAccount.tempPassword.trim()) {
       showToast('Kumpletuhin ang pangalan, email, at pansamantalang password.', 'error')
       return
     }
-    const result = createAdminAccount({
+    const result = await createAdminAccount({
       name: newAdminAccount.name,
       email: newAdminAccount.email,
       role: newAdminAccount.role,
       tempPassword: newAdminAccount.tempPassword.trim(),
     })
     if (!result.success) {
-      showToast('May account na gumagamit ng email na iyan.', 'error')
+      showToast(result.error || 'May account na gumagamit ng email na iyan.', 'error')
       return
     }
     addAuditEntry(
@@ -285,19 +285,19 @@ export default function UserAccounts() {
     setAddingAdminAccount(false)
   }
 
-  function confirmResetAdminPassword() {
+  async function confirmResetAdminPassword() {
     const account = accounts.find((a) => a.id === pendingResetId)
     if (!account) return
     const tempPassword = generateTempPassword()
-    resetAdminAccountPassword(account.id, tempPassword)
+    await resetAdminAccountPassword(account.id, tempPassword)
     addAuditEntry(`Nag-reset ng password para sa admin account ni ${account.name}`, { color: 'orange' })
     showToast(`Bagong pansamantalang password para kay ${account.name}: ${tempPassword}`)
   }
 
-  function confirmDeleteAdminAccount() {
+  async function confirmDeleteAdminAccount() {
     const account = accounts.find((a) => a.id === pendingAdminDeleteId)
     if (!account) return
-    deleteAdminAccount(account.id)
+    await deleteAdminAccount(account.id)
     addAuditEntry(`Tinanggal ang admin portal account ni ${account.name}`, { color: 'red' })
     showToast(`Tinanggal ang admin account ni ${account.name}.`)
   }
