@@ -226,6 +226,30 @@ export function AuthProvider({ children }) {
     return { success: true, account: newAccount }
   }
 
+  const createResidentAccount = async ({ first_name, last_name, address, email, password }) => {
+    const { data, error } = await authAdminClient.auth.signUp({
+      email: email.trim(),
+      password: password.trim(),
+      options: {
+        data: {
+          first_name: first_name.trim(),
+          last_name: last_name.trim(),
+          address: address.trim(),
+          role: 'Residente',
+          must_change_password: false
+        }
+      }
+    })
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    // Force wait a short delay for trigger to fire and profile to exist
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    return { success: true }
+  }
+
   const resetAdminAccountPassword = async (accountId, newTempPassword) => {
     const target = accounts.find((a) => a.id === accountId)
     if (!target) return
@@ -283,6 +307,7 @@ export function AuthProvider({ children }) {
         changePassword,
         completeFirstLogin,
         createAdminAccount,
+        createResidentAccount,
         resetAdminAccountPassword,
         deleteAdminAccount,
         requestPasswordReset,

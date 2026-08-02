@@ -578,6 +578,7 @@ export function DataProvider({ children }) {
         setModuleAccess,
         hasDynamicModuleAccess,
         loading,
+        fetchData,
       }}
     >
       {!loading && children}

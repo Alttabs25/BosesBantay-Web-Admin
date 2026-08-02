@@ -101,7 +101,7 @@ const ASSIGNABLE_ROLES = [
   ROLES.CAPTAIN,
 ]
 
-const BLANK_NEW_ACCOUNT = { name: '', email: '', phone: '', address: '' }
+const BLANK_NEW_ACCOUNT = { first_name: '', last_name: '', address: '', email: '', password: '' }
 
 function nextUserId(users) {
   const max = users.reduce((acc, u) => {
@@ -118,8 +118,8 @@ function maskId(id) {
 }
 
 export default function UserAccounts() {
-  const { user, accounts, createAdminAccount, resetAdminAccountPassword, deleteAdminAccount } = useAuth()
-  const { users, updateUser, addUser, removeUser, addAuditEntry, roleModuleAccess, setModuleAccess } = useData()
+  const { user, accounts, createAdminAccount, createResidentAccount, resetAdminAccountPassword, deleteAdminAccount } = useAuth()
+  const { users, updateUser, addUser, removeUser, addAuditEntry, roleModuleAccess, setModuleAccess, fetchData } = useData()
   const { showToast } = useToast()
 
   const [copiedId, setCopiedId] = useState(null)
@@ -247,30 +247,31 @@ export default function UserAccounts() {
     showToast(`Tinanggal ang account ni ${target?.name ?? ''}.`)
   }
 
-  function submitNewAccount(e) {
+  async function submitNewAccount(e) {
     e.preventDefault()
-    if (!newAccount.name.trim() || !newAccount.email.trim()) {
-      showToast('Kumpletuhin ang pangalan at email.', 'error')
+    if (
+      !newAccount.first_name.trim() ||
+      !newAccount.last_name.trim() ||
+      !newAccount.email.trim() ||
+      !newAccount.password.trim()
+    ) {
+      showToast('Kumpletuhin ang lahat ng kailangang field.', 'error')
       return
     }
-    addUser({
-      id: nextUserId(users),
-      name: newAccount.name.trim(),
-      role: 'Residente',
-      verified: 'Verified',
-      status: 'Active',
-      email: newAccount.email.trim(),
-      phone: newAccount.phone.trim(),
-      address: newAccount.address.trim(),
-      dateRegistered: new Date().toLocaleDateString('en-US', {
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-      }),
-      pendingRoleRequest: null,
+    const res = await createResidentAccount({
+      first_name: newAccount.first_name,
+      last_name: newAccount.last_name,
+      address: newAccount.address,
+      email: newAccount.email,
+      password: newAccount.password,
     })
-    addAuditEntry(`Nagdagdag ng bagong account: ${newAccount.name.trim()}`, { color: 'green' })
-    showToast(`Naidagdag ang account ni ${newAccount.name.trim()}.`)
+    if (!res.success) {
+      showToast(res.error || 'May error sa paglikha ng account.', 'error')
+      return
+    }
+    addAuditEntry(`Nagdagdag ng bagong resident account: ${newAccount.first_name} ${newAccount.last_name}`, { color: 'green' })
+    showToast(`Naidagdag ang account ni ${newAccount.first_name} ${newAccount.last_name}. Naghihintay ng pag-apruba.`)
+    fetchData()
     setNewAccount(BLANK_NEW_ACCOUNT)
     setAddingAccount(false)
   }
@@ -915,18 +916,40 @@ export default function UserAccounts() {
 
       <Modal open={addingAccount} onClose={() => setAddingAccount(false)} title="Magdagdag ng Account">
         <form onSubmit={submitNewAccount} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-semibold text-gray-700">First Name</span>
+              <input
+                type="text"
+                required
+                value={newAccount.first_name}
+                onChange={(e) => setNewAccount((a) => ({ ...a, first_name: e.target.value }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-semibold text-gray-700">Last Name</span>
+              <input
+                type="text"
+                required
+                value={newAccount.last_name}
+                onChange={(e) => setNewAccount((a) => ({ ...a, last_name: e.target.value }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+              />
+            </label>
+          </div>
           <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Buong Pangalan</span>
+            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Purok / Address</span>
             <input
               type="text"
               required
-              value={newAccount.name}
-              onChange={(e) => setNewAccount((a) => ({ ...a, name: e.target.value }))}
+              value={newAccount.address}
+              onChange={(e) => setNewAccount((a) => ({ ...a, address: e.target.value }))}
               className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
             />
           </label>
           <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Email</span>
+            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Email Address</span>
             <input
               type="email"
               required
@@ -936,26 +959,18 @@ export default function UserAccounts() {
             />
           </label>
           <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Numero ng Telepono</span>
+            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Password</span>
             <input
-              type="text"
-              value={newAccount.phone}
-              onChange={(e) => setNewAccount((a) => ({ ...a, phone: e.target.value }))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Address</span>
-            <input
-              type="text"
-              value={newAccount.address}
-              onChange={(e) => setNewAccount((a) => ({ ...a, address: e.target.value }))}
+              type="password"
+              required
+              value={newAccount.password}
+              onChange={(e) => setNewAccount((a) => ({ ...a, password: e.target.value }))}
               className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
             />
           </label>
           <button
             type="submit"
-            className="w-full rounded-lg bg-bb-blue py-2.5 font-semibold text-white hover:bg-bb-blue-dark transition-colors"
+            className="w-full rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-2.5 font-semibold text-white transition-all active:scale-[0.98]"
           >
             Isumite
           </button>
