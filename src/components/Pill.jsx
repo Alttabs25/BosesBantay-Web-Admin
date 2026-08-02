@@ -18,7 +18,7 @@ export default function Pill({ children, color = 'gray', solid = false, icon: Ic
   const classes = solid ? SOLID_VARIANTS[color] : VARIANTS[color]
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap ${classes}`}
+      className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold whitespace-nowrap ${classes}`}
     >
       {Icon && <Icon size={12} />}
       {children}

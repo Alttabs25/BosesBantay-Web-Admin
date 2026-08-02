@@ -361,27 +361,33 @@ export default function UserAccounts() {
         </div>
         <div className="flex items-center gap-2">
           {isAdmin && (
-            <div className="flex rounded-full border border-gray-200 p-0.5">
+            <div className="flex rounded-lg border border-gray-200 bg-gray-50/50 p-0.5 shadow-xs">
               <button
                 onClick={() => setActiveTab('residents')}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  activeTab === 'residents' ? 'bg-bb-blue text-white' : 'text-gray-500 hover:text-gray-700'
+                className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all duration-150 ${
+                  activeTab === 'residents'
+                    ? 'bg-bb-blue text-white shadow-sm'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
               >
                 Mga Residente
               </button>
               <button
                 onClick={() => setActiveTab('admin')}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  activeTab === 'admin' ? 'bg-bb-blue text-white' : 'text-gray-500 hover:text-gray-700'
+                className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all duration-150 ${
+                  activeTab === 'admin'
+                    ? 'bg-bb-blue text-white shadow-sm'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
               >
                 Admin Portal
               </button>
               <button
                 onClick={() => setActiveTab('modules')}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  activeTab === 'modules' ? 'bg-bb-blue text-white' : 'text-gray-500 hover:text-gray-700'
+                className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all duration-150 ${
+                  activeTab === 'modules'
+                    ? 'bg-bb-blue text-white shadow-sm'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
               >
                 Module Access
@@ -391,7 +397,7 @@ export default function UserAccounts() {
           {isAdmin && activeTab === 'residents' && (
             <button
               onClick={() => setAddingAccount(true)}
-              className="flex items-center gap-1.5 rounded-full bg-bb-blue px-4 py-2 text-sm font-semibold text-white hover:bg-bb-blue-dark transition-colors"
+              className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-4 py-2 text-sm font-semibold text-white transition-all active:scale-[0.98]"
             >
               <Plus size={16} />
               Magdagdag ng Account
@@ -400,7 +406,7 @@ export default function UserAccounts() {
           {showAdminAccounts && (
             <button
               onClick={() => setAddingAdminAccount(true)}
-              className="flex items-center gap-1.5 rounded-full bg-bb-navy px-4 py-2 text-sm font-semibold text-white hover:bg-bb-blue-dark transition-colors"
+              className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-navy to-bb-navy/90 border border-bb-navy/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-4 py-2 text-sm font-semibold text-white transition-all active:scale-[0.98]"
             >
               <Plus size={16} />
               Gumawa ng Admin Account
@@ -431,14 +437,14 @@ export default function UserAccounts() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => requestRoleDecision(u, 'approve')}
-                    className="flex items-center gap-1 rounded-full bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700"
+                    className="flex items-center gap-1 rounded-lg bg-gradient-to-b from-green-600 to-green-700/90 border border-green-600/10 shadow-xs hover:shadow-sm px-3 py-1.5 text-xs font-semibold text-white hover:from-green-700 hover:to-green-800 transition-all"
                   >
                     <Check size={12} />
                     Aprubahan
                   </button>
                   <button
                     onClick={() => requestRoleDecision(u, 'reject')}
-                    className="flex items-center gap-1 rounded-full bg-gray-400 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-500"
+                    className="flex items-center gap-1 rounded-lg bg-gradient-to-b from-gray-400 to-gray-500/90 border border-gray-400/10 shadow-xs hover:shadow-sm px-3 py-1.5 text-xs font-semibold text-white hover:from-gray-500 hover:to-gray-600 transition-all"
                   >
                     <XIcon size={12} />
                     Tanggihan
@@ -501,14 +507,14 @@ export default function UserAccounts() {
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => openProfile(u.id)}
-                        className="rounded-full bg-bb-blue px-3 py-1.5 text-xs font-semibold text-white hover:bg-bb-blue-dark"
+                        className="rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-xs hover:shadow-sm hover:from-bb-blue-dark hover:to-bb-blue-dark px-3 py-1.5 text-xs font-semibold text-white transition-all"
                       >
                         View full Profile
                       </button>
                       {isAdmin && action && (
                         <button
                           onClick={() => setPendingStatusActionId(u.id)}
-                          className={`rounded-full px-3 py-1.5 text-xs font-semibold text-white ${action.className}`}
+                          className={`rounded-lg border border-black/5 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:shadow-sm transition-all hover:brightness-105 active:scale-[0.96] ${action.className}`}
                         >
                           {action.label}
                         </button>
@@ -516,7 +522,7 @@ export default function UserAccounts() {
                       {isAdmin && (
                         <button
                           onClick={() => setPendingDeleteId(u.id)}
-                          className="flex items-center gap-1 rounded-full bg-gray-400 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-500"
+                          className="flex items-center gap-1 rounded-lg bg-gradient-to-b from-gray-400 to-gray-500/90 border border-gray-400/10 shadow-xs hover:shadow-sm px-3 py-1.5 text-xs font-semibold text-white hover:from-gray-500 hover:to-gray-600 transition-all"
                         >
                           <Trash2 size={12} />
                         </button>
@@ -589,7 +595,7 @@ export default function UserAccounts() {
                       <div className="flex flex-wrap gap-2">
                         <button
                           onClick={() => setPendingResetId(a.id)}
-                          className="flex items-center gap-1 rounded-full bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-600"
+                          className="flex items-center gap-1 rounded-lg bg-gradient-to-b from-orange-500 to-orange-600/90 border border-orange-500/10 shadow-xs hover:shadow-sm px-3 py-1.5 text-xs font-semibold text-white hover:from-orange-600 hover:to-orange-700 transition-all"
                         >
                           <KeyRound size={12} />
                           I-reset ang Password
@@ -597,7 +603,7 @@ export default function UserAccounts() {
                         <button
                           onClick={() => setPendingAdminDeleteId(a.id)}
                           disabled={a.id === user.id}
-                          className="flex items-center gap-1 rounded-full bg-gray-400 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="flex items-center gap-1 rounded-lg bg-gradient-to-b from-gray-400 to-gray-500/90 border border-gray-400/10 shadow-xs hover:shadow-sm px-3 py-1.5 text-xs font-semibold text-white hover:from-gray-500 hover:to-gray-600 transition-all disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           <Trash2 size={12} />
                         </button>
