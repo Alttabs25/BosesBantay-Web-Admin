@@ -222,13 +222,22 @@ export function DataProvider({ children }) {
         if (!reportsErr && reportsData) {
           mappedReports = reportsData.map(r => {
             const filedBy = r.users ? `${r.users.first_name} ${r.users.last_name}`.trim() : 'Residente'
+            
+            // Translate resident-end status to web-admin status
+            let adminStatus = 'Sinuri'
+            if (r.status === 'Under Review') adminStatus = 'Sinuri'
+            else if (r.status === 'Investigating') adminStatus = 'Inimbestigahan'
+            else if (r.status === 'Resolved') adminStatus = 'Nareselba'
+            else if (r.status === 'Spam') adminStatus = 'Spam'
+            else if (r.status) adminStatus = r.status
+
             return {
-              id: `REP-${String(r.report_id).padStart(5, '0')}`,
-              dbId: r.report_id,
+              id: r.reference_no || `REP-${String(r.id || '').substring(0, 8)}`,
+              dbId: r.id,
               isFormReport: true,
-              title: 'Resident Form Report',
-              status: r.status === 'Pending' ? 'Sinuri' : (r.status || 'Sinuri'),
-              datetime: new Date(r.created_at).toLocaleString('en-US', {
+              title: r.category || 'Resident Form Report',
+              status: adminStatus,
+              datetime: new Date(r.created_at || r.submitted_at || Date.now()).toLocaleString('en-US', {
                 month: 'short',
                 day: 'numeric',
                 year: 'numeric',
@@ -237,16 +246,16 @@ export function DataProvider({ children }) {
                 hour12: true
               }).toUpperCase(),
               filedBy,
-              what: r.incident_details || '',
-              who: r.other_party || 'Hindi Alam',
+              what: r.incident_details || r.description || r.details || '',
+              who: r.other_party || r.respondent || 'Hindi Alam',
               where: r.location || 'N/A',
-              when: r.date_time || 'N/A',
+              when: r.date_time || r.incident_date || 'N/A',
               why: '',
-              how: r.incident_details || '',
+              how: r.incident_details || r.description || '',
               hearingDate: '',
               hearingNote: r.witnesses ? `Saksi: ${r.witnesses}` : '',
-              hearingCompleted: r.status === 'Nareselba' || r.status === 'Spam',
-              outcome: r.status === 'Nareselba' ? 'Resolbado na.' : ''
+              hearingCompleted: adminStatus === 'Nareselba' || adminStatus === 'Spam',
+              outcome: adminStatus === 'Nareselba' ? 'Resolbado na.' : ''
             }
           })
         }
@@ -589,15 +598,26 @@ export function DataProvider({ children }) {
 
   const updateBlotterReport = async (id, patch) => {
     try {
-      if (id.startsWith('REP-')) {
-        const dbId = parseInt(id.replace('REP-', ''), 10)
+      if (id.startsWith('REP-') || id.startsWith('BGY-')) {
         const updateFields = {}
-        if (patch.status) updateFields.status = patch.status
-        if (patch.hearingNote !== undefined) updateFields.witnesses = patch.hearingNote // Save notes to witnesses field or keep it simple
-        await supabase
-          .from('reports')
-          .update(updateFields)
-          .eq('report_id', dbId)
+        if (patch.status) {
+          // Translate web-admin status back to resident-end status
+          let residentStatus = 'Under Review'
+          if (patch.status === 'Sinuri') residentStatus = 'Under Review'
+          else if (patch.status === 'Inimbestigahan') residentStatus = 'Investigating'
+          else if (patch.status === 'Nareselba') residentStatus = 'Resolved'
+          else if (patch.status === 'Spam') residentStatus = 'Spam'
+          else residentStatus = patch.status
+          updateFields.status = residentStatus
+        }
+
+        const isUuid = id.includes('-') && id.split('-').length > 2
+        const query = supabase.from('reports').update(updateFields)
+        if (isUuid) {
+          await query.eq('id', id)
+        } else {
+          await query.eq('reference_no', id)
+        }
       } else {
         const { data: pb } = await supabase
           .from('pre_blotters')
