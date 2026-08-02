@@ -211,6 +211,21 @@ CREATE TABLE IF NOT EXISTS public.generated_reports (
     generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- 17. REPORTS (Manual incident reports submitted by residents)
+CREATE TABLE IF NOT EXISTS public.reports (
+    report_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    date_time VARCHAR(255) NULL,
+    location TEXT NULL,
+    other_party TEXT NULL,
+    incident_details TEXT NOT NULL,
+    witnesses TEXT NULL,
+    evidence TEXT NULL,
+    status VARCHAR(50) DEFAULT 'Pending',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Enable Row Level Security
 ALTER TABLE public.roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
@@ -228,6 +243,7 @@ ALTER TABLE public.account_blocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.login_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.generated_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reports DISABLE ROW LEVEL SECURITY;
 
 -- Simple permissive RLS policies (adjust in production based on role access)
 CREATE POLICY "Allow read access to authenticated users" ON public.roles FOR SELECT USING (true);
