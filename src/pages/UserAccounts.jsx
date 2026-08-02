@@ -14,6 +14,8 @@ import {
   KeyRound,
   Dices,
   SlidersHorizontal,
+  Clock,
+  Award,
   Copy,
 } from 'lucide-react'
 import Pill from '../components/Pill'
@@ -51,6 +53,13 @@ const STATUS_COLOR = {
   Pending: 'orange',
   Suspended: 'red',
   Deactivated: 'gray',
+}
+
+const BARANGAY_ID_STATUS_BADGE = {
+  Pending: { label: 'Unverified', color: 'gray', icon: AlertCircle },
+  unverified: { label: 'Unverified', color: 'gray', icon: AlertCircle },
+  secretary_verified: { label: 'Secretary Verified', color: 'orange', icon: Clock },
+  pb_authorized: { label: 'PB Authorized', color: 'green', icon: CheckCircle2 },
 }
 
 const ACTION_BY_STATUS = {
@@ -101,25 +110,32 @@ const ASSIGNABLE_ROLES = [
   ROLES.CAPTAIN,
 ]
 
-const BLANK_NEW_ACCOUNT = { first_name: '', last_name: '', address: '', email: '', password: '' }
+// Aligned with Mobile App Registration Fields + required fields for Supabase auth
+const BLANK_NEW_ACCOUNT = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  purok: '',
+  password: '',
+}
 
-function nextUserId(users) {
-  const max = users.reduce((acc, u) => {
-    const n = parseInt(u.id.replace(/\D/g, ''), 10)
-    return Number.isFinite(n) ? Math.max(acc, n) : acc
-  }, 0)
-  return `USR - ${String(max + 1).padStart(5, '0')}`
+function formatE164(rawPhone) {
+  const cleaned = rawPhone.replace(/\D/g, '')
+  if (cleaned.startsWith('0')) return `+63${cleaned.slice(1)}`
+  if (cleaned.startsWith('63')) return `+${cleaned}`
+  return `+${cleaned}`
 }
 
 function maskId(id) {
   if (!id) return ''
-  if (id.length <= 12) return id
-  return `${id.slice(0, 8)}...${id.slice(-4)}`
+  // Mask alphanumeric characters with asterisks for security, keeping layout hyphens intact
+  return id.replace(/[a-zA-Z0-9]/g, '*')
 }
 
 export default function UserAccounts() {
   const { user, accounts, createAdminAccount, createResidentAccount, resetAdminAccountPassword, deleteAdminAccount } = useAuth()
-  const { users, updateUser, addUser, removeUser, addAuditEntry, roleModuleAccess, setModuleAccess, fetchData } = useData()
+  const { users, updateUser, removeUser, addAuditEntry, roleModuleAccess, setModuleAccess, fetchData } = useData()
   const { showToast } = useToast()
 
   const [copiedId, setCopiedId] = useState(null)
@@ -132,6 +148,7 @@ export default function UserAccounts() {
 
   const isAdmin = user.role === ROLES.ADMIN
   const isCaptain = user.role === ROLES.CAPTAIN
+  const isSecretary = user.role === ROLES.SECRETARY
 
   const [activeTab, setActiveTab] = useState('residents') // 'residents' | 'admin' | 'modules'
   const [addingAdminAccount, setAddingAdminAccount] = useState(false)
@@ -153,7 +170,14 @@ export default function UserAccounts() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return users
-    return users.filter((u) => u.name.toLowerCase().includes(q) || u.id.toLowerCase().includes(q))
+    return users.filter(
+      (u) =>
+        (u.name && u.name.toLowerCase().includes(q)) ||
+        (u.id && u.id.toLowerCase().includes(q)) ||
+        (u.phone && u.phone.includes(q)) ||
+        (u.email && u.email.toLowerCase().includes(q)) ||
+        (u.address && u.address.toLowerCase().includes(q))
+    )
   }, [users, query])
 
   const pendingRequests = useMemo(() => users.filter((u) => u.pendingRoleRequest), [users])
@@ -170,6 +194,7 @@ export default function UserAccounts() {
     const patch = { status: action.next }
     if (target.status === 'Pending' && action.next === 'Active') {
       patch.verified = 'Verified'
+      patch.barangayIdStatus = 'pb_authorized'
     }
 
     updateUser(id, patch)
@@ -185,6 +210,15 @@ export default function UserAccounts() {
     setViewingId(null)
   }
 
+  function updateBarangayIdStatus(targetUser, newStatus) {
+    updateUser(targetUser.id, { barangayIdStatus: newStatus })
+    const targetName = targetUser.name || targetUser.fullName || `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim()
+    addAuditEntry(`In-update ang Barangay ID Status ni ${targetName} to ${newStatus}`, {
+      color: newStatus === 'pb_authorized' ? 'green' : 'orange',
+    })
+    showToast(`In-update ang status ni ${targetName} sa ${newStatus}.`)
+  }
+
   function openProfile(id) {
     setViewingId(id)
     setRoleChoice('')
@@ -198,6 +232,7 @@ export default function UserAccounts() {
   function confirmRoleAssignment() {
     if (!pendingRoleAssignment) return
     const { targetUser, role } = pendingRoleAssignment
+    const userName = targetUser.name || targetUser.fullName
     if (ROLES_REQUIRING_PB_APPROVAL.includes(role)) {
       updateUser(targetUser.id, {
         pendingRoleRequest: {
@@ -210,12 +245,12 @@ export default function UserAccounts() {
           }),
         },
       })
-      addAuditEntry(`Humiling ng tungkuling ${role} para kay ${targetUser.name}`, { color: 'orange' })
-      showToast(`Naisumite ang kahilingan na gawing ${role} si ${targetUser.name} — naghihintay ng PB approval.`)
+      addAuditEntry(`Humiling ng tungkuling ${role} para kay ${userName}`, { color: 'orange' })
+      showToast(`Naisumite ang kahilingan na gawing ${role} si ${userName} — naghihintay ng PB approval.`)
     } else {
       updateUser(targetUser.id, { role, status: 'Active' })
-      addAuditEntry(`Nag-assign ng tungkuling ${role} kay ${targetUser.name}`, { color: 'blue' })
-      showToast(`Na-assign si ${targetUser.name} bilang ${role}.`)
+      addAuditEntry(`Nag-assign ng tungkuling ${role} kay ${userName}`, { color: 'blue' })
+      showToast(`Na-assign si ${userName} bilang ${role}.`)
     }
     setRoleChoice('')
     setViewingId(null)
@@ -229,6 +264,7 @@ export default function UserAccounts() {
   function confirmRoleDecision() {
     if (!pendingRoleDecision) return
     const { targetUser, decision } = pendingRoleDecision
+    const userName = targetUser.name || targetUser.fullName
     if (decision === 'approve') {
       const requestedRole = targetUser.pendingRoleRequest.requestedRole
       updateUser(targetUser.id, {
@@ -236,12 +272,12 @@ export default function UserAccounts() {
         status: 'Active',
         pendingRoleRequest: null,
       })
-      addAuditEntry(`Inaprubahan ang tungkuling ${requestedRole} para kay ${targetUser.name}`, { color: 'green' })
-      showToast(`Na-approve: si ${targetUser.name} ngayon ay ${requestedRole}.`)
+      addAuditEntry(`Inaprubahan ang tungkuling ${requestedRole} para kay ${userName}`, { color: 'green' })
+      showToast(`Na-approve: si ${userName} ngayon ay ${requestedRole}.`)
     } else {
       updateUser(targetUser.id, { pendingRoleRequest: null })
-      addAuditEntry(`Tinanggihan ang kahilingan sa tungkulin ni ${targetUser.name}`, { color: 'red' })
-      showToast(`Tinanggihan ang kahilingan para kay ${targetUser.name}.`, 'error')
+      addAuditEntry(`Tinanggihan ang kahilingan sa tungkulin ni ${userName}`, { color: 'red' })
+      showToast(`Tinanggihan ang kahilingan para kay ${userName}.`, 'error')
     }
     setPendingRoleDecision(null)
   }
@@ -249,34 +285,45 @@ export default function UserAccounts() {
   function confirmDelete() {
     const target = users.find((u) => u.id === pendingDeleteId)
     removeUser(pendingDeleteId)
-    addAuditEntry(`Tinanggal ang account ni ${target?.name ?? pendingDeleteId}`, { color: 'red' })
-    showToast(`Tinanggal ang account ni ${target?.name ?? ''}.`)
+    addAuditEntry(`Tinanggal ang account ni ${target?.name || target?.fullName || pendingDeleteId}`, { color: 'red' })
+    showToast(`Tinanggal ang account ni ${target?.name || target?.fullName || ''}.`)
   }
 
   async function submitNewAccount(e) {
     e.preventDefault()
     if (
-      !newAccount.first_name.trim() ||
-      !newAccount.last_name.trim() ||
+      !newAccount.firstName.trim() ||
+      !newAccount.lastName.trim() ||
       !newAccount.email.trim() ||
-      !newAccount.password.trim()
+      !newAccount.password.trim() ||
+      !newAccount.phone.trim()
     ) {
       showToast('Kumpletuhin ang lahat ng kailangang field.', 'error')
       return
     }
+
     const res = await createResidentAccount({
-      first_name: newAccount.first_name,
-      last_name: newAccount.last_name,
-      address: newAccount.address,
-      email: newAccount.email,
-      password: newAccount.password,
+      first_name: newAccount.firstName.trim(),
+      last_name: newAccount.lastName.trim(),
+      address: newAccount.purok.trim() || 'Purok 1',
+      email: newAccount.email.trim(),
+      password: newAccount.password.trim(),
     })
+
     if (!res.success) {
       showToast(res.error || 'May error sa paglikha ng account.', 'error')
       return
     }
-    addAuditEntry(`Nagdagdag ng bagong resident account: ${newAccount.first_name} ${newAccount.last_name}`, { color: 'green' })
-    showToast(`Naidagdag ang account ni ${newAccount.first_name} ${newAccount.last_name}. Naghihintay ng pag-apruba.`)
+
+    if (res.user) {
+      const formattedPhone = formatE164(newAccount.phone.trim())
+      await updateUser(res.user.id, { phone: formattedPhone })
+    }
+
+    const fullName = `${newAccount.firstName.trim()} ${newAccount.lastName.trim()}`
+    addAuditEntry(`Nagdagdag ng bagong resident account: ${fullName}`, { color: 'green' })
+    showToast(`Naidagdag ang account ni ${fullName}. Naghihintay ng pag-apruba.`)
+    
     fetchData()
     setNewAccount(BLANK_NEW_ACCOUNT)
     setAddingAccount(false)
@@ -356,14 +403,14 @@ export default function UserAccounts() {
               ? 'Mga Admin Portal Account'
               : showModuleAccess
                 ? 'Pamamahagi ng Access sa Module'
-                : 'Mga Account ng User'}
+                : 'Mga Account ng Resident'}
           </h2>
           <p className="mt-0.5 text-sm text-gray-500">
             {showAdminAccounts
               ? 'Mga account na maaaring mag-login sa Command Center na ito.'
               : showModuleAccess
                 ? 'Piliin kung aling mga module ang makikita at ma-a-access ng bawat tungkulin (role).'
-                : 'Review, validate, and update User Accounts.'}
+                : 'Suriin ang mga nakarehistro sa mobile app at i-manage ang kanilang governance approval.'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -372,9 +419,7 @@ export default function UserAccounts() {
               <button
                 onClick={() => setActiveTab('residents')}
                 className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all duration-150 ${
-                  activeTab === 'residents'
-                    ? 'bg-bb-blue text-white shadow-sm'
-                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                  activeTab === 'residents' ? 'bg-bb-blue text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
               >
                 Mga Residente
@@ -382,9 +427,7 @@ export default function UserAccounts() {
               <button
                 onClick={() => setActiveTab('admin')}
                 className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all duration-150 ${
-                  activeTab === 'admin'
-                    ? 'bg-bb-blue text-white shadow-sm'
-                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                  activeTab === 'admin' ? 'bg-bb-blue text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
               >
                 Admin Portal
@@ -392,9 +435,7 @@ export default function UserAccounts() {
               <button
                 onClick={() => setActiveTab('modules')}
                 className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all duration-150 ${
-                  activeTab === 'modules'
-                    ? 'bg-bb-blue text-white shadow-sm'
-                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                  activeTab === 'modules' ? 'bg-bb-blue text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
               >
                 Module Access
@@ -407,7 +448,7 @@ export default function UserAccounts() {
               className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-4 py-2 text-sm font-semibold text-white transition-all active:scale-[0.98]"
             >
               <Plus size={16} />
-              Magdagdag ng Account
+              Magdagdag ng Resident
             </button>
           )}
           {showAdminAccounts && (
@@ -435,7 +476,7 @@ export default function UserAccounts() {
               >
                 <div>
                   <p className="text-sm font-semibold text-gray-800">
-                    {u.name} → {u.pendingRoleRequest.requestedRole}
+                    {u.name || u.fullName} → {u.pendingRoleRequest.requestedRole}
                   </p>
                   <p className="text-xs text-gray-400">
                     Hiniling ni {u.pendingRoleRequest.requestedBy} — {u.pendingRoleRequest.requestedAt}
@@ -464,162 +505,189 @@ export default function UserAccounts() {
       )}
 
       {showResidents && (
-      <>
-      <div className="mt-4 max-w-md">
-        <SearchInput value={query} onChange={setQuery} placeholder="Hanapin ang User..." />
-      </div>
+        <>
+          <div className="mt-4 max-w-md">
+            <SearchInput value={query} onChange={setQuery} placeholder="Hanapin ang pangalan, phone, o ID..." />
+          </div>
 
-      <div className="mt-4 max-h-[calc(100vh-360px)] overflow-auto rounded-lg border border-gray-200">
-        <table className="w-full text-left text-sm">
-          <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
-            <tr>
-              <th className="px-4 py-3 font-semibold">Pangalan</th>
-              <th className="px-4 py-3 font-semibold">Role</th>
-              <th className="px-4 py-3 font-semibold">Verified</th>
-              <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 font-semibold">Aksyon</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((u) => {
-              const action = ACTION_BY_STATUS[u.status]
-              return (
-                <tr key={u.id} className="border-b border-gray-100 last:border-0">
-                  <td className="px-4 py-3 text-gray-700">{u.name}</td>
-                  <td className="px-4 py-3 text-gray-500">
-                    {u.role}
-                    {u.pendingRoleRequest && (
-                      <span className="ml-1 text-xs text-orange-500">
-                        (→ {u.pendingRoleRequest.requestedRole} pending)
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {u.verified === 'Verified' ? (
-                      <span className="inline-flex items-center gap-1 font-medium text-green-600">
-                        <CheckCircle2 size={15} /> Verified
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 font-medium text-orange-500">
-                        <AlertCircle size={15} /> Pending
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Pill color={STATUS_COLOR[u.status] ?? 'gray'} solid>
-                      {u.status}
-                    </Pill>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={() => openProfile(u.id)}
-                        className="rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-xs hover:shadow-sm hover:from-bb-blue-dark hover:to-bb-blue-dark px-3 py-1.5 text-xs font-semibold text-white transition-all"
-                      >
-                        View full Profile
-                      </button>
-                      {isAdmin && action && (
-                        <button
-                          onClick={() => setPendingStatusActionId(u.id)}
-                          className={`rounded-lg border border-black/5 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:shadow-sm transition-all hover:brightness-105 active:scale-[0.96] ${action.className}`}
-                        >
-                          {action.label}
-                        </button>
-                      )}
-                      {isAdmin && (
-                        <button
-                          onClick={() => setPendingDeleteId(u.id)}
-                          className="flex items-center gap-1 rounded-lg bg-gradient-to-b from-gray-400 to-gray-500/90 border border-gray-400/10 shadow-xs hover:shadow-sm px-3 py-1.5 text-xs font-semibold text-white hover:from-gray-500 hover:to-gray-600 transition-all"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
-                  Walang nahanap na user.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      </>
-      )}
-
-      {showAdminAccounts && (
-        <div className="mt-4 max-h-[calc(100vh-260px)] overflow-auto rounded-lg border border-gray-200">
+          <div className="mt-4 max-h-[calc(100vh-360px)] overflow-auto rounded-lg border border-gray-200">
             <table className="w-full text-left text-sm">
               <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                 <tr>
+                  <th className="px-4 py-3 font-semibold">User ID</th>
                   <th className="px-4 py-3 font-semibold">Pangalan</th>
-                  <th className="px-4 py-3 font-semibold">Email</th>
-                  <th className="px-4 py-3 font-semibold">Tungkulin</th>
+                  <th className="px-4 py-3 font-semibold">Telepono / Purok</th>
+                  <th className="px-4 py-3 font-semibold">Role</th>
+                  <th className="px-4 py-3 font-semibold">Barangay ID Status</th>
                   <th className="px-4 py-3 font-semibold">Status</th>
                   <th className="px-4 py-3 font-semibold">Aksyon</th>
                 </tr>
               </thead>
               <tbody>
-                {accounts.map((a) => (
-                  <tr key={a.id} className="border-b border-gray-100 last:border-0">
-                    <td className="px-4 py-3 text-gray-700">
-                      <div className="font-medium">{a.name}</div>
-                      <div className="mt-0.5 flex items-center gap-1.5 text-xs text-gray-400">
-                        <span>ID: {maskId(a.id)}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyId(a.id)}
-                          className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors p-0.5"
-                          title="Kopyahin ang ID"
-                        >
-                          {copiedId === a.id ? (
-                            <Check size={12} className="text-green-600" />
-                          ) : (
-                            <Copy size={12} />
+                {filtered.map((u) => {
+                  const action = ACTION_BY_STATUS[u.status]
+                  const idStatusKey = u.barangayIdStatus || 'unverified'
+                  const idStatusMeta = BARANGAY_ID_STATUS_BADGE[idStatusKey] || BARANGAY_ID_STATUS_BADGE.unverified
+                  const StatusIcon = idStatusMeta.icon
+
+                  return (
+                    <tr key={u.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
+                      <td className="px-4 py-3 font-medium text-gray-700">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+                          <span>{maskId(u.id)}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyId(u.id)}
+                            className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors p-0.5"
+                            title="Kopyahin ang ID"
+                          >
+                            {copiedId === u.id ? (
+                              <Check size={12} className="text-green-600" />
+                            ) : (
+                              <Copy size={12} />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-700 font-semibold">
+                        {u.name}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">
+                        <div>{u.phone || '—'}</div>
+                        <div className="text-xs text-gray-400">{u.address || 'Purok N/A'}</div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">
+                        {u.role || 'Residente'}
+                        {u.pendingRoleRequest && (
+                          <span className="ml-1 text-xs text-orange-500 font-medium font-semibold">
+                            (→ {u.pendingRoleRequest.requestedRole} pending)
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Pill color={idStatusMeta.color} solid={false}>
+                          <span className="flex items-center gap-1">
+                            <StatusIcon size={13} />
+                            {idStatusMeta.label}
+                          </span>
+                        </Pill>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Pill color={STATUS_COLOR[u.status] ?? 'gray'} solid>
+                          {u.status || 'Active'}
+                        </Pill>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => openProfile(u.id)}
+                            className="rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-xs hover:shadow-sm hover:from-bb-blue-dark hover:to-bb-blue-dark px-3 py-1.5 text-xs font-semibold text-white transition-all"
+                          >
+                            View Profile
+                          </button>
+                          {isAdmin && action && (
+                            <button
+                              onClick={() => setPendingStatusActionId(u.id)}
+                              className={`rounded-lg border border-black/5 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:shadow-sm transition-all hover:brightness-105 active:scale-[0.96] ${action.className}`}
+                            >
+                              {action.label}
+                            </button>
                           )}
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">{a.email}</td>
-                    <td className="px-4 py-3 text-gray-500">{a.role}</td>
-                    <td className="px-4 py-3">
-                      {a.mustChangePassword ? (
-                        <Pill color="orange" solid>
-                          Pansamantalang Password
-                        </Pill>
-                      ) : (
-                        <Pill color="green" solid>
-                          Aktibo
-                        </Pill>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          onClick={() => setPendingResetId(a.id)}
-                          className="flex items-center gap-1 rounded-lg bg-gradient-to-b from-orange-500 to-orange-600/90 border border-orange-500/10 shadow-xs hover:shadow-sm px-3 py-1.5 text-xs font-semibold text-white hover:from-orange-600 hover:to-orange-700 transition-all"
-                        >
-                          <KeyRound size={12} />
-                          I-reset ang Password
-                        </button>
-                        <button
-                          onClick={() => setPendingAdminDeleteId(a.id)}
-                          disabled={a.id === user.id}
-                          className="flex items-center gap-1 rounded-lg bg-gradient-to-b from-gray-400 to-gray-500/90 border border-gray-400/10 shadow-xs hover:shadow-sm px-3 py-1.5 text-xs font-semibold text-white hover:from-gray-500 hover:to-gray-600 transition-all disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
+                          {isAdmin && (
+                            <button
+                              onClick={() => setPendingDeleteId(u.id)}
+                              className="flex items-center gap-1 rounded-lg bg-gradient-to-b from-gray-400 to-gray-500/90 border border-gray-400/10 shadow-xs hover:shadow-sm px-3 py-1.5 text-xs font-semibold text-white hover:from-gray-500 hover:to-gray-600 transition-all"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
+                      Walang nahanap na user.
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
+          </div>
+        </>
+      )}
+
+      {showAdminAccounts && (
+        <div className="mt-4 max-h-[calc(100vh-260px)] overflow-auto rounded-lg border border-gray-200">
+          <table className="w-full text-left text-sm">
+            <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Admin ID</th>
+                <th className="px-4 py-3 font-semibold">Pangalan</th>
+                <th className="px-4 py-3 font-semibold">Email</th>
+                <th className="px-4 py-3 font-semibold">Tungkulin</th>
+                <th className="px-4 py-3 font-semibold">Status</th>
+                <th className="px-4 py-3 font-semibold">Aksyon</th>
+              </tr>
+            </thead>
+            <tbody>
+              {accounts.map((a) => (
+                <tr key={a.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
+                  <td className="px-4 py-3">
+                    <div className="font-medium flex items-center gap-1.5 text-xs text-gray-700">
+                      <span>ID: {maskId(a.id)}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyId(a.id)}
+                        className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors p-0.5"
+                        title="Kopyahin ang ID"
+                      >
+                        {copiedId === a.id ? (
+                          <Check size={12} className="text-green-600" />
+                        ) : (
+                          <Copy size={12} />
+                        )}
+                      </button>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-700 font-semibold">{a.name}</td>
+                  <td className="px-4 py-3 text-gray-500">{a.email}</td>
+                  <td className="px-4 py-3 text-gray-500">{a.role}</td>
+                  <td className="px-4 py-3">
+                    {a.mustChangePassword ? (
+                      <Pill color="orange" solid>
+                        Pansamantalang Password
+                      </Pill>
+                    ) : (
+                      <Pill color="green" solid>
+                        Aktibo
+                      </Pill>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setPendingResetId(a.id)}
+                        className="flex items-center gap-1 rounded-lg bg-gradient-to-b from-orange-500 to-orange-600/90 border border-orange-500/10 shadow-xs hover:shadow-sm px-3 py-1.5 text-xs font-semibold text-white hover:from-orange-600 hover:to-orange-700 transition-all"
+                      >
+                        <KeyRound size={12} />
+                        I-reset ang Password
+                      </button>
+                      <button
+                        onClick={() => setPendingAdminDeleteId(a.id)}
+                        disabled={a.id === user.id}
+                        className="flex items-center gap-1 rounded-lg bg-gradient-to-b from-gray-400 to-gray-500/90 border border-gray-400/10 shadow-xs hover:shadow-sm px-3 py-1.5 text-xs font-semibold text-white hover:from-gray-500 hover:to-gray-600 transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -628,9 +696,8 @@ export default function UserAccounts() {
           <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-700">
             <SlidersHorizontal size={15} className="mt-0.5 shrink-0" />
             <span>
-              Palaging naka-on ang Dashboard at Profile Management para sa lahat ng tungkulin.
-              Ang mga naka-off na module dito ay hindi lalabas sa sidebar at hindi ma-a-access
-              ng tungkuling iyon.
+              Palaging naka-on ang Dashboard at Profile Management para sa lahat ng tungkulin. Ang mga naka-off na
+              module dito ay hindi lalabas sa sidebar at hindi ma-a-access ng tungkuling iyon.
             </span>
           </div>
 
@@ -654,9 +721,7 @@ export default function UserAccounts() {
               <tbody>
                 {ASSIGNABLE_MODULES.map(({ key, label }) => (
                   <tr key={key} className="border-b border-gray-200 last:border-b-0 even:bg-gray-50/60">
-                    <td className="border-r border-gray-300 px-4 py-3 font-medium text-gray-700">
-                      {label}
-                    </td>
+                    <td className="border-r border-gray-300 px-4 py-3 font-medium text-gray-700">{label}</td>
                     {ASSIGNABLE_MODULE_ROLES.map((role, idx) => {
                       const enabled = roleModuleAccess[role]?.[key] ?? false
                       return (
@@ -701,6 +766,222 @@ export default function UserAccounts() {
         </div>
       )}
 
+      {/* MODAL: View Resident Full Profile */}
+      <Modal open={!!viewingUser} onClose={() => setViewingId(null)} title="Buong Profile ng Resident">
+        {viewingUser && (
+          <div>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-lg font-bold text-gray-900">
+                  {viewingUser.name || `${viewingUser.firstName ?? ''} ${viewingUser.lastName ?? ''}`.trim()}
+                </h4>
+                <div className="flex flex-col gap-0.5">
+                  <p className="text-sm text-gray-500">{viewingUser.role || 'Residente'}</p>
+                  <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                    <span>ID: {maskId(viewingUser.id)}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyId(viewingUser.id)}
+                      className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors p-0.5"
+                      title="Kopyahin ang ID"
+                    >
+                      {copiedId === viewingUser.id ? (
+                        <Check size={12} className="text-green-600" />
+                      ) : (
+                        <Copy size={12} />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <Pill color={STATUS_COLOR[viewingUser.status] ?? 'gray'} solid>
+                {viewingUser.status || 'Active'}
+              </Pill>
+            </div>
+
+            {/* Governance Status Section */}
+            <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                Governance Verification Status
+              </p>
+              <div className="mt-2 flex items-center justify-between">
+                <Pill
+                  color={
+                    BARANGAY_ID_STATUS_BADGE[viewingUser.barangayIdStatus || 'unverified']?.color || 'gray'
+                  }
+                >
+                  {BARANGAY_ID_STATUS_BADGE[viewingUser.barangayIdStatus || 'unverified']?.label}
+                </Pill>
+
+                <div className="flex gap-2">
+                  {(isSecretary || isAdmin) && (viewingUser.barangayIdStatus === 'unverified' || viewingUser.barangayIdStatus === 'Pending') && (
+                    <button
+                      onClick={() => updateBarangayIdStatus(viewingUser, 'secretary_verified')}
+                      className="rounded-lg bg-gradient-to-b from-orange-500 to-orange-600/90 border border-orange-500/10 shadow-xs hover:shadow-sm px-3 py-1 text-xs font-semibold text-white hover:from-orange-600 hover:to-orange-700 transition-all"
+                    >
+                      Verify as Secretary
+                    </button>
+                  )}
+                  {(isCaptain || isAdmin) && viewingUser.barangayIdStatus === 'secretary_verified' && (
+                    <button
+                      onClick={() => updateBarangayIdStatus(viewingUser, 'pb_authorized')}
+                      className="rounded-lg bg-gradient-to-b from-green-600 to-green-700/90 border border-green-600/10 shadow-xs hover:shadow-sm px-3 py-1 text-xs font-semibold text-white hover:from-green-700 hover:to-green-800 transition-all"
+                    >
+                      Authorize (Punong Barangay)
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-2.5 rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
+              <div className="flex items-center gap-2.5">
+                <Mail size={15} className="shrink-0 text-gray-400" />
+                {viewingUser.email || 'Walang email address'}
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Phone size={15} className="shrink-0 text-gray-400" />
+                {viewingUser.phone || 'Walang numero'}
+              </div>
+              <div className="flex items-center gap-2.5">
+                <MapPin size={15} className="shrink-0 text-gray-400" />
+                {viewingUser.address || 'Purok N/A'}
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Calendar size={15} className="shrink-0 text-gray-400" />
+                Nagparehistro noong {viewingUser.dateRegistered || 'N/A'}
+              </div>
+            </div>
+
+            {isAdmin && (
+              <div className="mt-5 border-t border-gray-100 pt-4">
+                <h5 className="text-sm font-semibold text-gray-700">Baguhin ang Tungkulin</h5>
+                {viewingUser.pendingRoleRequest ? (
+                  <p className="mt-2 text-xs text-orange-500">
+                    May nakabinbing kahilingan patungong {viewingUser.pendingRoleRequest.requestedRole}.
+                  </p>
+                ) : (
+                  <div className="mt-2 flex gap-2">
+                    <select
+                      value={roleChoice}
+                      onChange={(e) => setRoleChoice(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+                    >
+                      <option value="">Pumili ng bagong tungkulin...</option>
+                      {ASSIGNABLE_ROLES.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => requestRoleAssignment(viewingUser)}
+                      className="shrink-0 rounded-lg bg-bb-navy px-4 py-2 text-sm font-semibold text-white hover:bg-bb-blue-dark"
+                    >
+                      I-assign
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {isAdmin && ACTION_BY_STATUS[viewingUser.status] && (
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => setPendingStatusActionId(viewingUser.id)}
+                  className={`rounded-lg border border-black/5 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:shadow-sm transition-all hover:brightness-105 active:scale-[0.98] ${
+                    ACTION_BY_STATUS[viewingUser.status].className
+                  }`}
+                >
+                  {ACTION_BY_STATUS[viewingUser.status].label}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* MODAL: Add New Resident */}
+      <Modal open={addingAccount} onClose={() => setAddingAccount(false)} title="Magdagdag ng Resident Account">
+        <form onSubmit={submitNewAccount} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-semibold text-gray-700">First Name</span>
+              <input
+                type="text"
+                required
+                value={newAccount.firstName}
+                onChange={(e) => setNewAccount((a) => ({ ...a, firstName: e.target.value }))}
+                placeholder="Juan"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-semibold text-gray-700">Last Name</span>
+              <input
+                type="text"
+                required
+                value={newAccount.lastName}
+                onChange={(e) => setNewAccount((a) => ({ ...a, lastName: e.target.value }))}
+                placeholder="Dela Cruz"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+              />
+            </label>
+          </div>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Mobile Phone Number</span>
+            <input
+              type="text"
+              required
+              value={newAccount.phone}
+              onChange={(e) => setNewAccount((a) => ({ ...a, phone: e.target.value }))}
+              placeholder="09171234567"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Purok / Address</span>
+            <input
+              type="text"
+              required
+              value={newAccount.purok}
+              onChange={(e) => setNewAccount((a) => ({ ...a, purok: e.target.value }))}
+              placeholder="Purok 3"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Email Address</span>
+            <input
+              type="email"
+              required
+              value={newAccount.email}
+              onChange={(e) => setNewAccount((a) => ({ ...a, email: e.target.value }))}
+              placeholder="juan@example.com"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Password</span>
+            <input
+              type="password"
+              required
+              value={newAccount.password}
+              onChange={(e) => setNewAccount((a) => ({ ...a, password: e.target.value }))}
+              placeholder="Min. 6 characters"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+            />
+          </label>
+          <button
+            type="submit"
+            className="w-full rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-2.5 font-semibold text-white transition-all active:scale-[0.98]"
+          >
+            Isumite
+          </button>
+        </form>
+      </Modal>
+
+      {/* MODAL: Create Admin Portal Account */}
       <Modal
         open={addingAdminAccount}
         onClose={() => setAddingAdminAccount(false)}
@@ -796,8 +1077,8 @@ export default function UserAccounts() {
         message={
           pendingModuleToggle
             ? pendingModuleToggle.enabled
-              ? `Sigurado ka bang gusto mong i-on ang "${pendingModuleToggle.moduleLabel}" para sa tungkuling ${pendingModuleToggle.role}? Makikita na nila ito sa sidebar at magkakaroon sila ng access dito.`
-              : `Sigurado ka bang gusto mong i-off ang "${pendingModuleToggle.moduleLabel}" para sa tungkuling ${pendingModuleToggle.role}? Mawawala ito sa sidebar nila at hindi na nila maaring ma-access ang module na ito.`
+              ? `Sigurado ka bang gusto mong i-on ang "${pendingModuleToggle.moduleLabel}" para sa tungkulin na ${pendingModuleToggle.role}? Makikita na nila ito sa sidebar at magkakaroon sila ng access dito.`
+              : `Sigurado ka bang gusto mong i-off ang "${pendingModuleToggle.moduleLabel}" para sa tungkulin na ${pendingModuleToggle.role}? Mawawala ito sa sidebar nila at hindi na nila maaring ma-access ang module na ito.`
             : ''
         }
         confirmLabel={pendingModuleToggle?.enabled ? 'I-on' : 'I-off'}
@@ -813,176 +1094,6 @@ export default function UserAccounts() {
         confirmLabel="Tanggalin"
       />
 
-      <Modal open={!!viewingUser} onClose={() => setViewingId(null)} title="Buong Profile ng User">
-        {viewingUser && (
-          <div>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h4 className="text-lg font-bold text-gray-900">{viewingUser.name}</h4>
-                <div className="flex flex-col gap-0.5">
-                  <p className="text-sm text-gray-500">{viewingUser.role}</p>
-                  <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                    <span>ID: {maskId(viewingUser.id)}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleCopyId(viewingUser.id)}
-                      className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors p-0.5"
-                      title="Kopyahin ang ID"
-                    >
-                      {copiedId === viewingUser.id ? (
-                        <Check size={12} className="text-green-600" />
-                      ) : (
-                        <Copy size={12} />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <Pill color={STATUS_COLOR[viewingUser.status] ?? 'gray'} solid>
-                {viewingUser.status}
-              </Pill>
-            </div>
-
-            <div className="mt-4 flex items-center gap-1.5 text-sm font-medium">
-              {viewingUser.verified === 'Verified' ? (
-                <span className="inline-flex items-center gap-1 text-green-600">
-                  <CheckCircle2 size={15} /> Verified na account
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-orange-500">
-                  <AlertCircle size={15} /> Naghihintay ng verification
-                </span>
-              )}
-            </div>
-
-            <div className="mt-4 space-y-2.5 rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
-              <div className="flex items-center gap-2.5">
-                <Mail size={15} className="shrink-0 text-gray-400" />
-                {viewingUser.email}
-              </div>
-              <div className="flex items-center gap-2.5">
-                <Phone size={15} className="shrink-0 text-gray-400" />
-                {viewingUser.phone}
-              </div>
-              <div className="flex items-center gap-2.5">
-                <MapPin size={15} className="shrink-0 text-gray-400" />
-                {viewingUser.address}
-              </div>
-              <div className="flex items-center gap-2.5">
-                <Calendar size={15} className="shrink-0 text-gray-400" />
-                Nagparehistro noong {viewingUser.dateRegistered}
-              </div>
-            </div>
-
-            {isAdmin && (
-              <div className="mt-5 border-t border-gray-100 pt-4">
-                <h5 className="text-sm font-semibold text-gray-700">Baguhin ang Tungkulin</h5>
-                {viewingUser.pendingRoleRequest ? (
-                  <p className="mt-2 text-xs text-orange-500">
-                    May nakabinbing kahilingan patungong {viewingUser.pendingRoleRequest.requestedRole}.
-                  </p>
-                ) : (
-                  <div className="mt-2 flex gap-2">
-                    <select
-                      value={roleChoice}
-                      onChange={(e) => setRoleChoice(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-                    >
-                      <option value="">Pumili ng bagong tungkulin...</option>
-                      {ASSIGNABLE_ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={() => requestRoleAssignment(viewingUser)}
-                      className="shrink-0 rounded-lg bg-bb-navy px-4 py-2 text-sm font-semibold text-white hover:bg-bb-blue-dark"
-                    >
-                      I-assign
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {isAdmin && ACTION_BY_STATUS[viewingUser.status] && (
-              <div className="mt-4 flex justify-end">
-                <button
-                  onClick={() => setPendingStatusActionId(viewingUser.id)}
-                  className={`rounded-lg border border-black/5 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:shadow-sm transition-all hover:brightness-105 active:scale-[0.98] ${ACTION_BY_STATUS[viewingUser.status].className}`}
-                >
-                  {ACTION_BY_STATUS[viewingUser.status].label}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
-
-      <Modal open={addingAccount} onClose={() => setAddingAccount(false)} title="Magdagdag ng Account">
-        <form onSubmit={submitNewAccount} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-semibold text-gray-700">First Name</span>
-              <input
-                type="text"
-                required
-                value={newAccount.first_name}
-                onChange={(e) => setNewAccount((a) => ({ ...a, first_name: e.target.value }))}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-semibold text-gray-700">Last Name</span>
-              <input
-                type="text"
-                required
-                value={newAccount.last_name}
-                onChange={(e) => setNewAccount((a) => ({ ...a, last_name: e.target.value }))}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-              />
-            </label>
-          </div>
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Purok / Address</span>
-            <input
-              type="text"
-              required
-              value={newAccount.address}
-              onChange={(e) => setNewAccount((a) => ({ ...a, address: e.target.value }))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Email Address</span>
-            <input
-              type="email"
-              required
-              value={newAccount.email}
-              onChange={(e) => setNewAccount((a) => ({ ...a, email: e.target.value }))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Password</span>
-            <input
-              type="password"
-              required
-              value={newAccount.password}
-              onChange={(e) => setNewAccount((a) => ({ ...a, password: e.target.value }))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-            />
-          </label>
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-2.5 font-semibold text-white transition-all active:scale-[0.98]"
-          >
-            Isumite
-          </button>
-        </form>
-      </Modal>
-
       <ConfirmDialog
         open={pendingDeleteId != null}
         onClose={() => setPendingDeleteId(null)}
@@ -996,12 +1107,10 @@ export default function UserAccounts() {
         open={pendingStatusActionId != null}
         onClose={() => setPendingStatusActionId(null)}
         onConfirm={confirmStatusAction}
-        title={
-          pendingStatusUser && pendingStatusActionMeta ? pendingStatusActionMeta.confirmTitle : ''
-        }
+        title={pendingStatusUser && pendingStatusActionMeta ? pendingStatusActionMeta.confirmTitle : ''}
         message={
           pendingStatusUser && pendingStatusActionMeta
-            ? pendingStatusActionMeta.confirmMessage(pendingStatusUser.name)
+            ? pendingStatusActionMeta.confirmMessage(pendingStatusUser.name || pendingStatusUser.fullName)
             : ''
         }
         confirmLabel={pendingStatusActionMeta?.label ?? 'Kumpirmahin'}
@@ -1015,7 +1124,9 @@ export default function UserAccounts() {
         title="I-assign ang Tungkulin"
         message={
           pendingRoleAssignment
-            ? `Sigurado ka bang gusto mong gawing ${pendingRoleAssignment.role} si ${pendingRoleAssignment.targetUser.name}? ${
+            ? `Sigurado ka bang gusto mong gawing ${pendingRoleAssignment.role} si ${
+                pendingRoleAssignment.targetUser.name || pendingRoleAssignment.targetUser.fullName
+              }? ${
                 ROLES_REQUIRING_PB_APPROVAL.includes(pendingRoleAssignment.role)
                   ? 'Isusumite ito bilang kahilingan para sa PB approval.'
                   : 'Agad itong magkakabisa.'
@@ -1034,8 +1145,12 @@ export default function UserAccounts() {
         message={
           pendingRoleDecision
             ? pendingRoleDecision.decision === 'approve'
-              ? `Sigurado ka bang gusto mong aprubahan na gawing ${pendingRoleDecision.targetUser.pendingRoleRequest?.requestedRole} si ${pendingRoleDecision.targetUser.name}?`
-              : `Sigurado ka bang gusto mong tanggihan ang kahilingan sa tungkulin ni ${pendingRoleDecision.targetUser.name}?`
+              ? `Sigurado ka bang gusto mong aprubahan na gawing ${
+                  pendingRoleDecision.targetUser.pendingRoleRequest?.requestedRole
+                } si ${pendingRoleDecision.targetUser.name || pendingRoleDecision.targetUser.fullName}?`
+              : `Sigurado ka bang gusto mong tanggihan ang kahilingan sa tungkulin ni ${
+                  pendingRoleDecision.targetUser.name || pendingRoleDecision.targetUser.fullName
+                }?`
             : ''
         }
         confirmLabel={pendingRoleDecision?.decision === 'approve' ? 'Aprubahan' : 'Tanggihan'}

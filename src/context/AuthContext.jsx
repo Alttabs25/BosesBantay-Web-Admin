@@ -211,8 +211,36 @@ export function AuthProvider({ children }) {
       return { success: false, error: error.message }
     }
 
-    // Force wait a short delay for trigger to fire and profile to exist
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    // Backup manual profile creation in case DB trigger is missing or disabled
+    try {
+      const { data: profile } = await authAdminClient
+        .from('users')
+        .select('id')
+        .eq('id', data.user.id)
+        .maybeSingle()
+
+      if (!profile) {
+        const { data: roleObj } = await authAdminClient
+          .from('roles')
+          .select('role_id')
+          .eq('role_name', role)
+          .maybeSingle()
+
+        await authAdminClient.from('users').insert({
+          id: data.user.id,
+          role_id: roleObj?.role_id || null,
+          first_name,
+          last_name,
+          email: email.trim(),
+          address: 'N/A',
+          barangay_id_image: 'N/A',
+          verification_status: 'Pending',
+          approval_status: 'Pending'
+        })
+      }
+    } catch (e) {
+      console.error('Manual admin profile backup insertion failed:', e)
+    }
 
     const newAccount = {
       id: data.user.id,
@@ -245,9 +273,38 @@ export function AuthProvider({ children }) {
       return { success: false, error: error.message }
     }
 
-    // Force wait a short delay for trigger to fire and profile to exist
-    await new Promise((resolve) => setTimeout(resolve, 600))
-    return { success: true }
+    // Backup manual profile creation in case DB trigger is missing or disabled
+    try {
+      const { data: profile } = await authAdminClient
+        .from('users')
+        .select('id')
+        .eq('id', data.user.id)
+        .maybeSingle()
+
+      if (!profile) {
+        const { data: roleObj } = await authAdminClient
+          .from('roles')
+          .select('role_id')
+          .eq('role_name', 'Residente')
+          .maybeSingle()
+
+        await authAdminClient.from('users').insert({
+          id: data.user.id,
+          role_id: roleObj?.role_id || null,
+          first_name: first_name.trim(),
+          last_name: last_name.trim(),
+          email: email.trim(),
+          address: address.trim() || 'N/A',
+          barangay_id_image: 'N/A',
+          verification_status: 'Pending',
+          approval_status: 'Pending'
+        })
+      }
+    } catch (e) {
+      console.error('Manual resident profile backup insertion failed:', e)
+    }
+
+    return { success: true, user: data?.user }
   }
 
   const resetAdminAccountPassword = async (accountId, newTempPassword) => {

@@ -151,6 +151,7 @@ export function DataProvider({ children }) {
             name: `${u.first_name} ${u.last_name}`.trim(),
             role: u.roles?.role_name || 'Residente',
             verified: u.verification_status === 'Verified' ? 'Verified' : 'Pending',
+            barangayIdStatus: u.verification_status || 'unverified',
             status: u.approval_status || 'Pending',
             email: u.email,
             phone: u.mobile_number || '',
@@ -381,6 +382,7 @@ export function DataProvider({ children }) {
       if (patch.address) updateFields.address = patch.address
       if (patch.status) updateFields.approval_status = patch.status
       if (patch.verified) updateFields.verification_status = patch.verified === 'Verified' ? 'Verified' : 'Pending'
+      if (patch.barangayIdStatus) updateFields.verification_status = patch.barangayIdStatus
       
       if (patch.role) {
         const { data: roleObj } = await supabase
