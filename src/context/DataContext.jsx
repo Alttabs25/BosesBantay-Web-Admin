@@ -216,12 +216,13 @@ export function DataProvider({ children }) {
         // Fetch Manual Form Reports submitted by residents
         const { data: reportsData, error: reportsErr } = await supabase
           .from('reports')
-          .select('*, users(first_name, last_name)')
+          .select('*')
 
         let mappedReports = []
         if (!reportsErr && reportsData) {
           mappedReports = reportsData.map(r => {
-            const filedBy = r.users ? `${r.users.first_name} ${r.users.last_name}`.trim() : 'Residente'
+            const userObj = usersData?.find(u => u.id === r.user_id)
+            const filedBy = userObj ? `${userObj.first_name} ${userObj.last_name}`.trim() : 'Residente'
             
             // Translate resident-end status to web-admin status
             let adminStatus = 'Sinuri'
