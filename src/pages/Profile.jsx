@@ -33,29 +33,41 @@ export default function Profile() {
       return
     }
     const reader = new FileReader()
-    reader.onload = () => {
-      updateUser({ avatarUrl: reader.result })
-      addAuditEntry('Nag-upload ng bagong profile picture', { color: 'blue' })
-      showToast('Na-update ang profile picture.')
+    reader.onload = async () => {
+      const res = await updateUser({ avatarUrl: reader.result })
+      if (res && !res.success) {
+        showToast(res.error || 'Hindi ma-update ang profile picture.', 'error')
+      } else {
+        addAuditEntry('Nag-upload ng bagong profile picture', { color: 'blue' })
+        showToast('Na-update ang profile picture.')
+      }
     }
     reader.readAsDataURL(file)
   }
 
-  const confirmRemoveAvatar = () => {
-    updateUser({ avatarUrl: null })
-    addAuditEntry('Inalis ang profile picture', { color: 'orange' })
-    showToast('Naalis ang profile picture.')
+  const confirmRemoveAvatar = async () => {
+    const res = await updateUser({ avatarUrl: null })
+    if (res && !res.success) {
+      showToast(res.error || 'Hindi maalis ang profile picture.', 'error')
+    } else {
+      addAuditEntry('Inalis ang profile picture', { color: 'orange' })
+      showToast('Naalis ang profile picture.')
+    }
   }
 
-  const saveInfo = (e) => {
+  const saveInfo = async (e) => {
     e.preventDefault()
     if (!name.trim() || !email.trim()) {
       showToast('Kumpletuhin ang pangalan at email.', 'error')
       return
     }
-    updateUser({ name: name.trim(), email: email.trim() })
-    addAuditEntry('In-update ang profile information', { color: 'blue' })
-    showToast('Na-save ang mga pagbabago sa profile.')
+    const res = await updateUser({ name: name.trim(), email: email.trim() })
+    if (res && !res.success) {
+      showToast(res.error || 'Hindi ma-save ang mga pagbabago.', 'error')
+    } else {
+      addAuditEntry('In-update ang profile information', { color: 'blue' })
+      showToast('Na-save ang mga pagbabago sa profile.')
+    }
   }
 
   const submitPasswordChange = (e) => {

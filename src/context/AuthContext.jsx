@@ -73,6 +73,7 @@ export function AuthProvider({ children }) {
             name: `${profile.first_name} ${profile.last_name}`.trim(),
             role: profile.roles?.role_name || 'System Administrator',
             email: session.user.email,
+            avatarUrl: profile.avatar_url || null,
             mustChangePassword: session.user.user_metadata?.must_change_password || false,
           })
         } else {
@@ -120,6 +121,7 @@ export function AuthProvider({ children }) {
       name: profile ? `${profile.first_name} ${profile.last_name}`.trim() : 'Admin User',
       role: profile?.roles?.role_name || 'System Administrator',
       email: data.user.email,
+      avatarUrl: profile?.avatar_url || null,
       mustChangePassword: data.user.user_metadata?.must_change_password || false,
     }
 
@@ -132,7 +134,7 @@ export function AuthProvider({ children }) {
   }
 
   const updateUser = async (partial) => {
-    if (!user) return
+    if (!user) return { success: false, error: 'Not authenticated' }
 
     let patch = {}
     if (partial.name) {
@@ -141,16 +143,21 @@ export function AuthProvider({ children }) {
       patch.last_name = parts.slice(1).join(' ')
     }
     if (partial.email) patch.email = partial.email
+    if ('avatarUrl' in partial) patch.avatar_url = partial.avatarUrl
 
     const { error } = await supabase
       .from('users')
       .update(patch)
       .eq('id', user.id)
 
-    if (!error) {
-      setUser((prev) => (prev ? { ...prev, ...partial } : null))
-      fetchAccounts()
+    if (error) {
+      console.error('Error updating profile:', error)
+      return { success: false, error: error.message }
     }
+
+    setUser((prev) => (prev ? { ...prev, ...partial } : null))
+    fetchAccounts()
+    return { success: true }
   }
 
   const changePassword = async ({ currentPassword, newPassword }) => {

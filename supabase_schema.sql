@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS public.users (
     mobile_number VARCHAR(20) UNIQUE,
     email VARCHAR(100) UNIQUE NOT NULL,
     address TEXT NOT NULL,
+    avatar_url TEXT NULL,
     barangay_id_image TEXT NULL, -- changed to NULL for easy initial admin seedings
     verification_status VARCHAR(20) DEFAULT 'Pending',
     approval_status VARCHAR(20) DEFAULT 'Pending',
