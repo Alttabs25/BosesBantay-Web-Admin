@@ -84,6 +84,14 @@ export const PERMISSIONS = {
     [CAPTAIN]: ['read', 'update'],
     [ADMIN]: ['read', 'update'],
   },
+  directory: {
+    [SECRETARY]: ['read'],
+    [TANOD]: ['read'],
+    [LUPON]: ['read'],
+    [KAGAWAD]: ['read'],
+    [CAPTAIN]: ['read', 'update'],
+    [ADMIN]: ['create', 'read', 'update', 'delete'],
+  },
 }
 
 // Roles that require Punong Barangay sign-off before an Admin-assigned role
@@ -110,6 +118,7 @@ export const ASSIGNABLE_MODULES = [
   { key: 'alerts', label: 'In-App notification' },
   { key: 'reports', label: 'Reports' },
   { key: 'auditLogs', label: 'Audit Logs' },
+  { key: 'directory', label: 'Emergency Directory' },
 ]
 
 // Roles whose module access the System Administrator can reassign. ADMIN is

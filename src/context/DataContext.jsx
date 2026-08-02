@@ -25,6 +25,7 @@ export function DataProvider({ children }) {
   const [alertHistory, setAlertHistory] = useState([])
   const [auditLog, setAuditLog] = useState([])
   const [roleModuleAccess, setRoleModuleAccess] = useState(defaultModuleAccessMap)
+  const [emergencyContacts, setEmergencyContacts] = useState([])
   const [loading, setLoading] = useState(true)
 
   // Seed database if empty
@@ -114,6 +115,19 @@ export function DataProvider({ children }) {
               }])
           }
         }
+      // 5. Check and seed emergency_contacts
+      const { count: contactsCount } = await supabase
+        .from('emergency_contacts')
+        .select('*', { count: 'exact', head: true })
+      if (contactsCount === 0) {
+        const contactsToInsert = [
+          { agency_name: 'BFP Milagrosa', contact_person: 'Fire Department', phone_number: '0912-345-6789', category: 'Emergency', is_active: true },
+          { agency_name: 'PNP Station 5', contact_person: 'Police Department', phone_number: '0923-456-7890', category: 'Emergency', is_active: true },
+          { agency_name: 'Barangay Hall', contact_person: 'Desk Officer', phone_number: '0934-567-8901', category: 'Barangay Services', is_active: true },
+          { agency_name: 'Barangay Tanod', contact_person: 'BPSO Chief', phone_number: '0945-678-9012', category: 'Barangay Services', is_active: true },
+          { agency_name: 'Barangay Health Center', contact_person: 'Health Worker', phone_number: '0956-789-0123', category: 'Barangay Services', is_active: true },
+        ]
+        await supabase.from('emergency_contacts').insert(contactsToInsert)
       }
     } catch (err) {
       console.error('Error seeding database:', err)
@@ -255,6 +269,24 @@ export function DataProvider({ children }) {
         })
         setAuditLog(mappedLogs)
       }
+
+      // 5. Fetch Emergency Contacts
+      const { data: contactsData, error: contactsErr } = await supabase
+        .from('emergency_contacts')
+        .select('*')
+        .order('contact_id', { ascending: true })
+
+      if (!contactsErr && contactsData) {
+        setEmergencyContacts(contactsData.map(c => ({
+          id: c.contact_id,
+          agencyName: c.agency_name,
+          contactPerson: c.contact_person || '',
+          phoneNumber: c.phone_number,
+          category: c.category || 'Emergency',
+          isActive: c.is_active ?? true,
+          authorizedBy: c.authorized_by || null
+        })))
+      }
     } catch (err) {
       console.error('Error loading data from Supabase:', err)
     } finally {
@@ -383,6 +415,58 @@ export function DataProvider({ children }) {
       fetchData()
     } catch (err) {
       console.error('Error suspending user:', err)
+    }
+  }
+
+  const addEmergencyContact = async (contact) => {
+    try {
+      await supabase.from('emergency_contacts').insert([{
+        agency_name: contact.agencyName,
+        contact_person: contact.contactPerson || '',
+        phone_number: contact.phoneNumber,
+        category: contact.category,
+        is_active: contact.isActive ?? true,
+        authorized_by: user?.id || null
+      }])
+      fetchData()
+    } catch (err) {
+      console.error('Error adding emergency contact:', err)
+    }
+  }
+
+  const updateEmergencyContact = async (id, patch) => {
+    try {
+      const updateFields = {}
+      if (patch.agencyName !== undefined) updateFields.agency_name = patch.agencyName
+      if (patch.contactPerson !== undefined) updateFields.contact_person = patch.contactPerson
+      if (patch.phoneNumber !== undefined) updateFields.phone_number = patch.phoneNumber
+      if (patch.category !== undefined) updateFields.category = patch.category
+      if (patch.isActive !== undefined) {
+        updateFields.is_active = patch.isActive
+        if (patch.isActive) {
+          updateFields.authorized_by = user?.id || null
+        }
+      }
+
+      await supabase
+        .from('emergency_contacts')
+        .update(updateFields)
+        .eq('contact_id', id)
+      fetchData()
+    } catch (err) {
+      console.error('Error updating emergency contact:', err)
+    }
+  }
+
+  const deleteEmergencyContact = async (id) => {
+    try {
+      await supabase
+        .from('emergency_contacts')
+        .delete()
+        .eq('contact_id', id)
+      fetchData()
+    } catch (err) {
+      console.error('Error deleting emergency contact:', err)
     }
   }
 
@@ -577,6 +661,10 @@ export function DataProvider({ children }) {
         roleModuleAccess,
         setModuleAccess,
         hasDynamicModuleAccess,
+        emergencyContacts,
+        addEmergencyContact,
+        updateEmergencyContact,
+        deleteEmergencyContact,
         loading,
         fetchData,
       }}

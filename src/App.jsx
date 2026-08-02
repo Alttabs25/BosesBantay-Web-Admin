@@ -14,6 +14,7 @@ import Alerts from './pages/Alerts'
 import Reports from './pages/Reports'
 import AuditLogs from './pages/AuditLogs'
 import Profile from './pages/Profile'
+import EmergencyDirectory from './pages/EmergencyDirectory'
 
 function App() {
   return (
@@ -73,6 +74,14 @@ function App() {
           element={
             <RoleGuard module="knowledgeBase">
               <KnowledgeBase />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/directory"
+          element={
+            <RoleGuard module="directory">
+              <EmergencyDirectory />
             </RoleGuard>
           }
         />
