@@ -118,7 +118,7 @@ export default function Profile() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 rounded-full bg-bb-blue px-3 py-1.5 text-xs font-semibold text-white hover:bg-bb-blue-dark"
+              className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-3 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.98]"
             >
               <Camera size={13} />
               Mag-upload ng Larawan
@@ -127,7 +127,7 @@ export default function Profile() {
               <button
                 type="button"
                 onClick={() => setConfirmingRemoveAvatar(true)}
-                className="flex items-center gap-1.5 rounded-full bg-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-300"
+                className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-gray-200 to-gray-300/80 border border-gray-200/20 shadow-sm hover:shadow hover:from-gray-300 hover:to-gray-400 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-700 transition-all active:scale-[0.98]"
               >
                 <Trash2 size={13} />
                 Alisin
@@ -187,7 +187,7 @@ export default function Profile() {
 
         <button
           type="submit"
-          className="flex items-center gap-2 rounded-lg bg-bb-navy px-5 py-2 font-semibold text-white hover:bg-bb-blue-dark transition-colors"
+          className="flex items-center gap-2 rounded-lg bg-gradient-to-b from-bb-navy to-bb-navy/90 border border-bb-navy/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-5 py-2 font-semibold text-white transition-all active:scale-[0.98]"
         >
           <Save size={16} />
           I-save ang Pagbabago
@@ -243,7 +243,7 @@ export default function Profile() {
 
         <button
           type="submit"
-          className="flex items-center gap-2 rounded-lg bg-bb-blue px-5 py-2 font-semibold text-white hover:bg-bb-blue-dark transition-colors"
+          className="flex items-center gap-2 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-5 py-2 font-semibold text-white transition-all active:scale-[0.98]"
         >
           <KeyRound size={16} />
           I-update ang Password

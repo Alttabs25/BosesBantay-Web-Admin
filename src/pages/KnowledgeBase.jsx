@@ -129,7 +129,7 @@ export default function KnowledgeBase() {
                       {canApprove && doc.officialStatus !== 'Opisyal' && doc.status !== 'Retired' && (
                         <button
                           onClick={() => setPendingApproveTitle(doc.title)}
-                          className="flex items-center gap-1 rounded-full bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700"
+                          className="flex items-center gap-1 rounded-lg bg-gradient-to-b from-green-600 to-green-700/90 border border-green-600/10 shadow-xs hover:shadow-sm px-3 py-1.5 text-xs font-semibold text-white hover:from-green-700 hover:to-green-800 transition-all active:scale-[0.96]"
                         >
                           <ShieldCheck size={12} />
                           Gawing Opisyal
@@ -138,7 +138,7 @@ export default function KnowledgeBase() {
                       {canDelete && doc.status !== 'Retired' && (
                         <button
                           onClick={() => setPendingRetireTitle(doc.title)}
-                          className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+                          className="rounded-lg bg-gradient-to-b from-red-600 to-red-700/90 border border-red-600/10 shadow-xs hover:shadow-sm px-3 py-1.5 text-xs font-semibold text-white hover:from-red-700 hover:to-red-800 transition-all active:scale-[0.96]"
                         >
                           Retire File
                         </button>

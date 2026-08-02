@@ -210,7 +210,7 @@ export default function DigitalBlotter() {
                 </div>
                 <button
                   onClick={() => expand(report)}
-                  className="rounded-full bg-gray-500 px-4 py-1.5 text-xs font-semibold text-white hover:bg-gray-600"
+                  className="rounded-lg bg-gradient-to-b from-gray-500 to-gray-600/90 border border-gray-500/10 shadow-xs hover:shadow-sm hover:from-gray-600 hover:to-gray-700 px-4 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96]"
                 >
                   Tingnan ang report
                 </button>
@@ -231,14 +231,14 @@ export default function DigitalBlotter() {
                       <>
                         <button
                           onClick={() => requestConfirmReport(report)}
-                          className="flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-bb-blue hover:bg-white/90"
+                          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-white to-gray-100/90 border border-gray-200 shadow-xs hover:shadow-sm text-bb-blue px-4 py-1.5 text-xs font-semibold hover:from-gray-50 hover:to-gray-150 transition-all active:scale-[0.96]"
                         >
                           <CheckCircle2 size={13} />
                           Kumpirmahin
                         </button>
                         <button
                           onClick={() => requestFlagSpam(report)}
-                          className="flex items-center gap-1.5 rounded-full bg-red-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+                          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-red-600 to-red-700/90 border border-red-600/10 shadow-xs hover:shadow-sm px-4 py-1.5 text-xs font-semibold text-white hover:from-red-700 hover:to-red-800 transition-all active:scale-[0.96]"
                         >
                           <ShieldAlert size={13} />
                           I-flag bilang Spam
@@ -256,7 +256,7 @@ export default function DigitalBlotter() {
               <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
                 {FIVE_W_ONE_H.map(([label, key]) => (
                   <div key={key} className="rounded-lg border border-gray-200 p-3">
-                    <span className="inline-block rounded-full bg-bb-blue-light px-2.5 py-0.5 text-xs font-semibold text-bb-blue">
+                    <span className="inline-block rounded-md bg-bb-blue-light px-2.5 py-0.5 text-xs font-semibold text-bb-blue">
                       {label}
                     </span>
                     <p className="mt-2 text-sm text-gray-700">{report[key]}</p>
@@ -306,7 +306,7 @@ export default function DigitalBlotter() {
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
                         onClick={() => requestScheduleHearing(report)}
-                        className="flex items-center gap-1.5 rounded-full bg-bb-blue px-4 py-1.5 text-xs font-semibold text-white hover:bg-bb-blue-dark"
+                        className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-xs hover:shadow-sm hover:from-bb-blue-dark hover:to-bb-blue-dark px-4 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96]"
                       >
                         <CalendarClock size={13} />
                         I-iskedyul ang Pagdinig
@@ -314,7 +314,7 @@ export default function DigitalBlotter() {
                       {report.hearingDate && !report.hearingCompleted && (
                         <button
                           onClick={() => requestMarkHearingHeld(report)}
-                          className="flex items-center gap-1.5 rounded-full bg-green-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-green-700"
+                          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-green-600 to-green-700/90 border border-green-600/10 shadow-xs hover:shadow-sm px-4 py-1.5 text-xs font-semibold text-white hover:from-green-700 hover:to-green-800 transition-all active:scale-[0.96]"
                         >
                           <CalendarCheck2 size={13} />
                           Markahan na Naganap ang Pagdinig
@@ -344,7 +344,7 @@ export default function DigitalBlotter() {
                           </select>
                           <button
                             onClick={() => requestFinalize(report)}
-                            className="shrink-0 rounded-full bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-700"
+                            className="shrink-0 rounded-lg bg-gradient-to-b from-green-600 to-green-700/90 border border-green-600/10 shadow-xs hover:shadow-sm px-4 py-2 text-xs font-semibold text-white hover:from-green-700 hover:to-green-800 transition-all active:scale-[0.98]"
                           >
                             Markahan bilang Nalutas
                           </button>
@@ -381,7 +381,7 @@ export default function DigitalBlotter() {
               <div className="border-t border-gray-100 p-4">
                 <button
                   onClick={() => setExpandedId(null)}
-                  className="rounded-full bg-gray-500 px-4 py-1.5 text-xs font-semibold text-white hover:bg-gray-600"
+                  className="rounded-lg bg-gradient-to-b from-gray-500 to-gray-600/90 border border-gray-500/10 shadow-xs hover:shadow-sm hover:from-gray-600 hover:to-gray-700 px-4 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96]"
                 >
                   Isara ang Report
                 </button>

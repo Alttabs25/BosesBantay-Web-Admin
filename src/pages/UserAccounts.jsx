@@ -903,7 +903,7 @@ export default function UserAccounts() {
               <div className="mt-4 flex justify-end">
                 <button
                   onClick={() => setPendingStatusActionId(viewingUser.id)}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold text-white ${ACTION_BY_STATUS[viewingUser.status].className}`}
+                  className={`rounded-lg border border-black/5 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:shadow-sm transition-all hover:brightness-105 active:scale-[0.98] ${ACTION_BY_STATUS[viewingUser.status].className}`}
                 >
                   {ACTION_BY_STATUS[viewingUser.status].label}
                 </button>

@@ -185,14 +185,14 @@ export default function Reports() {
             <div className="flex flex-wrap gap-2 print:hidden">
               <button
                 onClick={handleExportCSV}
-                className="flex items-center gap-2 rounded-full bg-bb-navy px-4 py-2 text-sm font-semibold text-white hover:bg-bb-blue-dark"
+                className="flex items-center gap-2 rounded-lg bg-gradient-to-b from-bb-navy to-bb-navy/90 border border-bb-navy/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-4 py-2 text-sm font-semibold text-white transition-all active:scale-[0.98]"
               >
                 <Download size={15} />
                 I-export bilang Spreadsheet (CSV)
               </button>
               <button
                 onClick={handlePrint}
-                className="flex items-center gap-2 rounded-full bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
+                className="flex items-center gap-2 rounded-lg bg-gradient-to-b from-gray-200 to-gray-300/80 border border-gray-200/20 shadow-sm hover:shadow hover:from-gray-300 hover:to-gray-400 px-4 py-2 text-sm font-semibold text-gray-700 transition-all active:scale-[0.98]"
               >
                 <Printer size={15} />
                 I-export bilang PDF (Print)

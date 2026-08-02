@@ -76,7 +76,7 @@ export default function FirstLoginPasswordChange() {
 
           <button
             type="submit"
-            className="w-full rounded-lg bg-bb-navy py-3 font-semibold text-white hover:bg-bb-blue-dark transition-colors"
+            className="w-full rounded-lg bg-gradient-to-b from-bb-navy to-bb-navy/90 border border-bb-navy/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-3 font-semibold text-white transition-all active:scale-[0.98]"
           >
             I-set ang Bagong Password
           </button>

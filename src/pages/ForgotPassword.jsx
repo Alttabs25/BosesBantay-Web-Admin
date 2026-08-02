@@ -96,7 +96,7 @@ export default function ForgotPassword() {
               </label>
               <button
                 type="submit"
-                className="w-full rounded-lg bg-bb-navy py-3 font-semibold hover:bg-bb-blue-dark transition-colors"
+                className="w-full rounded-lg bg-gradient-to-b from-bb-navy to-bb-navy/90 border border-bb-navy/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-3 font-semibold transition-all active:scale-[0.98]"
               >
                 Ipadala ang Verification Code
               </button>
@@ -144,7 +144,7 @@ export default function ForgotPassword() {
 
               <button
                 type="submit"
-                className="w-full rounded-lg bg-bb-navy py-3 font-semibold hover:bg-bb-blue-dark transition-colors"
+                className="w-full rounded-lg bg-gradient-to-b from-bb-navy to-bb-navy/90 border border-bb-navy/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-3 font-semibold transition-all active:scale-[0.98]"
               >
                 I-reset ang Password
               </button>

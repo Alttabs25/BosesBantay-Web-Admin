@@ -298,11 +298,11 @@ export default function GISCommandCenter() {
         </h2>
         <div className="flex items-center gap-2">
           {mode === 'view' && (
-            <div className="flex rounded-full border border-gray-200 p-0.5">
+            <div className="flex rounded-lg border border-gray-200 bg-gray-50/50 p-0.5 shadow-xs">
               <button
                 onClick={() => setView('pins')}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  view === 'pins' ? 'bg-bb-blue text-white' : 'text-gray-500 hover:text-gray-700'
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-150 ${
+                  view === 'pins' ? 'bg-bb-blue text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
               >
                 <MapIcon size={13} />
@@ -310,8 +310,8 @@ export default function GISCommandCenter() {
               </button>
               <button
                 onClick={() => setView('heatmap')}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  view === 'heatmap' ? 'bg-bb-blue text-white' : 'text-gray-500 hover:text-gray-700'
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-150 ${
+                  view === 'heatmap' ? 'bg-bb-blue text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
               >
                 <Flame size={13} />
@@ -322,7 +322,7 @@ export default function GISCommandCenter() {
           {mode === 'view' && canCreate && (
             <button
               onClick={startCreate}
-              className="flex items-center gap-1.5 rounded-full bg-bb-blue px-4 py-2 text-sm font-semibold text-white hover:bg-bb-blue-dark transition-colors"
+              className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-4 py-2 text-sm font-semibold text-white transition-all active:scale-[0.98]"
             >
               <Plus size={16} />
               Magdagdag ng Insidente
@@ -525,7 +525,7 @@ export default function GISCommandCenter() {
                               e.stopPropagation()
                               startEdit(incident)
                             }}
-                            className="flex items-center gap-1.5 rounded-full bg-bb-blue px-3 py-1.5 text-xs font-semibold text-white hover:bg-bb-blue-dark"
+                            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-xs hover:shadow-sm hover:from-bb-blue-dark hover:to-bb-blue-dark px-3 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96]"
                           >
                             <Pencil size={12} />
                             I-edit
@@ -701,14 +701,14 @@ export default function GISCommandCenter() {
                 <button
                   type="submit"
                   disabled={draft.lat == null}
-                  className="flex-1 rounded-full bg-bb-blue py-2 text-sm font-semibold text-white transition-colors hover:bg-bb-blue-dark disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex-1 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-2 text-sm font-semibold text-white transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   I-save ang Insidente
                 </button>
                 <button
                   type="button"
                   onClick={cancelForm}
-                  className="rounded-full bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
+                  className="rounded-lg bg-gradient-to-b from-gray-200 to-gray-300/80 border border-gray-200/20 shadow-sm hover:shadow hover:from-gray-300 hover:to-gray-400 px-4 py-2 text-sm font-semibold text-gray-700 transition-all active:scale-[0.98]"
                 >
                   Kanselahin
                 </button>
