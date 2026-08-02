@@ -166,7 +166,13 @@ export default function UserAccounts() {
     const target = users.find((u) => u.id === id)
     const action = target && ACTION_BY_STATUS[target.status]
     if (!action) return
-    updateUser(id, { status: action.next })
+
+    const patch = { status: action.next }
+    if (target.status === 'Pending' && action.next === 'Active') {
+      patch.verified = 'Verified'
+    }
+
+    updateUser(id, patch)
     const colorByNext = { Active: 'green', Suspended: 'orange', Deactivated: 'red' }
     addAuditEntry(`${action.label} User ID ${target.id}`, { color: colorByNext[action.next] })
     showToast(action.toast ?? 'Na-update ang account.')
