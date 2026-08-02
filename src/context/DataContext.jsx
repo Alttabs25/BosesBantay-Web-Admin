@@ -213,7 +213,44 @@ export function DataProvider({ children }) {
             outcome: b.status === 'Nareselba' ? (b.remarks || 'Resolbado na.') : ''
           }
         })
-        setBlotterReports(mappedBlotter)
+        // Fetch Manual Form Reports submitted by residents
+        const { data: reportsData, error: reportsErr } = await supabase
+          .from('reports')
+          .select('*, users(first_name, last_name)')
+
+        let mappedReports = []
+        if (!reportsErr && reportsData) {
+          mappedReports = reportsData.map(r => {
+            const filedBy = r.users ? `${r.users.first_name} ${r.users.last_name}`.trim() : 'Residente'
+            return {
+              id: `REP-${String(r.report_id).padStart(5, '0')}`,
+              dbId: r.report_id,
+              isFormReport: true,
+              title: 'Resident Form Report',
+              status: r.status === 'Pending' ? 'Sinuri' : (r.status || 'Sinuri'),
+              datetime: new Date(r.created_at).toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+              }).toUpperCase(),
+              filedBy,
+              what: r.incident_details || '',
+              who: r.other_party || 'Hindi Alam',
+              where: r.location || 'N/A',
+              when: r.date_time || 'N/A',
+              why: '',
+              how: r.incident_details || '',
+              hearingDate: '',
+              hearingNote: r.witnesses ? `Saksi: ${r.witnesses}` : '',
+              hearingCompleted: r.status === 'Nareselba' || r.status === 'Spam',
+              outcome: r.status === 'Nareselba' ? 'Resolbado na.' : ''
+            }
+          })
+        }
+        setBlotterReports([...mappedBlotter, ...mappedReports])
       }
 
       // 3. Fetch Documents
@@ -552,31 +589,41 @@ export function DataProvider({ children }) {
 
   const updateBlotterReport = async (id, patch) => {
     try {
-      const { data: pb } = await supabase
-        .from('pre_blotters')
-        .select('blotter_id, extraction_id')
-        .eq('reference_no', id)
-        .single()
+      if (id.startsWith('REP-')) {
+        const dbId = parseInt(id.replace('REP-', ''), 10)
+        const updateFields = {}
+        if (patch.status) updateFields.status = patch.status
+        if (patch.hearingNote !== undefined) updateFields.witnesses = patch.hearingNote // Save notes to witnesses field or keep it simple
+        await supabase
+          .from('reports')
+          .update(updateFields)
+          .eq('report_id', dbId)
+      } else {
+        const { data: pb } = await supabase
+          .from('pre_blotters')
+          .select('blotter_id, extraction_id')
+          .eq('reference_no', id)
+          .single()
 
-      if (!pb) return
+        if (!pb) return
 
-      let pbPatch = {}
-      if (patch.status) pbPatch.status = patch.status
-      if (patch.hearingNote !== undefined) pbPatch.remarks = patch.hearingNote
-      if (patch.remarks !== undefined) pbPatch.remarks = patch.remarks
+        let pbPatch = {}
+        if (patch.status) pbPatch.status = patch.status
+        if (patch.hearingNote !== undefined) pbPatch.remarks = patch.hearingNote
+        if (patch.remarks !== undefined) pbPatch.remarks = patch.remarks
 
-      await supabase
-        .from('pre_blotters')
-        .update(pbPatch)
-        .eq('blotter_id', pb.blotter_id)
-
-      if (patch.outcome) {
         await supabase
           .from('pre_blotters')
-          .update({ remarks: patch.outcome })
+          .update(pbPatch)
           .eq('blotter_id', pb.blotter_id)
-      }
 
+        if (patch.outcome) {
+          await supabase
+            .from('pre_blotters')
+            .update({ remarks: patch.outcome })
+            .eq('blotter_id', pb.blotter_id)
+        }
+      }
       fetchData()
     } catch (err) {
       console.error('Error updating blotter report:', err)
