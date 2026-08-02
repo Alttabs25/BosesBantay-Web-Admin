@@ -115,6 +115,7 @@ export function DataProvider({ children }) {
               }])
           }
         }
+      }
       // 5. Check and seed emergency_contacts
       const { count: contactsCount } = await supabase
         .from('emergency_contacts')
