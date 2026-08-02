@@ -14,6 +14,7 @@ import {
   KeyRound,
   Dices,
   SlidersHorizontal,
+  Copy,
 } from 'lucide-react'
 import Pill from '../components/Pill'
 import SearchInput from '../components/SearchInput'
@@ -110,10 +111,24 @@ function nextUserId(users) {
   return `USR - ${String(max + 1).padStart(5, '0')}`
 }
 
+function maskId(id) {
+  if (!id) return ''
+  if (id.length <= 12) return id
+  return `${id.slice(0, 8)}...${id.slice(-4)}`
+}
+
 export default function UserAccounts() {
   const { user, accounts, createAdminAccount, resetAdminAccountPassword, deleteAdminAccount } = useAuth()
   const { users, updateUser, addUser, removeUser, addAuditEntry, roleModuleAccess, setModuleAccess } = useData()
   const { showToast } = useToast()
+
+  const [copiedId, setCopiedId] = useState(null)
+
+  const handleCopyId = (id) => {
+    navigator.clipboard.writeText(id)
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
 
   const isAdmin = user.role === ROLES.ADMIN
   const isCaptain = user.role === ROLES.CAPTAIN
@@ -445,7 +460,6 @@ export default function UserAccounts() {
         <table className="w-full text-left text-sm">
           <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
             <tr>
-              <th className="px-4 py-3 font-semibold">User ID</th>
               <th className="px-4 py-3 font-semibold">Pangalan</th>
               <th className="px-4 py-3 font-semibold">Role</th>
               <th className="px-4 py-3 font-semibold">Verified</th>
@@ -458,7 +472,6 @@ export default function UserAccounts() {
               const action = ACTION_BY_STATUS[u.status]
               return (
                 <tr key={u.id} className="border-b border-gray-100 last:border-0">
-                  <td className="px-4 py-3 font-medium text-gray-700">{u.id}</td>
                   <td className="px-4 py-3 text-gray-700">{u.name}</td>
                   <td className="px-4 py-3 text-gray-500">
                     {u.role}
@@ -531,7 +544,6 @@ export default function UserAccounts() {
             <table className="w-full text-left text-sm">
               <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                 <tr>
-                  <th className="px-4 py-3 font-semibold">Admin ID</th>
                   <th className="px-4 py-3 font-semibold">Pangalan</th>
                   <th className="px-4 py-3 font-semibold">Email</th>
                   <th className="px-4 py-3 font-semibold">Tungkulin</th>
@@ -542,8 +554,24 @@ export default function UserAccounts() {
               <tbody>
                 {accounts.map((a) => (
                   <tr key={a.id} className="border-b border-gray-100 last:border-0">
-                    <td className="px-4 py-3 font-medium text-gray-700">{a.id}</td>
-                    <td className="px-4 py-3 text-gray-700">{a.name}</td>
+                    <td className="px-4 py-3 text-gray-700">
+                      <div className="font-medium">{a.name}</div>
+                      <div className="mt-0.5 flex items-center gap-1.5 text-xs text-gray-400">
+                        <span>ID: {maskId(a.id)}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyId(a.id)}
+                          className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors p-0.5"
+                          title="Kopyahin ang ID"
+                        >
+                          {copiedId === a.id ? (
+                            <Check size={12} className="text-green-600" />
+                          ) : (
+                            <Copy size={12} />
+                          )}
+                        </button>
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-gray-500">{a.email}</td>
                     <td className="px-4 py-3 text-gray-500">{a.role}</td>
                     <td className="px-4 py-3">
@@ -778,9 +806,24 @@ export default function UserAccounts() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h4 className="text-lg font-bold text-gray-900">{viewingUser.name}</h4>
-                <p className="text-sm text-gray-500">
-                  {viewingUser.id} &middot; {viewingUser.role}
-                </p>
+                <div className="flex flex-col gap-0.5">
+                  <p className="text-sm text-gray-500">{viewingUser.role}</p>
+                  <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                    <span>ID: {maskId(viewingUser.id)}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyId(viewingUser.id)}
+                      className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors p-0.5"
+                      title="Kopyahin ang ID"
+                    >
+                      {copiedId === viewingUser.id ? (
+                        <Check size={12} className="text-green-600" />
+                      ) : (
+                        <Copy size={12} />
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
               <Pill color={STATUS_COLOR[viewingUser.status] ?? 'gray'} solid>
                 {viewingUser.status}
