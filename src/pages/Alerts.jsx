@@ -70,7 +70,7 @@ export default function Alerts() {
   }
 
   return (
-    <div>
+    <div className="mx-auto max-w-3xl py-4 pb-12">
       <h2 className="text-xl font-bold text-gray-900">ALERTS TERMINAL</h2>
       <p className="mt-1 text-sm text-gray-500">
         Dispatch critical security advisories, emergency alerts, or
