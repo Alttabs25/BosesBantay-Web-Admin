@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import Login from './pages/Login'
 import ForgotPassword from './pages/ForgotPassword'
 import FirstLoginPasswordChange from './pages/FirstLoginPasswordChange'
+import TwoFactorAuth from './pages/TwoFactorAuth'
 import AdminLayout from './layouts/AdminLayout'
 import ProtectedRoute from './components/ProtectedRoute'
 import RoleGuard from './components/RoleGuard'
@@ -21,6 +22,14 @@ function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route
+        path="/2fa"
+        element={
+          <ProtectedRoute>
+            <TwoFactorAuth />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/first-login"
         element={

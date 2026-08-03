@@ -21,12 +21,15 @@ export default function Login() {
       return
     }
 
-    addAuditEntry('Login', {
+    // Clear any previous 2FA session status
+    sessionStorage.removeItem('2fa_verified')
+
+    addAuditEntry('Login Attempt', {
       actorName: result.user.name,
       actorRole: result.user.role,
       color: 'blue',
     })
-    navigate(result.user.mustChangePassword ? '/first-login' : '/dashboard')
+    navigate('/2fa')
   }
 
   return (
