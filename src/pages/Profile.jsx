@@ -1,9 +1,10 @@
-import { useRef, useState } from 'react'
-import { Save, KeyRound, User as UserIcon, Camera, Trash2 } from 'lucide-react'
+import { useRef, useState, useEffect } from 'react'
+import { Save, KeyRound, User as UserIcon, Camera, Trash2, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { supabase } from '../lib/supabaseClient'
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024
 
@@ -15,6 +16,11 @@ export default function Profile() {
   const [email, setEmail] = useState(user?.email ?? '')
   const fileInputRef = useRef(null)
   const [confirmingRemoveAvatar, setConfirmingRemoveAvatar] = useState(false)
+
+  // 2FA Toggler settings
+  const [is2faDisabled, setIs2faDisabled] = useState(false)
+  const [loading2fa, setLoading2fa] = useState(true)
+  const [confirmingDisable2fa, setConfirmingDisable2fa] = useState(false)
 
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -94,6 +100,57 @@ export default function Profile() {
     setCurrentPassword('')
     setNewPassword('')
     setConfirmPassword('')
+  }
+
+  // Load 2FA disabled status
+  useEffect(() => {
+    const fetch2faStatus = async () => {
+      if (user?.role === 'System Administrator') {
+        try {
+          const { data, error } = await supabase.rpc('is_2fa_disabled')
+          if (!error) {
+            setIs2faDisabled(!!data)
+          }
+        } catch (e) {
+          console.error('Error fetching 2FA status:', e)
+        } finally {
+          setLoading2fa(false)
+        }
+      }
+    }
+    fetch2faStatus()
+  }, [user])
+
+  const handle2faToggle = async () => {
+    // If currently disabled, turn it ON (set disable = false)
+    if (is2faDisabled) {
+      try {
+        const { error } = await supabase.rpc('toggle_2fa', { disable: false })
+        if (error) throw error
+        setIs2faDisabled(false)
+        addAuditEntry('In-enable ang Two-Factor Authentication (2FA)', { color: 'green' })
+        showToast('Naka-enable na ang email 2FA verification.')
+      } catch (err) {
+        showToast('Hindi ma-update ang 2FA settings: ' + err.message, 'error')
+      }
+    } else {
+      // If currently enabled, show warning to disable it
+      setConfirmingDisable2fa(true)
+    }
+  }
+
+  const confirmDisable2fa = async () => {
+    try {
+      const { error } = await supabase.rpc('toggle_2fa', { disable: true })
+      if (error) throw error
+      setIs2faDisabled(true)
+      addAuditEntry('In-disable ang Two-Factor Authentication (2FA)', { color: 'red' })
+      showToast('BABALA: Naka-disable na ang email 2FA verification.', 'info')
+    } catch (err) {
+      showToast('Hindi ma-update ang 2FA settings: ' + err.message, 'error')
+    } finally {
+      setConfirmingDisable2fa(false)
+    }
   }
 
   return (
@@ -249,6 +306,57 @@ export default function Profile() {
           I-update ang Password
         </button>
       </form>
+
+      {user?.role === 'System Administrator' && (
+        <div className="mt-3 max-w-2xl rounded-xl border border-red-500/30 bg-red-500/5 p-4 space-y-3">
+          <h3 className="flex items-center gap-2 font-semibold text-red-700">
+            <ShieldCheck size={18} className="text-red-600" />
+            Two-Factor Authentication (2FA) Settings
+          </h3>
+          <p className="text-xs text-gray-500">
+            Pagpapasya para sa buong system. Kapag naka-on, ang lahat ng admin ay hihingan ng email code bago makapasok.
+          </p>
+
+          {loading2fa ? (
+            <div className="text-xs text-gray-400">Pina-process ang settings...</div>
+          ) : (
+            <div className="flex items-center justify-between rounded-lg bg-white border border-gray-200 p-3 shadow-sm">
+              <div>
+                <span className="block text-sm font-semibold text-gray-800">
+                  I-activate ang Email 2FA Verification
+                </span>
+                <span className="text-xs text-gray-500">
+                  {!is2faDisabled 
+                    ? 'Naka-on kasalukuyan (Inirerekomenda)' 
+                    : 'Naka-deactivate kasalukuyan (Mababa ang seguridad)'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handle2faToggle}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  !is2faDisabled ? 'bg-bb-blue' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    !is2faDisabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={confirmingDisable2fa}
+        onClose={() => setConfirmingDisable2fa(false)}
+        onConfirm={confirmDisable2fa}
+        title="BABALA: I-disable ang Email 2FA?"
+        message="Sigurado ka bang gusto mong patayin ang Two-Factor Authentication (2FA)? Mapapababa nito ang seguridad ng portal, at ang sinumang may alam sa password ay makakapasok na nang walang email verification code."
+        confirmLabel="Oo, I-disable"
+      />
 
       <ConfirmDialog
         open={confirmingRemoveAvatar}

@@ -130,3 +130,47 @@ BEGIN
     RETURN is_valid;
 END;
 $$;
+
+-- 5. Create database function to toggle 2FA setting (Only for System Administrators)
+CREATE OR REPLACE FUNCTION public.toggle_2fa(disable BOOLEAN)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    caller_role VARCHAR(50);
+BEGIN
+    -- Get the role name of the currently logged-in user
+    SELECT r.role_name INTO caller_role
+    FROM public.users u
+    JOIN public.roles r ON u.role_id = r.role_id
+    WHERE u.id = auth.uid();
+    
+    -- Only allow System Administrator to toggle 2FA
+    IF caller_role IS NULL OR caller_role != 'System Administrator' THEN
+        RAISE EXCEPTION 'Only System Administrators can toggle 2FA.';
+    END IF;
+    
+    -- Update or insert the setting
+    INSERT INTO public.app_settings (key, value)
+    VALUES ('disable_2fa', CASE WHEN disable THEN 'true' ELSE 'false' END)
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+    
+    RETURN TRUE;
+END;
+$$;
+
+-- 6. Create database function to check if 2FA is disabled (Public read access)
+CREATE OR REPLACE FUNCTION public.is_2fa_disabled()
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    is_disabled TEXT;
+BEGIN
+    SELECT value INTO is_disabled FROM public.app_settings WHERE key = 'disable_2fa';
+    RETURN COALESCE(is_disabled = 'true', FALSE);
+END;
+$$;
+

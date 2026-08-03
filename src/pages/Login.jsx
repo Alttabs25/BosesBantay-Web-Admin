@@ -21,16 +21,24 @@ export default function Login() {
       return
     }
 
-    // Clear any previous 2FA session status
-    sessionStorage.removeItem('2fa_verified')
+    // Clear any previous 2FA session status if 2FA is active
+    if (!result.is2faDisabled) {
+      sessionStorage.removeItem('2fa_verified')
+    }
 
-    addAuditEntry('Login Attempt', {
+    addAuditEntry(result.is2faDisabled ? 'Login' : 'Login Attempt', {
       actorName: result.user.name,
       actorRole: result.user.role,
       color: 'blue',
     })
-    navigate('/2fa')
+
+    if (result.is2faDisabled) {
+      navigate(result.user.mustChangePassword ? '/first-login' : '/dashboard')
+    } else {
+      navigate('/2fa')
+    }
   }
+
 
   return (
     <div className="flex min-h-screen w-full flex-col md:h-screen md:w-screen md:flex-row">

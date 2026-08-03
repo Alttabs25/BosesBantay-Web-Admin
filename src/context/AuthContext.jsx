@@ -86,6 +86,17 @@ export function AuthProvider({ children }) {
             mustChangePassword: session.user.user_metadata?.must_change_password || false,
           })
         }
+        
+        // Check if 2FA is globally disabled
+        try {
+          const { data: is2faDisabled } = await supabase.rpc('is_2fa_disabled')
+          if (is2faDisabled) {
+            sessionStorage.setItem('2fa_verified', 'true')
+          }
+        } catch (e) {
+          console.error('Error checking 2fa disabled on refresh:', e)
+        }
+
         fetchAccounts()
       } else {
         setUser(null)
@@ -125,7 +136,22 @@ export function AuthProvider({ children }) {
       mustChangePassword: data.user.user_metadata?.must_change_password || false,
     }
 
-    return { success: true, user: loggedInUser }
+    // Check if 2FA is globally disabled
+    let is2faDisabled = false
+    try {
+      const { data: disabled } = await supabase.rpc('is_2fa_disabled')
+      is2faDisabled = !!disabled
+    } catch (e) {
+      console.error('Error checking 2fa disabled on login:', e)
+    }
+
+    if (is2faDisabled) {
+      sessionStorage.setItem('2fa_verified', 'true')
+    } else {
+      sessionStorage.removeItem('2fa_verified')
+    }
+
+    return { success: true, user: loggedInUser, is2faDisabled }
   }
 
   const logout = async () => {
