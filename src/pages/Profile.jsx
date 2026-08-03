@@ -154,9 +154,10 @@ export default function Profile() {
   }
 
   return (
-    <div>
+    <div className="mx-auto max-w-2xl py-4 pb-12">
       <h2 className="text-xl font-bold text-gray-900">Admin Profile</h2>
       <p className="mt-1 text-sm text-gray-500">
+
         Update security or account information and passwords
       </p>
 
