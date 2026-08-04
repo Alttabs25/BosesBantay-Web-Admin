@@ -336,6 +336,58 @@ export function DataProvider({ children }) {
           authorizedBy: c.authorized_by || null
         })))
       }
+
+      // 6. Fetch Notifications
+      const { data: notificationsData, error: notificationsErr } = await supabase
+        .from('notifications')
+        .select(`
+          *,
+          sender:users!sent_by (
+            first_name,
+            last_name,
+            roles (
+              role_name
+            )
+          )
+        `)
+        .order('created_at', { ascending: false })
+
+      if (!notificationsErr && notificationsData) {
+        const mappedAlerts = notificationsData.map(n => {
+          const titleStr = n.title || ''
+          const match = titleStr.match(/^\[(.*?)\s*\|\s*(.*?)\]\s*(.*)$/)
+          let target = 'Lahat ng Residente'
+          let level = 'Normal na Pagpapayo'
+          let actualTitle = titleStr
+          if (match) {
+            target = match[1]
+            level = match[2]
+            actualTitle = match[3]
+          }
+          
+          const senderName = n.sender 
+            ? `${n.sender.first_name} ${n.sender.last_name}`.trim()
+            : 'System'
+
+          return {
+            id: n.notification_id,
+            title: actualTitle,
+            message: n.message,
+            target,
+            level,
+            type: n.notification_type || 'Community Announcement',
+            sentBy: senderName,
+            sentAt: new Date(n.created_at).toLocaleString('en-PH', {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+            })
+          }
+        })
+        setAlertHistory(mappedAlerts)
+      }
     } catch (err) {
       console.error('Error loading data from Supabase:', err)
     } finally {
@@ -688,9 +740,45 @@ export function DataProvider({ children }) {
     }
   }
 
-  const addAlert = (entry) => {
-    // Keep local in memory or optionally insert into notifications
-    setAlertHistory((prev) => [entry, ...prev])
+  const addAlert = async (entry) => {
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      const { data, error } = await supabase
+        .from('notifications')
+        .insert([{
+          sent_by: authUser?.id || null,
+          title: `[${entry.target} | ${entry.level}] ${entry.title}`,
+          message: entry.message,
+          notification_type: entry.type,
+          is_read: false
+        }])
+        .select()
+      
+      if (!error) {
+        await fetchData()
+      } else {
+        console.error('Error inserting notification:', error)
+      }
+    } catch (err) {
+      console.error('Error adding alert:', err)
+    }
+  }
+
+  const deleteAlert = async (id) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('notification_id', id)
+      
+      if (!error) {
+        await fetchData()
+      } else {
+        console.error('Error deleting notification:', error)
+      }
+    } catch (err) {
+      console.error('Error deleting alert:', err)
+    }
   }
 
   const setModuleAccess = (role, moduleKey, enabled) => {
@@ -727,6 +815,7 @@ export function DataProvider({ children }) {
         updateDocument,
         alertHistory,
         addAlert,
+        deleteAlert,
         auditLog,
         addAuditEntry,
         roleModuleAccess,
