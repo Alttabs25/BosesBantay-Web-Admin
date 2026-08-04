@@ -248,14 +248,14 @@ export function DataProvider({ children }) {
                 hour12: true
               }).toUpperCase(),
               filedBy,
-              what: r.incident_details || r.description || r.details || '',
-              who: r.other_party || r.respondent || 'Hindi Alam',
-              where: r.location || 'N/A',
-              when: r.date_time || r.incident_date || 'N/A',
-              why: '',
-              how: r.incident_details || r.description || '',
+              what: r.incident_details || r.description || r.details || r.full_details?.description || '',
+              who: r.other_party || r.respondent || r.full_details?.otherParties || 'Hindi Alam',
+              where: r.location || r.full_details?.location || 'N/A',
+              when: r.date_time || r.incident_date || r.full_details?.incidentAt || 'N/A',
+              why: r.full_details?.why || '',
+              how: r.incident_details || r.description || r.full_details?.description || '',
               hearingDate: '',
-              hearingNote: r.witnesses ? `Saksi: ${r.witnesses}` : '',
+              hearingNote: (r.witnesses || r.full_details?.witnesses) ? `Saksi: ${r.witnesses || r.full_details?.witnesses}` : '',
               hearingCompleted: adminStatus === 'Nareselba' || adminStatus === 'Spam',
               outcome: adminStatus === 'Nareselba' ? 'Resolbado na.' : ''
             }
