@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import Header from '../components/Header'
@@ -23,92 +23,82 @@ export default function AdminLayout() {
   const [showWarning, setShowWarning] = useState(false)
   const [timeLeft, setTimeLeft] = useState(60)
 
-  const lastActivityRef = useRef(Date.now())
-  const countdownIntervalRef = useRef(null)
-  const activityTimeoutRef = useRef(null)
-
-  // Reset inactivity timer
-  const resetInactivityTimer = () => {
-    if (showWarning) return // Do not reset if warning is already showing
-    lastActivityRef.current = Date.now()
-
-    if (activityTimeoutRef.current) clearTimeout(activityTimeoutRef.current)
-
-    // Set timeout to show warning
-    activityTimeoutRef.current = setTimeout(() => {
-      setShowWarning(true)
-      setTimeLeft(60)
-    }, INACTIVITY_TIMEOUT - WARNING_TIMEOUT)
+  const getLastActivity = () => {
+    const stored = localStorage.getItem('bb_last_activity')
+    return stored ? parseInt(stored, 10) : Date.now()
   }
 
-  // Extend session
-  const extendSession = () => {
-    setShowWarning(false)
-    resetInactivityTimer()
-  }
+  const lastActivityRef = useRef(getLastActivity())
 
   // Force log out
-  const handleAutoLogout = async () => {
+  const handleAutoLogout = useCallback(async () => {
     setShowWarning(false)
-    if (activityTimeoutRef.current) clearTimeout(activityTimeoutRef.current)
-    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
+    localStorage.removeItem('bb_last_activity')
 
     addAuditEntry('Auto Logout due to Session Inactivity Limit', { color: 'red' })
     await logout()
     showToast('Naka-sign out ka na dahil sa session limit / inactivity.', 'info')
     navigate('/login')
+  }, [logout, addAuditEntry, showToast, navigate])
+
+  // Extend session
+  const extendSession = () => {
+    setShowWarning(false)
+    const now = Date.now()
+    lastActivityRef.current = now
+    localStorage.setItem('bb_last_activity', now.toString())
   }
 
-  // Listen to user interactions
+  // Listen to user interactions and check inactivity
   useEffect(() => {
-    const events = ['mousemove', 'keydown', 'click', 'scroll']
+    const checkInactivity = () => {
+      const stored = localStorage.getItem('bb_last_activity')
+      const lastActivity = stored ? parseInt(stored, 10) : lastActivityRef.current
+      lastActivityRef.current = lastActivity
 
-    const handleActivity = () => {
-      resetInactivityTimer()
+      const elapsed = Date.now() - lastActivity
+
+      if (elapsed >= INACTIVITY_TIMEOUT) {
+        handleAutoLogout()
+      } else if (elapsed >= INACTIVITY_TIMEOUT - WARNING_TIMEOUT) {
+        setShowWarning(true)
+        const secondsLeft = Math.ceil((INACTIVITY_TIMEOUT - elapsed) / 1000)
+        setTimeLeft(Math.max(0, secondsLeft))
+      } else {
+        setShowWarning(false)
+      }
     }
 
+    const handleActivity = () => {
+      if (!showWarning) {
+        const now = Date.now()
+        lastActivityRef.current = now
+        localStorage.setItem('bb_last_activity', now.toString())
+      }
+    }
+
+    const events = ['mousemove', 'keydown', 'click', 'scroll']
     events.forEach((event) => {
       window.addEventListener(event, handleActivity)
     })
 
-    // Initial start
-    resetInactivityTimer()
+    // Check immediately on mount/focus
+    checkInactivity()
+
+    const interval = setInterval(checkInactivity, 1000)
+
+    window.addEventListener('focus', checkInactivity)
+    document.addEventListener('visibilitychange', checkInactivity)
 
     return () => {
       events.forEach((event) => {
         window.removeEventListener(event, handleActivity)
       })
-      if (activityTimeoutRef.current) clearTimeout(activityTimeoutRef.current)
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
+      clearInterval(interval)
+      window.removeEventListener('focus', checkInactivity)
+      document.removeEventListener('visibilitychange', checkInactivity)
     }
-  }, [showWarning])
-
-  // Handle warning countdown
-  useEffect(() => {
-    if (showWarning) {
-      // Start 1-second countdown interval
-      countdownIntervalRef.current = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            clearInterval(countdownIntervalRef.current)
-            handleAutoLogout()
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-    } else {
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current)
-      }
-    }
-
-    return () => {
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current)
-      }
-    }
-  }, [showWarning])
+  }, [showWarning, handleAutoLogout])
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-white">
