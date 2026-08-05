@@ -585,14 +585,16 @@ export default function UserAccounts() {
                           >
                             View Profile
                           </button>
-                          {isAdmin && action && (
-                            <button
-                              onClick={() => setPendingStatusActionId(u.id)}
-                              className={`rounded-lg border border-black/5 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:shadow-sm transition-all hover:brightness-105 active:scale-[0.96] ${action.className}`}
-                            >
-                              {action.label}
-                            </button>
-                          )}
+                           {isAdmin && action && (
+                             <button
+                               disabled={action.label === 'Approve' && (idStatusKey === 'unverified' || idStatusKey === 'Pending')}
+                               title={action.label === 'Approve' && (idStatusKey === 'unverified' || idStatusKey === 'Pending') ? 'Kailangang ma-verify muna ang Barangay ID bago aprubahan.' : undefined}
+                               onClick={() => setPendingStatusActionId(u.id)}
+                               className={`rounded-lg border border-black/5 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:shadow-sm transition-all hover:brightness-105 active:scale-[0.96] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:brightness-100 disabled:active:scale-100 ${action.className}`}
+                             >
+                               {action.label}
+                             </button>
+                           )}
                           {isAdmin && (
                             <button
                               onClick={() => setPendingDeleteId(u.id)}
@@ -888,8 +890,22 @@ export default function UserAccounts() {
             {isAdmin && ACTION_BY_STATUS[viewingUser.status] && (
               <div className="mt-4 flex justify-end">
                 <button
+                  disabled={
+                    ACTION_BY_STATUS[viewingUser.status].label === 'Approve' &&
+                    (!viewingUser.barangayIdStatus ||
+                      viewingUser.barangayIdStatus === 'unverified' ||
+                      viewingUser.barangayIdStatus === 'Pending')
+                  }
+                  title={
+                    ACTION_BY_STATUS[viewingUser.status].label === 'Approve' &&
+                    (!viewingUser.barangayIdStatus ||
+                      viewingUser.barangayIdStatus === 'unverified' ||
+                      viewingUser.barangayIdStatus === 'Pending')
+                      ? 'Kailangang ma-verify muna ang Barangay ID bago aprubahan.'
+                      : undefined
+                  }
                   onClick={() => setPendingStatusActionId(viewingUser.id)}
-                  className={`rounded-lg border border-black/5 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:shadow-sm transition-all hover:brightness-105 active:scale-[0.98] ${
+                  className={`rounded-lg border border-black/5 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:shadow-sm transition-all hover:brightness-105 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:brightness-100 disabled:active:scale-100 ${
                     ACTION_BY_STATUS[viewingUser.status].className
                   }`}
                 >
