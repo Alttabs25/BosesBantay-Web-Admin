@@ -56,10 +56,10 @@ const STATUS_COLOR = {
 }
 
 const BARANGAY_ID_STATUS_BADGE = {
-  Pending: { label: 'Unverified', color: 'gray', icon: AlertCircle },
-  unverified: { label: 'Unverified', color: 'gray', icon: AlertCircle },
-  secretary_verified: { label: 'Secretary Verified', color: 'orange', icon: Clock },
-  pb_authorized: { label: 'PB Authorized', color: 'green', icon: CheckCircle2 },
+  Pending: { label: 'Hindi Beripikado', color: 'gray', icon: AlertCircle },
+  unverified: { label: 'Hindi Beripikado', color: 'gray', icon: AlertCircle },
+  secretary_verified: { label: 'Beripikado ng Sekretarya', color: 'orange', icon: Clock },
+  pb_authorized: { label: 'Awtorisado ng PB', color: 'green', icon: CheckCircle2 },
 }
 
 const ACTION_BY_STATUS = {
@@ -213,10 +213,11 @@ export default function UserAccounts() {
   function updateBarangayIdStatus(targetUser, newStatus) {
     updateUser(targetUser.id, { barangayIdStatus: newStatus })
     const targetName = targetUser.name || targetUser.fullName || `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim()
-    addAuditEntry(`In-update ang Barangay ID Status ni ${targetName} to ${newStatus}`, {
+    const statusLabel = BARANGAY_ID_STATUS_BADGE[newStatus]?.label || newStatus
+    addAuditEntry(`In-update ang Barangay ID Status ni ${targetName} sa "${statusLabel}"`, {
       color: newStatus === 'pb_authorized' ? 'green' : 'orange',
     })
-    showToast(`In-update ang status ni ${targetName} sa ${newStatus}.`)
+    showToast(`In-update ang status ni ${targetName} sa "${statusLabel}".`)
   }
 
   function openProfile(id) {
@@ -821,7 +822,7 @@ export default function UserAccounts() {
                       onClick={() => updateBarangayIdStatus(viewingUser, 'secretary_verified')}
                       className="rounded-lg bg-gradient-to-b from-orange-500 to-orange-600/90 border border-orange-500/10 shadow-xs hover:shadow-sm px-3 py-1 text-xs font-semibold text-white hover:from-orange-600 hover:to-orange-700 transition-all"
                     >
-                      Verify as Secretary
+                      I-verify bilang Sekretarya
                     </button>
                   )}
                   {(isCaptain || isAdmin) && viewingUser.barangayIdStatus === 'secretary_verified' && (
@@ -829,7 +830,7 @@ export default function UserAccounts() {
                       onClick={() => updateBarangayIdStatus(viewingUser, 'pb_authorized')}
                       className="rounded-lg bg-gradient-to-b from-green-600 to-green-700/90 border border-green-600/10 shadow-xs hover:shadow-sm px-3 py-1 text-xs font-semibold text-white hover:from-green-700 hover:to-green-800 transition-all"
                     >
-                      Authorize (Punong Barangay)
+                      I-awtorisa (Punong Barangay)
                     </button>
                   )}
                 </div>
