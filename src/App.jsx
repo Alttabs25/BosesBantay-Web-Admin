@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 import Login from './pages/Login'
 import ForgotPassword from './pages/ForgotPassword'
 import FirstLoginPasswordChange from './pages/FirstLoginPasswordChange'
@@ -19,7 +20,8 @@ import EmergencyDirectory from './pages/EmergencyDirectory'
 
 function App() {
   return (
-    <Routes>
+    <>
+      <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route
@@ -124,6 +126,8 @@ function App() {
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
+      <SpeedInsights />
+    </>
   )
 }
 
