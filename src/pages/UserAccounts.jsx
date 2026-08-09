@@ -17,6 +17,8 @@ import {
   Clock,
   Award,
   Copy,
+  MoreVertical,
+  Eye,
 } from 'lucide-react'
 import Pill from '../components/Pill'
 import SearchInput from '../components/SearchInput'
@@ -59,7 +61,7 @@ const BARANGAY_ID_STATUS_BADGE = {
   Pending: { label: 'Hindi Beripikado', color: 'gray', icon: AlertCircle },
   unverified: { label: 'Hindi Beripikado', color: 'gray', icon: AlertCircle },
   secretary_verified: { label: 'Beripikado ng Sekretarya', color: 'orange', icon: Clock },
-  pb_authorized: { label: 'Awtorisado ng PB', color: 'green', icon: CheckCircle2 },
+  pb_authorized: { label: 'Awtorisado ng Punong Barangay', color: 'green', icon: CheckCircle2 },
 }
 
 const ACTION_BY_STATUS = {
@@ -161,6 +163,7 @@ export default function UserAccounts() {
   const [pendingRoleDecision, setPendingRoleDecision] = useState(null)
 
   const [query, setQuery] = useState('')
+  const [openMenuId, setOpenMenuId] = useState(null)
   const [viewingId, setViewingId] = useState(null)
   const [roleChoice, setRoleChoice] = useState('')
   const [pendingDeleteId, setPendingDeleteId] = useState(null)
@@ -578,31 +581,73 @@ export default function UserAccounts() {
                           {u.status || 'Active'}
                         </Pill>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
+                      <td className="px-4 py-3 relative">
+                        <div className="flex justify-center">
                           <button
-                            onClick={() => openProfile(u.id)}
-                            className="rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-xs hover:shadow-sm hover:from-bb-blue-dark hover:to-bb-blue-dark px-3 py-1.5 text-xs font-semibold text-white transition-all"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setOpenMenuId(openMenuId === u.id ? null : u.id)
+                            }}
+                            className="inline-flex items-center justify-center rounded-lg p-1.5 text-gray-500 hover:bg-gray-150 transition-colors focus:outline-none"
+                            title="Higit pang Aksyon"
                           >
-                            View Profile
+                            <MoreVertical size={16} />
                           </button>
-                           {isAdmin && action && (
-                             <button
-                               disabled={action.label === 'Approve' && (idStatusKey === 'unverified' || idStatusKey === 'Pending')}
-                               title={action.label === 'Approve' && (idStatusKey === 'unverified' || idStatusKey === 'Pending') ? 'Kailangang ma-verify muna ang Barangay ID bago aprubahan.' : undefined}
-                               onClick={() => setPendingStatusActionId(u.id)}
-                               className={`rounded-lg border border-black/5 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:shadow-sm transition-all hover:brightness-105 active:scale-[0.96] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:brightness-100 disabled:active:scale-100 ${action.className}`}
-                             >
-                               {action.label}
-                             </button>
-                           )}
-                          {isAdmin && (
-                            <button
-                              onClick={() => setPendingDeleteId(u.id)}
-                              className="flex items-center gap-1 rounded-lg bg-gradient-to-b from-gray-400 to-gray-500/90 border border-gray-400/10 shadow-xs hover:shadow-sm px-3 py-1.5 text-xs font-semibold text-white hover:from-gray-500 hover:to-gray-600 transition-all"
-                            >
-                              <Trash2 size={12} />
-                            </button>
+
+                          {openMenuId === u.id && (
+                            <>
+                              <div
+                                className="fixed inset-0 z-20"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setOpenMenuId(null)
+                                }}
+                              />
+                              <div className="absolute right-4 top-10 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-30 text-left">
+                                <button
+                                  onClick={() => {
+                                    setOpenMenuId(null)
+                                    openProfile(u.id)
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-2 text-[11px] font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                                >
+                                  <Eye size={13} className="text-gray-400 shrink-0" />
+                                  View Profile
+                                </button>
+
+                                {isAdmin && action && (
+                                  <button
+                                    disabled={action.label === 'Approve' && (idStatusKey === 'unverified' || idStatusKey === 'Pending')}
+                                    title={action.label === 'Approve' && (idStatusKey === 'unverified' || idStatusKey === 'Pending') ? 'Kailangang ma-verify muna ang Barangay ID bago aprubahan.' : undefined}
+                                    onClick={() => {
+                                      setOpenMenuId(null)
+                                      setPendingStatusActionId(u.id)
+                                    }}
+                                    className={`flex w-full items-center gap-2 px-4 py-2 text-[11px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                                      action.label === 'Approve' || action.label === 'I-reactivate' 
+                                        ? 'text-green-600 hover:bg-green-50/50' 
+                                        : 'text-orange-600 hover:bg-orange-50/50'
+                                    }`}
+                                  >
+                                    <ShieldCheck size={13} className="shrink-0" />
+                                    {action.label === 'Approve' ? 'Approve Account' : action.label}
+                                  </button>
+                                )}
+
+                                {isAdmin && (
+                                  <button
+                                    onClick={() => {
+                                      setOpenMenuId(null)
+                                      setPendingDeleteId(u.id)
+                                    }}
+                                    className="flex w-full items-center gap-2 border-t border-gray-100 px-4 py-2 text-[11px] font-semibold text-red-600 hover:bg-red-50 transition-colors"
+                                  >
+                                    <Trash2 size={13} className="text-red-500 shrink-0" />
+                                    Burahin ang Account
+                                  </button>
+                                )}
+                              </div>
+                            </>
                           )}
                         </div>
                       </td>
@@ -669,22 +714,53 @@ export default function UserAccounts() {
                       </Pill>
                     )}
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
+                  <td className="px-4 py-3 relative">
+                    <div className="flex justify-center">
                       <button
-                        onClick={() => setPendingResetId(a.id)}
-                        className="flex items-center gap-1 rounded-lg bg-gradient-to-b from-orange-500 to-orange-600/90 border border-orange-500/10 shadow-xs hover:shadow-sm px-3 py-1.5 text-xs font-semibold text-white hover:from-orange-600 hover:to-orange-700 transition-all"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setOpenMenuId(openMenuId === a.id ? null : a.id)
+                        }}
+                        className="inline-flex items-center justify-center rounded-lg p-1.5 text-gray-500 hover:bg-gray-150 transition-colors focus:outline-none"
+                        title="Higit pang Aksyon"
                       >
-                        <KeyRound size={12} />
-                        I-reset ang Password
+                        <MoreVertical size={16} />
                       </button>
-                      <button
-                        onClick={() => setPendingAdminDeleteId(a.id)}
-                        disabled={a.id === user.id}
-                        className="flex items-center gap-1 rounded-lg bg-gradient-to-b from-gray-400 to-gray-500/90 border border-gray-400/10 shadow-xs hover:shadow-sm px-3 py-1.5 text-xs font-semibold text-white hover:from-gray-500 hover:to-gray-600 transition-all disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        <Trash2 size={12} />
-                      </button>
+
+                      {openMenuId === a.id && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-20"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setOpenMenuId(null)
+                            }}
+                          />
+                          <div className="absolute right-4 top-10 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-30 text-left">
+                            <button
+                              onClick={() => {
+                                setOpenMenuId(null)
+                                setPendingResetId(a.id)
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-[11px] font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                              <KeyRound size={13} className="text-orange-500 shrink-0" />
+                              I-reset ang Password
+                            </button>
+                            <button
+                              onClick={() => {
+                                setOpenMenuId(null)
+                                setPendingAdminDeleteId(a.id)
+                              }}
+                              disabled={a.id === user.id}
+                              className="flex w-full items-center gap-2 border-t border-gray-100 px-4 py-2 text-[11px] font-semibold text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              <Trash2 size={13} className="text-red-500 shrink-0" />
+                              Burahin ang Admin
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
