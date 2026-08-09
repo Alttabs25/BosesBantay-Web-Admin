@@ -1,4 +1,4 @@
-# 📣 BosesBantay - Web Admin Portal
+#  BosesBantay - Web Admin Portal
 
 Welcome to the **BosesBantay Web Admin Portal**, the centralized administrative dashboard for managing incidents, emergency alerts, resident accounts, digital blotters, and GIS mapping visualizations. 
 
@@ -6,7 +6,7 @@ This repository contains the front-end dashboard built with React and Vite, inte
 
 ---
 
-## 🛠️ Technology Stack
+## Technology Stack
 * **Framework**: React.js (built with Vite)
 * **Styling**: Tailwind CSS
 * **Database & Auth**: Supabase (PostgreSQL + Supabase Auth)
@@ -14,7 +14,7 @@ This repository contains the front-end dashboard built with React and Vite, inte
 
 ---
 
-## 🚀 Local Setup Instructions
+## Local Setup Instructions
 
 Follow these steps to set up the project locally on your machine:
 
