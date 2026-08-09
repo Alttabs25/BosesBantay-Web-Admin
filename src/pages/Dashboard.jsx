@@ -52,14 +52,12 @@ export default function Dashboard() {
     color: SEVERITY_COLOR[sev],
   }))
 
-  const registrationData = Object.entries(
-    users.reduce((acc, u) => {
-      const d = new Date(u.dateRegistered)
-      const key = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-      acc[key] = (acc[key] ?? 0) + 1
-      return acc
-    }, {}),
-  ).map(([label, value]) => ({ label, value, color: 'blue' }))
+  const registrationData = [
+    { label: 'Aktibo (Active)', value: users.filter((u) => u.status === 'Active').length, color: 'green' },
+    { label: 'Pending', value: users.filter((u) => u.status === 'Pending').length, color: 'orange' },
+    { label: 'Suspended', value: users.filter((u) => u.status === 'Suspended').length, color: 'red' },
+    { label: 'Deactivated', value: users.filter((u) => u.status === 'Deactivated').length, color: 'gray' },
+  ]
 
   const chatbotQueryData = [
     { label: 'Linggo 1', value: 142, color: 'blue' },
@@ -139,8 +137,8 @@ export default function Dashboard() {
                 value="3.5 araw"
                 accent="blue"
               />
-              <MiniBarChart title="Paglago ng Rehistradong Residente" data={registrationData} />
-              <MiniBarChart title="Kabuuan ng Blotter Reports" data={blotterData} />
+              <MiniBarChart title="Kabuuan ng Rehistradong Residente (Overall)" data={registrationData} />
+              <MiniBarChart title="Kabuuan ng Blotter Reports (Overall)" data={blotterData} />
               <MiniBarChart title="Chatbot Query Volume (sample)" data={chatbotQueryData} />
             </div>
           )}
@@ -155,8 +153,8 @@ export default function Dashboard() {
 
           {user?.role === ROLES.ADMIN && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <MiniBarChart title="Paglago ng Rehistradong Residente" data={registrationData} />
-              <MiniBarChart title="Kabuuan ng Blotter Reports" data={blotterData} />
+              <MiniBarChart title="Kabuuan ng Rehistradong Residente (Overall)" data={registrationData} />
+              <MiniBarChart title="Kabuuan ng Blotter Reports (Overall)" data={blotterData} />
             </div>
           )}
 
