@@ -162,9 +162,11 @@ export function DataProvider({ children }) {
             id: u.id,
             name: `${u.first_name} ${u.last_name}`.trim(),
             role: u.roles?.role_name || 'Residente',
-            verified: u.verification_status === 'Verified' ? 'Verified' : 'Pending',
+            verified: u.verification_status === 'Verified' || u.verification_status === 'pb_authorized' ? 'Verified' : 'Pending',
             barangayIdStatus: u.verification_status || 'unverified',
-            status: u.approval_status || 'Pending',
+            status: u.approval_status === 'Suspended' || u.approval_status === 'Deactivated'
+              ? u.approval_status
+              : (u.verification_status === 'pb_authorized' ? 'Active' : (u.approval_status || 'Pending')),
             email: u.email,
             phone: u.mobile_number || '',
             address: u.address || '',

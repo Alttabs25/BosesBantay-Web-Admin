@@ -214,13 +214,22 @@ export default function UserAccounts() {
   }
 
   function updateBarangayIdStatus(targetUser, newStatus) {
-    updateUser(targetUser.id, { barangayIdStatus: newStatus })
+    const patch = { barangayIdStatus: newStatus }
+    if (newStatus === 'pb_authorized') {
+      patch.status = 'Active'
+      patch.verified = 'Verified'
+    }
+    updateUser(targetUser.id, patch)
     const targetName = targetUser.name || targetUser.fullName || `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim()
     const statusLabel = BARANGAY_ID_STATUS_BADGE[newStatus]?.label || newStatus
     addAuditEntry(`In-update ang Barangay ID Status ni ${targetName} sa "${statusLabel}"`, {
       color: newStatus === 'pb_authorized' ? 'green' : 'orange',
     })
-    showToast(`In-update ang status ni ${targetName} sa "${statusLabel}".`)
+    showToast(
+      newStatus === 'pb_authorized'
+        ? `In-update ang status ni ${targetName} sa "${statusLabel}" at na-activate na ang account.`
+        : `In-update ang status ni ${targetName} sa "${statusLabel}".`
+    )
   }
 
   function openProfile(id) {
