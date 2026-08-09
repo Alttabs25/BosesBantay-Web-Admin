@@ -8,6 +8,8 @@ export const MOCK_USERS = [
     email: 'juan.delacruz@gmail.com',
     phone: '0917 123 4567',
     address: '123 Rizal St., Barangay San Isidro, Quezon City',
+    gender: 'Lalaki',
+    birthdate: '2008-08-09',
     dateRegistered: 'January 12, 2026',
   },
   {
@@ -19,6 +21,8 @@ export const MOCK_USERS = [
     email: 'maria.santos@gmail.com',
     phone: '0918 234 5678',
     address: '45 Kamias Rd., Barangay San Isidro, Quezon City',
+    gender: 'Babae',
+    birthdate: '1995-10-22',
     dateRegistered: 'June 30, 2026',
   },
   {
@@ -30,6 +34,8 @@ export const MOCK_USERS = [
     email: 'pedro.reyes@gmail.com',
     phone: '0919 345 6789',
     address: '78 P. Tuazon Blvd., Barangay San Isidro, Quezon City',
+    gender: 'Lalaki',
+    birthdate: '1988-03-03',
     dateRegistered: 'March 3, 2026',
   },
   {
@@ -41,6 +47,8 @@ export const MOCK_USERS = [
     email: 'ana.torres@gmail.com',
     phone: '0920 456 7890',
     address: '12 Tandang Sora Ave., Barangay San Isidro, Quezon City',
+    gender: 'Babae',
+    birthdate: '2012-08-18',
     dateRegistered: 'February 18, 2026',
   },
   {
@@ -52,6 +60,8 @@ export const MOCK_USERS = [
     email: 'carlo.ramos@gmail.com',
     phone: '0921 567 8901',
     address: '9 Visayas Ave., Barangay San Isidro, Quezon City',
+    gender: 'Lalaki',
+    birthdate: '1990-04-22',
     dateRegistered: 'April 22, 2026',
   },
 ]

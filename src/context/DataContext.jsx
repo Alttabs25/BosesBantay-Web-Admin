@@ -16,6 +16,18 @@ import {
 
 const DataContext = createContext(null)
 
+function calculateAge(birthdateString) {
+  if (!birthdateString) return ''
+  const today = new Date()
+  const birthDate = new Date(birthdateString)
+  let age = today.getFullYear() - birthDate.getFullYear()
+  const m = today.getMonth() - birthDate.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--
+  }
+  return age
+}
+
 export function DataProvider({ children }) {
   const { user } = useAuth()
   const [users, setUsers] = useState([])
@@ -189,6 +201,12 @@ export function DataProvider({ children }) {
         // Map to Blotter reports
         const mappedBlotter = pbsData.map(b => {
           const json = b.ai_extractions?.json_output || {}
+          const complainantName = json.complainant || b.ai_extractions?.complainant || 'Residente'
+          
+          // Fallback lookup for user profile in usersData
+          const userObj = usersData?.find(u => u.id === b.user_id) ||
+                          usersData?.find(u => `${u.first_name} ${u.last_name}`.trim().toLowerCase() === complainantName.toLowerCase())
+
           return {
             id: b.reference_no,
             title: b.ai_extractions?.incident_type || 'Kaganapan',
@@ -201,7 +219,7 @@ export function DataProvider({ children }) {
               minute: '2-digit',
               hour12: true
             }).toUpperCase(),
-            filedBy: json.complainant || b.ai_extractions?.complainant || 'Residente',
+            filedBy: complainantName,
             what: json.what || b.ai_extractions?.narrative_summary || '',
             who: json.who || b.ai_extractions?.respondent || '',
             where: json.where || b.ai_extractions?.incident_location || '',
@@ -211,7 +229,13 @@ export function DataProvider({ children }) {
             hearingDate: '',
             hearingNote: b.remarks || '',
             hearingCompleted: b.status === 'Nareselba' || b.status === 'Spam',
-            outcome: b.status === 'Nareselba' ? (b.remarks || 'Resolbado na.') : ''
+            outcome: b.status === 'Nareselba' ? (b.remarks || 'Resolbado na.') : '',
+            // Complainant detailed profile fields
+            complainantPhone: userObj?.mobile_number || json.phone || json.complainant_phone || userObj?.phone || '',
+            complainantAddress: userObj?.address || json.address || json.complainant_address || '',
+            complainantGender: userObj?.gender || json.gender || json.complainant_gender || '',
+            complainantAge: userObj?.birthdate ? calculateAge(userObj.birthdate) : (json.age || json.complainant_age || ''),
+            isMinor: userObj?.birthdate ? calculateAge(userObj.birthdate) < 18 : (json.is_minor || false)
           }
         })
         // Fetch Manual Form Reports submitted by residents
@@ -232,6 +256,8 @@ export function DataProvider({ children }) {
             else if (r.status === 'Resolved') adminStatus = 'Nareselba'
             else if (r.status === 'Spam') adminStatus = 'Spam'
             else if (r.status) adminStatus = r.status
+
+            const finalAge = userObj?.birthdate ? calculateAge(userObj.birthdate) : (r.full_details?.age || '')
 
             return {
               id: r.reference_no || `REP-${String(r.id || '').substring(0, 8)}`,
@@ -257,7 +283,13 @@ export function DataProvider({ children }) {
               hearingDate: '',
               hearingNote: (r.witnesses || r.full_details?.witnesses) ? `Saksi: ${r.witnesses || r.full_details?.witnesses}` : '',
               hearingCompleted: adminStatus === 'Nareselba' || adminStatus === 'Spam',
-              outcome: adminStatus === 'Nareselba' ? 'Resolbado na.' : ''
+              outcome: adminStatus === 'Nareselba' ? 'Resolbado na.' : '',
+              // Complainant detailed profile fields
+              complainantPhone: userObj?.mobile_number || r.full_details?.phone || userObj?.phone || '',
+              complainantAddress: userObj?.address || r.full_details?.address || '',
+              complainantGender: userObj?.gender || r.full_details?.gender || '',
+              complainantAge: finalAge,
+              isMinor: finalAge ? Number(finalAge) < 18 : false
             }
           })
         }

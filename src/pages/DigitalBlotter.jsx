@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ShieldAlert, CheckCircle2, CalendarClock, CalendarCheck2 } from 'lucide-react'
+import { ShieldAlert, CheckCircle2, CalendarClock, CalendarCheck2, User, Phone, MapPin } from 'lucide-react'
 import { STATUS_META, OUTCOME_OPTIONS } from '../data/mockBlotter'
 import Pill from '../components/Pill'
 import SearchInput from '../components/SearchInput'
@@ -194,7 +194,8 @@ export default function DigitalBlotter() {
             return (
               <div
                 key={report.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 p-4"
+                onClick={() => expand(report)}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 p-4 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
               >
                 <div>
                   <div className="flex items-center gap-2">
@@ -209,8 +210,7 @@ export default function DigitalBlotter() {
                   </p>
                 </div>
                 <button
-                  onClick={() => expand(report)}
-                  className="rounded-lg bg-gradient-to-b from-gray-500 to-gray-600/90 border border-gray-500/10 shadow-xs hover:shadow-sm hover:from-gray-600 hover:to-gray-700 px-4 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96]"
+                  className="pointer-events-none rounded-lg bg-gradient-to-b from-gray-500 to-gray-600/90 border border-gray-500/10 shadow-xs px-4 py-1.5 text-xs font-semibold text-white"
                 >
                   Tingnan ang report
                 </button>
@@ -219,14 +219,17 @@ export default function DigitalBlotter() {
           }
 
           return (
-            <div key={report.id} className="overflow-hidden rounded-lg border border-gray-200">
-              <div className="bg-bb-blue p-4 text-white">
+            <div key={report.id} className="overflow-hidden rounded-lg border border-gray-200 shadow-sm">
+              <div
+                onClick={() => setExpandedId(null)}
+                className="bg-bb-blue p-4 text-white cursor-pointer hover:bg-bb-blue-dark transition-all select-none"
+              >
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-semibold">{report.id}</span>
                   <Pill color={meta.color} solid>
                     {report.status}
                   </Pill>
-                  <div className="ml-auto flex flex-wrap gap-2">
+                  <div className="ml-auto flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
                     {report.status === 'Sinuri' && canConfirm && (
                       <>
                         <button
@@ -247,10 +250,57 @@ export default function DigitalBlotter() {
                     )}
                   </div>
                 </div>
-                <h3 className="mt-3 text-lg font-bold">{report.title}</h3>
-                <p className="text-sm text-white/80">
-                  {report.datetime} - {report.filedBy}
-                </p>
+                <div className="flex items-end justify-between mt-3">
+                  <div>
+                    <h3 className="text-lg font-bold leading-tight">{report.title}</h3>
+                    <p className="text-xs text-white/80 mt-1">
+                      {report.datetime} - {report.filedBy}
+                    </p>
+                  </div>
+                  <span className="text-[10px] bg-white/10 hover:bg-white/20 border border-white/10 px-2.5 py-1 rounded text-white/90 font-medium transition-all">
+                    I-collapse ang Report
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 border-b border-gray-200 px-4 py-3 flex flex-wrap gap-4 text-xs">
+                <div className="flex items-center gap-1.5 min-w-[140px]">
+                  <User size={14} className="text-bb-blue shrink-0" />
+                  <div>
+                    <span className="block text-[10px] font-semibold text-gray-400 uppercase">Nagrereklamo</span>
+                    <span className="font-semibold text-gray-700">{report.filedBy}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 min-w-[120px]">
+                  <Phone size={14} className="text-bb-blue shrink-0" />
+                  <div>
+                    <span className="block text-[10px] font-semibold text-gray-400 uppercase">Contact No.</span>
+                    <span className="font-semibold text-gray-700">{report.complainantPhone || 'N/A'}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 min-w-[100px]">
+                  <User size={14} className="text-bb-blue shrink-0" />
+                  <div>
+                    <span className="block text-[10px] font-semibold text-gray-400 uppercase">Kasarian / Edad</span>
+                    <span className="font-semibold text-gray-700">
+                      {report.complainantGender || 'N/A'}
+                      {report.complainantAge ? ` (${report.complainantAge} yrs)` : ''}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 min-w-[200px] flex-1">
+                  <MapPin size={14} className="text-bb-blue shrink-0" />
+                  <div>
+                    <span className="block text-[10px] font-semibold text-gray-400 uppercase">Tirahan</span>
+                    <span className="font-semibold text-gray-700">{report.complainantAddress || 'N/A'}</span>
+                  </div>
+                </div>
+                {report.isMinor && (
+                  <div className="flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200/50 px-2 py-0.5 rounded-md text-[10px] font-bold">
+                    <ShieldAlert size={12} />
+                    Menor de Edad (Minor)
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
@@ -378,14 +428,7 @@ export default function DigitalBlotter() {
                 </div>
               )}
 
-              <div className="border-t border-gray-100 p-4">
-                <button
-                  onClick={() => setExpandedId(null)}
-                  className="rounded-lg bg-gradient-to-b from-gray-500 to-gray-600/90 border border-gray-500/10 shadow-xs hover:shadow-sm hover:from-gray-600 hover:to-gray-700 px-4 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96]"
-                >
-                  Isara ang Report
-                </button>
-              </div>
+
             </div>
           )
         })}
