@@ -30,6 +30,13 @@ export default function AdminLayout() {
 
   const lastActivityRef = useRef(getLastActivity())
 
+  // Reset last activity on initial mount/dashboard load to prevent old session timeouts from triggering on login
+  useEffect(() => {
+    const now = Date.now()
+    lastActivityRef.current = now
+    localStorage.setItem('bb_last_activity', now.toString())
+  }, [])
+
   // Force log out
   const handleAutoLogout = useCallback(async () => {
     setShowWarning(false)
