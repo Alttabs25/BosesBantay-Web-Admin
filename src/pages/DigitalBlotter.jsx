@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { ShieldAlert, CheckCircle2, CalendarClock, CalendarCheck2, User, Phone, MapPin } from 'lucide-react'
 import { STATUS_META, OUTCOME_OPTIONS } from '../data/mockBlotter'
 import Pill from '../components/Pill'
@@ -49,6 +49,28 @@ export default function DigitalBlotter() {
     setHearingDraft({ hearingDate: report.hearingDate, hearingNote: report.hearingNote })
     setOutcomeDraft('')
   }
+
+  function collapseReport(reportId) {
+    setExpandedId(null)
+    setTimeout(() => {
+      const el = document.getElementById(`report-card-${reportId}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+    }, 80)
+  }
+
+  useEffect(() => {
+    if (expandedId) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`report-card-${expandedId}`)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 80)
+      return () => clearTimeout(timer)
+    }
+  }, [expandedId])
 
   function confirmReport(report) {
     updateBlotterReport(report.id, { status: 'Inimbestigahan' })
@@ -219,9 +241,9 @@ export default function DigitalBlotter() {
           }
 
           return (
-            <div key={report.id} className="overflow-hidden rounded-lg border border-gray-200 shadow-sm">
+            <div key={report.id} id={`report-card-${report.id}`} className="overflow-hidden rounded-lg border border-gray-200 shadow-sm">
               <div
-                onClick={() => setExpandedId(null)}
+                onClick={() => collapseReport(report.id)}
                 className="bg-bb-blue p-4 text-white cursor-pointer hover:bg-bb-blue-dark transition-all select-none"
               >
                 <div className="flex flex-wrap items-center gap-2">
