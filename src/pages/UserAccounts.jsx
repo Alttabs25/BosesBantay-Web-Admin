@@ -523,7 +523,7 @@ export default function UserAccounts() {
             <SearchInput value={query} onChange={setQuery} placeholder="Hanapin ang pangalan, phone, o ID..." />
           </div>
 
-          <div className="mt-4 max-h-[calc(100vh-360px)] overflow-auto rounded-lg border border-gray-200">
+          <div className="mt-4 max-h-[calc(100vh-360px)] overflow-auto rounded-lg border border-gray-200 pb-24">
             <table className="w-full text-left text-sm">
               <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                 <tr>
@@ -537,11 +537,12 @@ export default function UserAccounts() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((u) => {
+                {filtered.map((u, index) => {
                   const action = ACTION_BY_STATUS[u.status]
                   const idStatusKey = u.barangayIdStatus || 'unverified'
                   const idStatusMeta = BARANGAY_ID_STATUS_BADGE[idStatusKey] || BARANGAY_ID_STATUS_BADGE.unverified
                   const StatusIcon = idStatusMeta.icon
+                  const openUpward = index === filtered.length - 1 && filtered.length > 1
 
                   return (
                     <tr key={u.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
@@ -612,7 +613,9 @@ export default function UserAccounts() {
                                   setOpenMenuId(null)
                                 }}
                               />
-                              <div className="absolute right-4 top-10 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-30 text-left">
+                              <div className={`absolute right-4 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-30 text-left ${
+                                openUpward ? 'bottom-8 mb-1' : 'top-10 mt-1'
+                              }`}>
                                 <button
                                   onClick={() => {
                                     setOpenMenuId(null)
@@ -677,7 +680,7 @@ export default function UserAccounts() {
       )}
 
       {showAdminAccounts && (
-        <div className="mt-4 max-h-[calc(100vh-260px)] overflow-auto rounded-lg border border-gray-200">
+        <div className="mt-4 max-h-[calc(100vh-260px)] overflow-auto rounded-lg border border-gray-200 pb-24">
           <table className="w-full text-left text-sm">
             <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
               <tr>
@@ -690,8 +693,10 @@ export default function UserAccounts() {
               </tr>
             </thead>
             <tbody>
-              {accounts.map((a) => (
-                <tr key={a.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
+              {accounts.map((a, index) => {
+                const openUpward = index === accounts.length - 1 && accounts.length > 1
+                return (
+                  <tr key={a.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="font-medium flex items-center gap-1.5 text-xs text-gray-700">
                       <span>ID: {maskId(a.id)}</span>
@@ -745,7 +750,9 @@ export default function UserAccounts() {
                               setOpenMenuId(null)
                             }}
                           />
-                          <div className="absolute right-4 top-10 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-30 text-left">
+                          <div className={`absolute right-4 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-30 text-left ${
+                            openUpward ? 'bottom-8 mb-1' : 'top-10 mt-1'
+                          }`}>
                             <button
                               onClick={() => {
                                 setOpenMenuId(null)
@@ -773,7 +780,8 @@ export default function UserAccounts() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>
