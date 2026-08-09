@@ -68,6 +68,13 @@ export default function Dashboard() {
     { label: 'Linggo 4', value: 189, color: 'blue' },
   ]
 
+  const blotterData = [
+    { label: 'Sinuri (Pending)', value: blotterReports.filter((r) => r.status === 'Sinuri').length, color: 'orange' },
+    { label: 'Inimbestigahan', value: blotterReports.filter((r) => r.status === 'Inimbestigahan').length, color: 'blue' },
+    { label: 'Nareselba', value: blotterReports.filter((r) => r.status === 'Nareselba').length, color: 'green' },
+    { label: 'Spam', value: blotterReports.filter((r) => r.status === 'Spam').length, color: 'red' },
+  ]
+
   const activityFeed = auditLog.slice(0, 8)
 
   const isFullOverview = user?.role === ROLES.SECRETARY || user?.role === ROLES.CAPTAIN
@@ -133,6 +140,7 @@ export default function Dashboard() {
                 accent="blue"
               />
               <MiniBarChart title="Paglago ng Rehistradong Residente" data={registrationData} />
+              <MiniBarChart title="Kabuuan ng Blotter Reports" data={blotterData} />
               <MiniBarChart title="Chatbot Query Volume (sample)" data={chatbotQueryData} />
             </div>
           )}
@@ -146,7 +154,10 @@ export default function Dashboard() {
           )}
 
           {user?.role === ROLES.ADMIN && (
-            <MiniBarChart title="Paglago ng Rehistradong Residente" data={registrationData} />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <MiniBarChart title="Paglago ng Rehistradong Residente" data={registrationData} />
+              <MiniBarChart title="Kabuuan ng Blotter Reports" data={blotterData} />
+            </div>
           )}
 
           {user?.role === ROLES.LUPON && (

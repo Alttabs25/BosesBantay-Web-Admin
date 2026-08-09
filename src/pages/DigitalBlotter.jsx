@@ -5,7 +5,6 @@ import Pill from '../components/Pill'
 import SearchInput from '../components/SearchInput'
 import ConfirmDialog from '../components/ConfirmDialog'
 import StatTile from '../components/StatTile'
-import MiniBarChart from '../components/MiniBarChart'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
@@ -194,29 +193,7 @@ export default function DigitalBlotter() {
     },
   }
 
-  const monthlyData = useMemo(() => {
-    const counts = blotterReports.reduce((acc, r) => {
-      if (!r.datetime) return acc
-      try {
-        const parts = r.datetime.split(',')
-        if (parts.length < 2) return acc
-        const month = parts[0].trim().split(' ')[0]
-        const year = parts[1].trim().split(' ')[0]
-        const key = `${month} ${year}`
-        acc[key] = (acc[key] ?? 0) + 1
-      } catch (e) {
-        // Fallback
-      }
-      return acc
-    }, {})
 
-    // Sort keys chronologically
-    const sorted = Object.entries(counts).sort((a, b) => {
-      return new Date(a[0]) - new Date(b[0])
-    })
-
-    return sorted.map(([label, value]) => ({ label, value, color: 'blue' }))
-  }, [blotterReports])
 
   return (
     <div>
@@ -226,18 +203,11 @@ export default function DigitalBlotter() {
       </p>
 
       {/* Analytics Section */}
-      <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-4">
-        {/* Stat Tiles Grid */}
-        <div className="xl:col-span-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatTile icon={FileText} label="Kabuuan (Total)" value={blotterReports.length} accent="blue" />
-          <StatTile icon={Clock} label="Sinuri (Pending)" value={blotterReports.filter(r => r.status === 'Sinuri').length} accent="orange" />
-          <StatTile icon={CalendarClock} label="Inimbestigahan" value={blotterReports.filter(r => r.status === 'Inimbestigahan').length} accent="blue" />
-          <StatTile icon={CheckCircle2} label="Nareselba" value={blotterReports.filter(r => r.status === 'Nareselba').length} accent="green" />
-        </div>
-        {/* Growth Chart */}
-        <div className="xl:col-span-1">
-          <MiniBarChart title="Paglago ng Blotter (Monthly)" data={monthlyData} />
-        </div>
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatTile icon={FileText} label="Kabuuan (Total)" value={blotterReports.length} accent="blue" />
+        <StatTile icon={Clock} label="Sinuri (Pending)" value={blotterReports.filter(r => r.status === 'Sinuri').length} accent="orange" />
+        <StatTile icon={CalendarClock} label="Inimbestigahan" value={blotterReports.filter(r => r.status === 'Inimbestigahan').length} accent="blue" />
+        <StatTile icon={CheckCircle2} label="Nareselba" value={blotterReports.filter(r => r.status === 'Nareselba').length} accent="green" />
       </div>
 
       <div className="mt-6 max-w-md">
@@ -248,7 +218,7 @@ export default function DigitalBlotter() {
         />
       </div>
 
-      <div className="mt-4 max-h-[calc(100vh-420px)] space-y-3 overflow-y-auto pr-1">
+      <div className="mt-4 max-h-[calc(100vh-320px)] space-y-3 overflow-y-auto pr-1">
         {filtered.map((report) => {
           const meta = STATUS_META[report.status]
           const isExpanded = expandedId === report.id
