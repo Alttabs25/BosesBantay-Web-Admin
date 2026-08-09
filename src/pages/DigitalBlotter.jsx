@@ -31,8 +31,8 @@ export default function DigitalBlotter() {
   const [pendingSpamId, setPendingSpamId] = useState(null)
   const [pendingAction, setPendingAction] = useState(null) // { type, report }
 
-  const canConfirm = user.role === ROLES.SECRETARY || user.role === ROLES.CAPTAIN
-  const canManageInvestigation = user.role === ROLES.LUPON
+  const canConfirm = user.role === ROLES.SECRETARY || user.role === ROLES.CAPTAIN || user.role === ROLES.ADMIN
+  const canManageInvestigation = user.role === ROLES.LUPON || user.role === ROLES.ADMIN
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()

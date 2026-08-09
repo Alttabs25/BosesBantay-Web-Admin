@@ -34,7 +34,7 @@ export const PERMISSIONS = {
     [LUPON]: ['read', 'update'],
     [KAGAWAD]: [],
     [CAPTAIN]: ['read', 'update', 'confirm'],
-    [ADMIN]: ['read'],
+    [ADMIN]: ['read', 'update', 'confirm'],
   },
   userAccounts: {
     [SECRETARY]: [],
