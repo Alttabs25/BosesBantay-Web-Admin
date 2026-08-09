@@ -96,6 +96,10 @@ CREATE TABLE IF NOT EXISTS public.pre_blotters (
     status VARCHAR(50) DEFAULT 'Under Review',
     verified_by UUID REFERENCES public.users(id),
     remarks TEXT NULL,
+    hearing_date TIMESTAMPTZ NULL,
+    hearing_completed BOOLEAN DEFAULT FALSE,
+    hearing_note TEXT NULL,
+    outcome TEXT NULL,
     submitted_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -222,6 +226,10 @@ CREATE TABLE IF NOT EXISTS public.reports (
     witnesses TEXT NULL,
     evidence TEXT NULL,
     status VARCHAR(50) DEFAULT 'Pending',
+    hearing_date TIMESTAMPTZ NULL,
+    hearing_completed BOOLEAN DEFAULT FALSE,
+    hearing_note TEXT NULL,
+    outcome TEXT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

@@ -28,6 +28,22 @@ function calculateAge(birthdateString) {
   return age
 }
 
+function formatDateTimeLocal(dateString) {
+  if (!dateString) return ''
+  try {
+    const d = new Date(dateString)
+    if (isNaN(d.getTime())) return ''
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    const hours = String(d.getHours()).padStart(2, '0')
+    const minutes = String(d.getMinutes()).padStart(2, '0')
+    return `${year}-${month}-${day}T${hours}:${minutes}`
+  } catch (e) {
+    return ''
+  }
+}
+
 export function DataProvider({ children }) {
   const { user } = useAuth()
   const [users, setUsers] = useState([])
@@ -228,10 +244,10 @@ export function DataProvider({ children }) {
             when: json.when || '',
             why: json.why || '',
             how: json.how || '',
-            hearingDate: '',
-            hearingNote: b.remarks || '',
-            hearingCompleted: b.status === 'Nareselba' || b.status === 'Spam',
-            outcome: b.status === 'Nareselba' ? (b.remarks || 'Resolbado na.') : '',
+            hearingDate: formatDateTimeLocal(b.hearing_date),
+            hearingNote: b.hearing_note || b.remarks || '',
+            hearingCompleted: b.hearing_completed !== undefined && b.hearing_completed !== null ? b.hearing_completed : (b.status === 'Nareselba' || b.status === 'Spam'),
+            outcome: b.outcome || (b.status === 'Nareselba' ? (b.remarks || 'Resolbado na.') : ''),
             // Complainant detailed profile fields
             complainantPhone: userObj?.mobile_number || json.phone || json.complainant_phone || userObj?.phone || '',
             complainantAddress: userObj?.address || json.address || json.complainant_address || '',
@@ -282,10 +298,10 @@ export function DataProvider({ children }) {
               when: r.date_time || r.incident_date || r.full_details?.incidentAt || 'N/A',
               why: r.full_details?.why || '',
               how: r.incident_details || r.description || r.full_details?.description || '',
-              hearingDate: '',
-              hearingNote: (r.witnesses || r.full_details?.witnesses) ? `Saksi: ${r.witnesses || r.full_details?.witnesses}` : '',
-              hearingCompleted: adminStatus === 'Nareselba' || adminStatus === 'Spam',
-              outcome: adminStatus === 'Nareselba' ? 'Resolbado na.' : '',
+              hearingDate: formatDateTimeLocal(r.hearing_date),
+              hearingNote: r.hearing_note || ((r.witnesses || r.full_details?.witnesses) ? `Saksi: ${r.witnesses || r.full_details?.witnesses}` : ''),
+              hearingCompleted: r.hearing_completed !== undefined && r.hearing_completed !== null ? r.hearing_completed : (adminStatus === 'Nareselba' || adminStatus === 'Spam'),
+              outcome: r.outcome || (adminStatus === 'Nareselba' ? 'Resolbado na.' : ''),
               // Complainant detailed profile fields
               complainantPhone: userObj?.mobile_number || r.full_details?.phone || userObj?.phone || '',
               complainantAddress: userObj?.address || r.full_details?.address || '',
@@ -699,6 +715,10 @@ export function DataProvider({ children }) {
           else residentStatus = patch.status
           updateFields.status = residentStatus
         }
+        if (patch.hearingDate !== undefined) updateFields.hearing_date = patch.hearingDate || null
+        if (patch.hearingNote !== undefined) updateFields.hearing_note = patch.hearingNote
+        if (patch.hearingCompleted !== undefined) updateFields.hearing_completed = patch.hearingCompleted
+        if (patch.outcome !== undefined) updateFields.outcome = patch.outcome
 
         const isUuid = id.includes('-') && id.split('-').length > 2
         const query = supabase.from('reports').update(updateFields)
@@ -718,20 +738,20 @@ export function DataProvider({ children }) {
 
         let pbPatch = {}
         if (patch.status) pbPatch.status = patch.status
+        if (patch.hearingDate !== undefined) pbPatch.hearing_date = patch.hearingDate || null
+        if (patch.hearingNote !== undefined) pbPatch.hearing_note = patch.hearingNote
+        if (patch.hearingCompleted !== undefined) pbPatch.hearing_completed = patch.hearingCompleted
+        if (patch.outcome !== undefined) pbPatch.outcome = patch.outcome
+
+        // Backward compatibility
         if (patch.hearingNote !== undefined) pbPatch.remarks = patch.hearingNote
         if (patch.remarks !== undefined) pbPatch.remarks = patch.remarks
+        if (patch.outcome !== undefined) pbPatch.remarks = patch.outcome
 
         await supabase
           .from('pre_blotters')
           .update(pbPatch)
           .eq('blotter_id', pb.blotter_id)
-
-        if (patch.outcome) {
-          await supabase
-            .from('pre_blotters')
-            .update({ remarks: patch.outcome })
-            .eq('blotter_id', pb.blotter_id)
-        }
       }
       fetchData()
     } catch (err) {
