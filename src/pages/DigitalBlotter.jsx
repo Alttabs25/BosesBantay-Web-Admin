@@ -25,6 +25,7 @@ export default function DigitalBlotter() {
   const { showToast } = useToast()
 
   const [query, setQuery] = useState('')
+  const [selectedStatus, setSelectedStatus] = useState(null)
   const [expandedId, setExpandedId] = useState(null)
   const [hearingDraft, setHearingDraft] = useState({ hearingDate: '', hearingNote: '' })
   const [outcomeDraft, setOutcomeDraft] = useState('')
@@ -35,15 +36,19 @@ export default function DigitalBlotter() {
   const canManageInvestigation = user.role === ROLES.LUPON || user.role === ROLES.ADMIN
 
   const filtered = useMemo(() => {
+    let list = blotterReports
+    if (selectedStatus) {
+      list = list.filter((r) => r.status === selectedStatus)
+    }
     const q = query.trim().toLowerCase()
-    if (!q) return blotterReports
-    return blotterReports.filter(
+    if (!q) return list
+    return list.filter(
       (r) =>
         r.id.toLowerCase().includes(q) ||
         r.title.toLowerCase().includes(q) ||
         r.filedBy.toLowerCase().includes(q),
     )
-  }, [blotterReports, query])
+  }, [blotterReports, query, selectedStatus])
 
   function expand(report) {
     setExpandedId(report.id)
@@ -204,10 +209,42 @@ export default function DigitalBlotter() {
 
       {/* Analytics Section */}
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile icon={FileText} label="Kabuuan (Total)" value={blotterReports.length} accent="blue" />
-        <StatTile icon={Clock} label="Sinuri (Pending)" value={blotterReports.filter(r => r.status === 'Sinuri').length} accent="orange" />
-        <StatTile icon={CalendarClock} label="Inimbestigahan" value={blotterReports.filter(r => r.status === 'Inimbestigahan').length} accent="blue" />
-        <StatTile icon={CheckCircle2} label="Nareselba" value={blotterReports.filter(r => r.status === 'Nareselba').length} accent="green" />
+        <StatTile
+          icon={FileText}
+          label="Kabuuan (Total)"
+          value={blotterReports.length}
+          accent="blue"
+          onClick={() => setSelectedStatus(null)}
+          selected={selectedStatus === null}
+          interactive
+        />
+        <StatTile
+          icon={Clock}
+          label="Sinuri (Pending)"
+          value={blotterReports.filter(r => r.status === 'Sinuri').length}
+          accent="orange"
+          onClick={() => setSelectedStatus(selectedStatus === 'Sinuri' ? null : 'Sinuri')}
+          selected={selectedStatus === 'Sinuri'}
+          interactive
+        />
+        <StatTile
+          icon={CalendarClock}
+          label="Inimbestigahan"
+          value={blotterReports.filter(r => r.status === 'Inimbestigahan').length}
+          accent="blue"
+          onClick={() => setSelectedStatus(selectedStatus === 'Inimbestigahan' ? null : 'Inimbestigahan')}
+          selected={selectedStatus === 'Inimbestigahan'}
+          interactive
+        />
+        <StatTile
+          icon={CheckCircle2}
+          label="Nareselba"
+          value={blotterReports.filter(r => r.status === 'Nareselba').length}
+          accent="green"
+          onClick={() => setSelectedStatus(selectedStatus === 'Nareselba' ? null : 'Nareselba')}
+          selected={selectedStatus === 'Nareselba'}
+          interactive
+        />
       </div>
 
       <div className="mt-6 max-w-md">
