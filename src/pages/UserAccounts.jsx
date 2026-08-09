@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   CheckCircle2,
   AlertCircle,
@@ -184,6 +184,35 @@ export default function UserAccounts() {
   }, [users, query])
 
   const pendingRequests = useMemo(() => users.filter((u) => u.pendingRoleRequest), [users])
+
+  useEffect(() => {
+    if (openMenuId === null) return
+
+    const handleUserScrollGesture = () => {
+      setOpenMenuId(null)
+    }
+
+    window.addEventListener('wheel', handleUserScrollGesture, { passive: true })
+    window.addEventListener('touchmove', handleUserScrollGesture, { passive: true })
+
+    return () => {
+      window.removeEventListener('wheel', handleUserScrollGesture)
+      window.removeEventListener('touchmove', handleUserScrollGesture)
+    }
+  }, [openMenuId])
+
+  useEffect(() => {
+    if (!openMenuId) return
+
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`dropdown-menu-${openMenuId}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+    }, 80)
+
+    return () => clearTimeout(timer)
+  }, [openMenuId])
 
   const viewingUser = users.find((u) => u.id === viewingId) ?? null
   const pendingStatusUser = users.find((u) => u.id === pendingStatusActionId) ?? null
@@ -545,7 +574,7 @@ export default function UserAccounts() {
                   const openUpward = index >= filtered.length - 2
 
                   return (
-                    <tr key={u.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
+                    <tr id={`user-row-${u.id}`} key={u.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
                       <td className="px-4 py-3 font-medium text-gray-700 whitespace-nowrap">
                         <div className="flex items-center gap-1.5 text-xs font-mono text-gray-700 whitespace-nowrap">
                           <span className="whitespace-nowrap">{maskId(u.id)}</span>
@@ -613,7 +642,7 @@ export default function UserAccounts() {
                                   setOpenMenuId(null)
                                 }}
                               />
-                              <div className={`absolute right-4 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-30 text-left ${
+                              <div id={`dropdown-menu-${u.id}`} className={`absolute right-4 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-30 text-left ${
                                 openUpward ? 'bottom-8 mb-1' : 'top-10 mt-1'
                               }`}>
                                 <button
@@ -696,7 +725,7 @@ export default function UserAccounts() {
               {accounts.map((a, index) => {
                 const openUpward = index >= accounts.length - 2
                 return (
-                  <tr key={a.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
+                  <tr id={`admin-row-${a.id}`} key={a.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div className="font-medium flex items-center gap-1.5 text-xs font-mono text-gray-700 whitespace-nowrap">
                       <span className="whitespace-nowrap">ID: {maskId(a.id)}</span>
@@ -750,7 +779,7 @@ export default function UserAccounts() {
                               setOpenMenuId(null)
                             }}
                           />
-                          <div className={`absolute right-4 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-30 text-left ${
+                          <div id={`dropdown-menu-${a.id}`} className={`absolute right-4 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-30 text-left ${
                             openUpward ? 'bottom-8 mb-1' : 'top-10 mt-1'
                           }`}>
                             <button
