@@ -57,6 +57,13 @@ const STATUS_COLOR = {
   Deactivated: 'gray',
 }
 
+const STATUS_ORDER = {
+  Active: 1,
+  Pending: 2,
+  Suspended: 3,
+  Deactivated: 4,
+}
+
 const BARANGAY_ID_STATUS_BADGE = {
   Pending: { label: 'Hindi Beripikado', color: 'gray', icon: AlertCircle },
   unverified: { label: 'Hindi Beripikado', color: 'gray', icon: AlertCircle },
@@ -163,6 +170,7 @@ export default function UserAccounts() {
   const [pendingRoleDecision, setPendingRoleDecision] = useState(null)
 
   const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('All')
   const [openMenuId, setOpenMenuId] = useState(null)
   const [viewingId, setViewingId] = useState(null)
   const [roleChoice, setRoleChoice] = useState('')
@@ -171,17 +179,34 @@ export default function UserAccounts() {
   const [newAccount, setNewAccount] = useState(BLANK_NEW_ACCOUNT)
 
   const filtered = useMemo(() => {
+    let result = users
+
+    if (statusFilter !== 'All') {
+      result = result.filter((u) => {
+        const status = u.status || 'Active'
+        return status.toLowerCase() === statusFilter.toLowerCase()
+      })
+    }
+
     const q = query.trim().toLowerCase()
-    if (!q) return users
-    return users.filter(
-      (u) =>
-        (u.name && u.name.toLowerCase().includes(q)) ||
-        (u.id && u.id.toLowerCase().includes(q)) ||
-        (u.phone && u.phone.includes(q)) ||
-        (u.email && u.email.toLowerCase().includes(q)) ||
-        (u.address && u.address.toLowerCase().includes(q))
-    )
-  }, [users, query])
+    if (q) {
+      result = result.filter(
+        (u) =>
+          (u.name && u.name.toLowerCase().includes(q)) ||
+          (u.id && u.id.toLowerCase().includes(q)) ||
+          (u.phone && u.phone.includes(q)) ||
+          (u.email && u.email.toLowerCase().includes(q)) ||
+          (u.address && u.address.toLowerCase().includes(q))
+      )
+    }
+
+    // Sort: Active users at the top, then Pending, Suspended, Deactivated
+    return [...result].sort((a, b) => {
+      const orderA = STATUS_ORDER[a.status] || 99
+      const orderB = STATUS_ORDER[b.status] || 99
+      return orderA - orderB
+    })
+  }, [users, query, statusFilter])
 
   const pendingRequests = useMemo(() => users.filter((u) => u.pendingRoleRequest), [users])
 
@@ -548,8 +573,44 @@ export default function UserAccounts() {
 
       {showResidents && (
         <>
-          <div className="mt-4 max-w-md">
-            <SearchInput value={query} onChange={setQuery} placeholder="Hanapin ang pangalan, phone, o ID..." />
+          <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="w-full max-w-md">
+              <SearchInput value={query} onChange={setQuery} placeholder="Hanapin ang pangalan, phone, o ID..." />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 bg-gray-50/50 rounded-xl p-1.5">
+              {[
+                { value: 'All', label: 'Lahat', activeClass: 'bg-bb-blue text-white shadow-sm' },
+                { value: 'Active', label: 'Aktibo', activeClass: 'bg-green-600 text-white shadow-sm' },
+                { value: 'Pending', label: 'Naghihintay', activeClass: 'bg-orange-500 text-white shadow-sm' },
+                { value: 'Suspended', label: 'Suspendido', activeClass: 'bg-red-600 text-white shadow-sm' },
+                { value: 'Deactivated', label: 'Deaktibo', activeClass: 'bg-gray-500 text-white shadow-sm' }
+              ].map((pill) => {
+                const count = pill.value === 'All' 
+                  ? users.length 
+                  : users.filter(u => (u.status || 'Active') === pill.value).length
+                const isActive = statusFilter === pill.value
+
+                return (
+                  <button
+                    key={pill.value}
+                    onClick={() => setStatusFilter(pill.value)}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
+                      isActive
+                        ? `${pill.activeClass} scale-102`
+                        : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                    }`}
+                  >
+                    <span>{pill.label}</span>
+                    <span className={`rounded-full px-1.5 py-0.2 text-[10px] ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500 border border-gray-200/50'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           <div className="mt-4 max-h-[calc(100vh-360px)] overflow-auto rounded-lg border border-gray-200 pb-10">
