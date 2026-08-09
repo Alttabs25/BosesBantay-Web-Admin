@@ -14,7 +14,6 @@ import { useData } from '../context/DataContext'
 import { ROLES } from '../config/permissions'
 import StatTile from '../components/StatTile'
 import MiniBarChart from '../components/MiniBarChart'
-import Pill from '../components/Pill'
 
 const SEVERITY_COLOR = { Mataas: 'red', Katamtaman: 'orange', Mababa: 'green' }
 
@@ -177,19 +176,47 @@ export default function Dashboard() {
                 <p className="p-2 text-sm text-gray-400">Wala pang aktibidad.</p>
               )}
               {activityFeed.map((entry) => (
-                <div key={entry.id} className="flex items-start justify-between gap-3 border-b border-gray-100 pb-2.5 last:border-0 last:pb-0">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-700">{entry.actorName}</p>
-                    <p className="text-xs text-gray-400">{entry.actorRole}</p>
-                  </div>
-                  <div className="text-right">
-                    <Pill color={entry.color} solid>
-                      {entry.action}
-                    </Pill>
-                    <p className="mt-1 flex items-center justify-end gap-1 text-xs text-gray-400">
-                      <Clock size={11} />
+                <div
+                  key={entry.id}
+                  className="border-b border-gray-100 pb-2.5 last:border-0 last:pb-0"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span
+                        className={`h-2 w-2 rounded-full shrink-0 ${
+                          entry.color === 'red'
+                            ? 'bg-red-500'
+                            : entry.color === 'orange'
+                            ? 'bg-orange-500'
+                            : entry.color === 'green'
+                            ? 'bg-green-500'
+                            : 'bg-bb-blue'
+                        }`}
+                      />
+                      <span className="text-xs font-bold text-gray-900 truncate">{entry.actorName}</span>
+                      <span className="text-[10px] font-medium text-gray-400 truncate">
+                        {entry.actorRole}
+                      </span>
+                    </div>
+                    <span className="flex items-center gap-1 text-[10px] text-gray-400 shrink-0">
+                      <Clock size={10} />
                       {entry.timestamp}
-                    </p>
+                    </span>
+                  </div>
+                  <div className="mt-1.5 flex pl-3.5">
+                    <span
+                      className={`rounded-lg px-2 py-0.5 text-[11px] font-semibold leading-normal break-words whitespace-normal border ${
+                        entry.color === 'red'
+                          ? 'bg-red-50 text-red-700 border-red-200/50'
+                          : entry.color === 'orange'
+                          ? 'bg-orange-50 text-orange-700 border-orange-200/50'
+                          : entry.color === 'green'
+                          ? 'bg-green-50 text-green-700 border-green-200/50'
+                          : 'bg-blue-50 text-bb-blue border-blue-100'
+                      }`}
+                    >
+                      {entry.action}
+                    </span>
                   </div>
                 </div>
               ))}

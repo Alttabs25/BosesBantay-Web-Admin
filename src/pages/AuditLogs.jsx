@@ -1,5 +1,4 @@
 import { useMemo, useState, useEffect } from 'react'
-import Pill from '../components/Pill'
 import SearchInput from '../components/SearchInput'
 import { useData } from '../context/DataContext'
 
@@ -80,10 +79,20 @@ export default function AuditLogs() {
                 <td className="px-4 py-3 font-medium text-gray-700">{log.actorName}</td>
                 <td className="px-4 py-3 text-gray-500">{log.actorRole}</td>
                 <td className="px-4 py-3 text-gray-500">{log.timestamp}</td>
-                <td className="px-4 py-3">
-                  <Pill color={log.color} solid>
+                <td className="px-4 py-3 max-w-lg">
+                  <span
+                    className={`inline-block rounded-lg px-2.5 py-0.5 text-[11px] font-semibold leading-normal break-words whitespace-normal border ${
+                      log.color === 'red'
+                        ? 'bg-red-50 text-red-700 border-red-200/50'
+                        : log.color === 'orange'
+                        ? 'bg-orange-50 text-orange-700 border-orange-200/50'
+                        : log.color === 'green'
+                        ? 'bg-green-50 text-green-700 border-green-200/50'
+                        : 'bg-blue-50 text-bb-blue border-blue-100'
+                    }`}
+                  >
                     {log.action}
-                  </Pill>
+                  </span>
                 </td>
               </tr>
             ))}
