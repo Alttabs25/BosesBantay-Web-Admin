@@ -131,8 +131,8 @@ function formatE164(rawPhone) {
 
 function maskId(id) {
   if (!id) return ''
-  // Mask alphanumeric characters with asterisks for security, keeping layout hyphens intact
-  return id.replace(/[a-zA-Z0-9]/g, '*')
+  // Mask all characters except hyphens and spaces to ensure a clean mask presentation
+  return id.replace(/[^-\s]/g, '*')
 }
 
 export default function UserAccounts() {
@@ -523,7 +523,7 @@ export default function UserAccounts() {
             <SearchInput value={query} onChange={setQuery} placeholder="Hanapin ang pangalan, phone, o ID..." />
           </div>
 
-          <div className="mt-4 max-h-[calc(100vh-360px)] overflow-auto rounded-lg border border-gray-200 pb-24">
+          <div className="mt-4 max-h-[calc(100vh-360px)] overflow-auto rounded-lg border border-gray-200 pb-10">
             <table className="w-full text-left text-sm">
               <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                 <tr>
@@ -542,13 +542,13 @@ export default function UserAccounts() {
                   const idStatusKey = u.barangayIdStatus || 'unverified'
                   const idStatusMeta = BARANGAY_ID_STATUS_BADGE[idStatusKey] || BARANGAY_ID_STATUS_BADGE.unverified
                   const StatusIcon = idStatusMeta.icon
-                  const openUpward = index === filtered.length - 1 && filtered.length > 1
+                  const openUpward = index >= filtered.length - 2
 
                   return (
                     <tr key={u.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
-                      <td className="px-4 py-3 font-medium text-gray-700">
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
-                          <span>{maskId(u.id)}</span>
+                      <td className="px-4 py-3 font-medium text-gray-700 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 text-xs font-mono text-gray-700 whitespace-nowrap">
+                          <span className="whitespace-nowrap">{maskId(u.id)}</span>
                           <button
                             type="button"
                             onClick={() => handleCopyId(u.id)}
@@ -680,7 +680,7 @@ export default function UserAccounts() {
       )}
 
       {showAdminAccounts && (
-        <div className="mt-4 max-h-[calc(100vh-260px)] overflow-auto rounded-lg border border-gray-200 pb-24">
+        <div className="mt-4 max-h-[calc(100vh-260px)] overflow-auto rounded-lg border border-gray-200 pb-10">
           <table className="w-full text-left text-sm">
             <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
               <tr>
@@ -694,12 +694,12 @@ export default function UserAccounts() {
             </thead>
             <tbody>
               {accounts.map((a, index) => {
-                const openUpward = index === accounts.length - 1 && accounts.length > 1
+                const openUpward = index >= accounts.length - 2
                 return (
                   <tr key={a.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="font-medium flex items-center gap-1.5 text-xs text-gray-700">
-                      <span>ID: {maskId(a.id)}</span>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="font-medium flex items-center gap-1.5 text-xs font-mono text-gray-700 whitespace-nowrap">
+                      <span className="whitespace-nowrap">ID: {maskId(a.id)}</span>
                       <button
                         type="button"
                         onClick={() => handleCopyId(a.id)}
@@ -873,8 +873,8 @@ export default function UserAccounts() {
                 </h4>
                 <div className="flex flex-col gap-0.5">
                   <p className="text-sm text-gray-500">{viewingUser.role || 'Residente'}</p>
-                  <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                    <span>ID: {maskId(viewingUser.id)}</span>
+                  <div className="flex items-center gap-1.5 text-xs font-mono text-gray-400 whitespace-nowrap">
+                    <span className="whitespace-nowrap">ID: {maskId(viewingUser.id)}</span>
                     <button
                       type="button"
                       onClick={() => handleCopyId(viewingUser.id)}
