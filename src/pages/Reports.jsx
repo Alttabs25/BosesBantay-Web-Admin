@@ -2,19 +2,33 @@ import { useMemo, useState } from 'react'
 import { Download, Printer, FileBarChart } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
+import { useToast } from '../context/ToastContext'
 import { ROLES, can } from '../config/permissions'
 import { ALL_CLASSIFICATIONS } from '../data/mockIncidents'
 import { downloadCSV } from '../lib/csvExport'
 import StatTile from '../components/StatTile'
 import MiniBarChart from '../components/MiniBarChart'
 
-const DATE_RANGES = ['Lahat ng Petsa', 'Huling 7 Araw', 'Huling 30 Araw']
+const DATE_RANGES = ['Lahat ng Petsa', 'Huling 7 Araw', 'Huling 30 Araw', 'Custom Range']
 
-function inDateRange(dateISO, range) {
+function inDateRange(dateISO, range, customStart, customEnd) {
   if (range === 'Lahat ng Petsa') return true
-  const days = range === 'Huling 7 Araw' ? 7 : 30
-  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000
-  return new Date(dateISO).getTime() >= cutoff
+  if (range === 'Huling 7 Araw') {
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
+    return new Date(dateISO).getTime() >= cutoff
+  }
+  if (range === 'Huling 30 Araw') {
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
+    return new Date(dateISO).getTime() >= cutoff
+  }
+  if (range === 'Custom Range') {
+    if (!dateISO) return false
+    const time = new Date(dateISO).getTime()
+    const start = customStart ? new Date(customStart + 'T00:00:00').getTime() : 0
+    const end = customEnd ? new Date(customEnd + 'T23:59:59').getTime() : Infinity
+    return time >= start && time <= end
+  }
+  return true
 }
 
 function countBy(items, keyFn) {
@@ -29,6 +43,7 @@ function countBy(items, keyFn) {
 export default function Reports() {
   const { user } = useAuth()
   const { incidents, blotterReports, addAuditEntry } = useData()
+  const { showToast } = useToast()
 
   const canExport = can(user.role, 'reports', 'create')
 
@@ -38,16 +53,18 @@ export default function Reports() {
   )
 
   const [dateRange, setDateRange] = useState(DATE_RANGES[0])
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [classification, setClassification] = useState(ALL_CLASSIFICATIONS)
   const [generated, setGenerated] = useState(false)
 
   const scopedIncidents = useMemo(() => {
     return incidents.filter((i) => {
-      if (!inDateRange(i.dateISO, dateRange)) return false
+      if (!inDateRange(i.dateISO, dateRange, startDate, endDate)) return false
       if (classification !== ALL_CLASSIFICATIONS && i.classification !== classification) return false
       return true
     })
-  }, [incidents, dateRange, classification])
+  }, [incidents, dateRange, classification, startDate, endDate])
 
   const typeData = useMemo(() => countBy(scopedIncidents, (i) => i.classification), [scopedIncidents])
   const sectorData = useMemo(() => countBy(scopedIncidents, (i) => i.sector), [scopedIncidents])
@@ -67,6 +84,11 @@ export default function Reports() {
   )
 
   function handleGenerate() {
+    // If Custom Range is selected, warn if start or end date is missing
+    if (dateRange === 'Custom Range' && (!startDate || !endDate)) {
+      showToast('Mangyaring piliin ang parehong Start at End Date para sa Custom Range.', 'error')
+      return
+    }
     setGenerated(true)
     addAuditEntry('Bumuo ng report summary', { color: 'blue' })
   }
@@ -74,17 +96,21 @@ export default function Reports() {
   function handleExportCSV() {
     const rows = [
       ['Kategorya', 'Label', 'Bilang'],
-      ...typeData.map((r) => ['Insidente ayon sa Klasipikasyon', r.label, r.value]),
-      ...sectorData.map((r) => ['Insidente ayon sa Sektor', r.label, r.value]),
-      ...statusData.map((r) => ['Blotter Status', r.label, r.value]),
+      ...typeData.map((r) => ['Insidente ayon sa Uri ng Insidente', r.label, r.value]),
+      ...sectorData.map((r) => ['Kabuuan ayon sa Sektor', r.label, r.value]),
+      ...statusData.map((r) => ['Status Breakdown', r.label, r.value]),
     ]
     downloadCSV(`bosesbantay-report-${Date.now()}.csv`, rows)
+    showToast('Nai-download na ang Spreadsheet (CSV) report summary.', 'success')
     addAuditEntry('Nag-export ng report bilang spreadsheet (CSV)', { color: 'green' })
   }
 
   function handlePrint() {
+    showToast('Nai-export na ang PDF report summary (Gamitin ang print-to-PDF dialog ng browser).', 'success')
     addAuditEntry('Nag-export ng report bilang PDF (print)', { color: 'green' })
-    window.print()
+    setTimeout(() => {
+      window.print()
+    }, 500)
   }
 
   // Lupong Tagapamayapa: scoped to a fixed "assigned case summary" view only.
@@ -122,40 +148,66 @@ export default function Reports() {
         petsa, uri, at sektor.
       </p>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-gray-200 p-4 sm:grid-cols-3">
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-semibold text-gray-500">Saklaw ng Petsa</span>
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-          >
-            {DATE_RANGES.map((r) => (
-              <option key={r}>{r}</option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-semibold text-gray-500">Uri ng Insidente</span>
-          <select
-            value={classification}
-            onChange={(e) => setClassification(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-          >
-            {classifications.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
-        </label>
-        <div className="flex items-end">
-          <button
-            onClick={handleGenerate}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-bb-blue py-2.5 text-sm font-semibold text-white hover:bg-bb-blue-dark transition-colors"
-          >
-            <FileBarChart size={16} />
-            Bumuo ng Report
-          </button>
+      <div className="mt-4 rounded-xl border border-gray-200 p-4 bg-white space-y-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-gray-500">Saklaw ng Petsa</span>
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+            >
+              {DATE_RANGES.map((r) => (
+                <option key={r}>{r}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-gray-500">Uri ng Insidente</span>
+            <select
+              value={classification}
+              onChange={(e) => setClassification(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+            >
+              {classifications.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          </label>
+          <div className="flex items-end">
+            <button
+              onClick={handleGenerate}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-bb-blue to-bb-blue-dark border-t border-white/20 shadow-md shadow-bb-blue/20 hover:shadow-lg hover:shadow-bb-blue/40 py-2.5 text-sm font-semibold text-white transition-all active:scale-[0.98]"
+            >
+              <FileBarChart size={16} />
+              Bumuo ng Report
+            </button>
+          </div>
         </div>
+
+        {/* Custom Range Inputs */}
+        {dateRange === 'Custom Range' && (
+          <div className="grid grid-cols-1 gap-4 pt-4 border-t border-gray-150 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-semibold text-gray-500">Mula (Start Date)</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-semibold text-gray-500">Hanggang (End Date)</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+              />
+            </label>
+          </div>
+        )}
       </div>
 
       {generated && (
@@ -185,14 +237,14 @@ export default function Reports() {
             <div className="flex flex-wrap gap-2 print:hidden">
               <button
                 onClick={handleExportCSV}
-                className="flex items-center gap-2 rounded-lg bg-gradient-to-b from-bb-navy to-bb-navy/90 border border-bb-navy/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-4 py-2 text-sm font-semibold text-white transition-all active:scale-[0.98]"
+                className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 border-t border-white/20 shadow-md shadow-emerald-500/15 hover:shadow-lg hover:shadow-emerald-500/30 px-5 py-2.5 text-sm font-semibold text-white transition-all active:scale-[0.98]"
               >
                 <Download size={15} />
                 I-export bilang Spreadsheet (CSV)
               </button>
               <button
                 onClick={handlePrint}
-                className="flex items-center gap-2 rounded-lg bg-gradient-to-b from-gray-200 to-gray-300/80 border border-gray-200/20 shadow-sm hover:shadow hover:from-gray-300 hover:to-gray-400 px-4 py-2 text-sm font-semibold text-gray-700 transition-all active:scale-[0.98]"
+                className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-bb-navy to-bb-blue border-t border-white/20 shadow-md shadow-bb-navy/15 hover:shadow-lg hover:shadow-bb-navy/30 px-5 py-2.5 text-sm font-semibold text-white transition-all active:scale-[0.98]"
               >
                 <Printer size={15} />
                 I-export bilang PDF (Print)
