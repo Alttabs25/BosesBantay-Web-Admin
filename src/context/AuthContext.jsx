@@ -334,14 +334,18 @@ export function AuthProvider({ children }) {
     return { success: true, user: data?.user }
   }
 
-  const resetAdminAccountPassword = async (accountId, newTempPassword) => {
-    const target = accounts.find((a) => a.id === accountId)
-    if (!target) return
-
-    // Supabase native password recovery trigger
-    await supabase.auth.resetPasswordForEmail(target.email, {
-      redirectTo: `${window.location.origin}/reset-password`
+  const resetAdminAccountPassword = async (accountId, newPassword, mustChangePassword = true) => {
+    const { data, error } = await supabase.rpc('admin_set_user_password', {
+      target_user_id: accountId,
+      new_password: newPassword,
+      must_change_pw: mustChangePassword
     })
+
+    if (error) {
+      console.error('Error resetting admin password via RPC:', error)
+      return { success: false, error: error.message }
+    }
+    return { success: true }
   }
 
   const deleteAdminAccount = async (accountId) => {

@@ -58,7 +58,12 @@ To make the dashboard fully functional, you need to execute the schema and trigg
 2. Go to **Supabase Dashboard > SQL Editor**, paste the code, and click **Run**.
    * *This disables Row Level Security (RLS) for active prototyping, updates default role strings to match the front-end constants, and registers the SQL trigger that automatically inserts new users into `public.users` when they sign up.*
 
-### Step 3: Turn Off Email Confirmation (Critical)
+### Step 3: Register Password Reset Helper Function
+1. Open [update_admin_set_user_password.sql](update_admin_set_user_password.sql) and copy the script.
+2. Go to **Supabase Dashboard > SQL Editor**, paste the code, and click **Run**.
+   * *This registers the `admin_set_user_password` RPC function, allowing administrators to update other users' passwords directly from the dashboard without needing verification emails.*
+
+### Step 4: Turn Off Email Confirmation (Critical)
 To prevent getting rate-limited during sign-ups or getting the `"email rate limit exceeded"` error:
 1. Navigate to your **Supabase Dashboard > Authentication > Providers > Email**.
 2. Toggle **Confirm email** to **OFF** (Disabled).

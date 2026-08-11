@@ -50,6 +50,26 @@ function generateTempPassword() {
   return `Barangay#${digits}`
 }
 
+function getPasswordStrength(password) {
+  if (!password) return { score: 0, label: '', color: 'bg-gray-200', textColor: 'text-gray-400' }
+  if (password.length < 8) return { score: 0, label: 'Masyadong maikli', color: 'bg-red-500', textColor: 'text-red-500' }
+
+  let score = 0
+  if (/[a-z]/.test(password)) score++
+  if (/[A-Z]/.test(password)) score++
+  if (/[0-9]/.test(password)) score++
+  if (/[^a-zA-Z0-9]/.test(password)) score++
+
+  if (score <= 1) return { score: 1, label: 'Mahina', color: 'bg-red-500', textColor: 'text-red-500' }
+  if (score === 2) return { score: 2, label: 'Katamtaman', color: 'bg-orange-500', textColor: 'text-orange-500' }
+  if (score === 3) return { score: 3, label: 'Malakas', color: 'bg-green-500', textColor: 'text-green-500' }
+  
+  if (password.length >= 12) {
+    return { score: 4, label: 'Napakahusay', color: 'bg-emerald-600', textColor: 'text-emerald-600' }
+  }
+  return { score: 3, label: 'Malakas', color: 'bg-green-500', textColor: 'text-green-500' }
+}
+
 const STATUS_COLOR = {
   Active: 'green',
   Pending: 'orange',
@@ -163,6 +183,7 @@ export default function UserAccounts() {
   const [addingAdminAccount, setAddingAdminAccount] = useState(false)
   const [newAdminAccount, setNewAdminAccount] = useState(BLANK_ADMIN_ACCOUNT)
   const [pendingResetId, setPendingResetId] = useState(null)
+  const [resetPasswordValue, setResetPasswordValue] = useState('')
   const [pendingAdminDeleteId, setPendingAdminDeleteId] = useState(null)
   const [pendingModuleToggle, setPendingModuleToggle] = useState(null)
   const [pendingStatusActionId, setPendingStatusActionId] = useState(null)
@@ -421,13 +442,31 @@ export default function UserAccounts() {
     setAddingAdminAccount(false)
   }
 
-  async function confirmResetAdminPassword() {
+  async function handleResetPasswordSubmit(e) {
+    e.preventDefault()
+    if (!resetPasswordValue.trim()) {
+      showToast('Ilagay ang bagong password.', 'error')
+      return
+    }
+    if (resetPasswordValue.trim().length < 8) {
+      showToast('Dapat hindi bababa sa 8 karakter ang password.', 'error')
+      return
+    }
+
     const account = accounts.find((a) => a.id === pendingResetId)
     if (!account) return
-    const tempPassword = generateTempPassword()
-    await resetAdminAccountPassword(account.id, tempPassword)
+
+    const result = await resetAdminAccountPassword(account.id, resetPasswordValue.trim(), false)
+    
+    if (result && !result.success) {
+      showToast(result.error || 'Hindi ma-update ang password.', 'error')
+      return
+    }
+
     addAuditEntry(`Nag-reset ng password para sa admin account ni ${account.name}`, { color: 'orange' })
-    showToast(`Bagong pansamantalang password para kay ${account.name}: ${tempPassword}`)
+    showToast(`Bagong password para kay ${account.name} ay na-save na.`)
+    setPendingResetId(null)
+    setResetPasswordValue('')
   }
 
   async function confirmDeleteAdminAccount() {
@@ -1246,8 +1285,55 @@ export default function UserAccounts() {
                 Bumuo
               </button>
             </div>
-            <span className="mt-1 block text-xs text-gray-400">
-              Kailangan itong palitan ng user sa unang pag-login.
+
+            {/* Password Strength Status Bar */}
+            <div className="mt-3">
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-gray-500 font-semibold">Kahirapan ng Password (Strength):</span>
+                <span className={`font-bold ${getPasswordStrength(newAdminAccount.tempPassword).textColor}`}>
+                  {getPasswordStrength(newAdminAccount.tempPassword).label || 'Walang nilalaman'}
+                </span>
+              </div>
+              <div className="flex h-1.5 gap-1 rounded bg-gray-100 overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-300 ${
+                    getPasswordStrength(newAdminAccount.tempPassword).score >= 1
+                      ? getPasswordStrength(newAdminAccount.tempPassword).color
+                      : 'bg-transparent'
+                  }`}
+                  style={{ width: '25%' }}
+                />
+                <div
+                  className={`h-full transition-all duration-300 ${
+                    getPasswordStrength(newAdminAccount.tempPassword).score >= 2
+                      ? getPasswordStrength(newAdminAccount.tempPassword).color
+                      : 'bg-transparent'
+                  }`}
+                  style={{ width: '25%' }}
+                />
+                <div
+                  className={`h-full transition-all duration-300 ${
+                    getPasswordStrength(newAdminAccount.tempPassword).score >= 3
+                      ? getPasswordStrength(newAdminAccount.tempPassword).color
+                      : 'bg-transparent'
+                  }`}
+                  style={{ width: '25%' }}
+                />
+                <div
+                  className={`h-full transition-all duration-300 ${
+                    getPasswordStrength(newAdminAccount.tempPassword).score >= 4
+                      ? getPasswordStrength(newAdminAccount.tempPassword).color
+                      : 'bg-transparent'
+                  }`}
+                  style={{ width: '25%' }}
+                />
+              </div>
+              <p className="mt-1.5 text-xs text-gray-400 font-semibold leading-relaxed">
+                * Ang password ay dapat mayroong hindi bababa sa 8 karakter at naglalaman ng kumbinasyon ng malalaki at maliliit na titik, numero, at mga espesyal na karakter.
+              </p>
+            </div>
+            <span className="mt-2 block text-xs text-gray-500">
+              * Kailangan itong palitan ng user sa unang pag-login.
             </span>
           </label>
           <button
@@ -1259,15 +1345,113 @@ export default function UserAccounts() {
         </form>
       </Modal>
 
-      <ConfirmDialog
+      <Modal
         open={pendingResetId != null}
-        onClose={() => setPendingResetId(null)}
-        onConfirm={confirmResetAdminPassword}
-        title="I-reset ang Password"
-        message="Isang bagong pansamantalang password ang bubuuin, at kakailanganin ng user na palitan ito sa susunod niyang pag-login."
-        confirmLabel="I-reset"
-        danger={false}
-      />
+        onClose={() => {
+          setPendingResetId(null)
+          setResetPasswordValue('')
+        }}
+        title="I-update ang Password ng Admin"
+      >
+        <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Ilagay ang bagong password para sa account ni{' '}
+            <strong className="text-gray-800">
+              {accounts.find((a) => a.id === pendingResetId)?.name}
+            </strong>.
+          </p>
+
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold text-gray-700">
+              Bagong Password
+            </span>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                required
+                value={resetPasswordValue}
+                onChange={(e) => setResetPasswordValue(e.target.value)}
+                placeholder="hal. Barangay#1234"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm placeholder:text-gray-400 focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+              />
+              <button
+                type="button"
+                onClick={() => setResetPasswordValue(generateTempPassword())}
+                className="flex shrink-0 items-center gap-1.5 rounded-lg bg-gray-100 px-3 text-xs font-semibold text-gray-600 hover:bg-gray-200"
+              >
+                <Dices size={14} />
+                Bumuo
+              </button>
+            </div>
+
+            {/* Password Strength Status Bar */}
+            <div className="mt-3">
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-gray-500 font-semibold">Kahirapan ng Password (Strength):</span>
+                <span className={`font-bold ${getPasswordStrength(resetPasswordValue).textColor}`}>
+                  {getPasswordStrength(resetPasswordValue).label || 'Walang nilalaman'}
+                </span>
+              </div>
+              <div className="flex h-1.5 gap-1 rounded bg-gray-100 overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-300 ${
+                    getPasswordStrength(resetPasswordValue).score >= 1
+                      ? getPasswordStrength(resetPasswordValue).color
+                      : 'bg-transparent'
+                  }`}
+                  style={{ width: '25%' }}
+                />
+                <div
+                  className={`h-full transition-all duration-300 ${
+                    getPasswordStrength(resetPasswordValue).score >= 2
+                      ? getPasswordStrength(resetPasswordValue).color
+                      : 'bg-transparent'
+                  }`}
+                  style={{ width: '25%' }}
+                />
+                <div
+                  className={`h-full transition-all duration-300 ${
+                    getPasswordStrength(resetPasswordValue).score >= 3
+                      ? getPasswordStrength(resetPasswordValue).color
+                      : 'bg-transparent'
+                  }`}
+                  style={{ width: '25%' }}
+                />
+                <div
+                  className={`h-full transition-all duration-300 ${
+                    getPasswordStrength(resetPasswordValue).score >= 4
+                      ? getPasswordStrength(resetPasswordValue).color
+                      : 'bg-transparent'
+                  }`}
+                  style={{ width: '25%' }}
+                />
+              </div>
+              <p className="mt-1.5 text-xs text-gray-400 font-semibold leading-relaxed">
+                * Ang password ay dapat mayroong hindi bababa sa 8 karakter at naglalaman ng kumbinasyon ng malalaki at maliliit na titik, numero, at mga espesyal na karakter.
+              </p>
+            </div>
+          </label>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setPendingResetId(null)
+                setResetPasswordValue('')
+              }}
+              className="w-1/2 rounded-lg border border-gray-300 py-2.5 font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Kanselahin
+            </button>
+            <button
+              type="submit"
+              className="w-1/2 rounded-lg bg-bb-navy py-2.5 font-semibold text-white hover:bg-bb-blue-dark transition-colors"
+            >
+              I-save
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       <ConfirmDialog
         open={pendingModuleToggle != null}
