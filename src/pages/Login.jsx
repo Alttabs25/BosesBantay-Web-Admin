@@ -75,7 +75,7 @@ export default function Login() {
               value={credential}
               onChange={(e) => setCredential(e.target.value)}
               placeholder="captain.***@quezoncity.gov.ph"
-              className="w-full rounded-lg border-0 px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white"
+              className="w-full rounded-lg border-0 bg-white px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white"
             />
           </label>
 
@@ -89,7 +89,7 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••••"
-              className="w-full rounded-lg border-0 px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white"
+              className="w-full rounded-lg border-0 bg-white px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white"
             />
           </label>
 

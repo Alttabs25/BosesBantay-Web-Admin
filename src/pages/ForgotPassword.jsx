@@ -91,7 +91,7 @@ export default function ForgotPassword() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="captain.***@quezoncity.gov.ph"
-                  className="w-full rounded-lg border-0 px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white"
+                  className="w-full rounded-lg border-0 bg-white px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white"
                 />
               </label>
               <button
@@ -114,7 +114,7 @@ export default function ForgotPassword() {
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   placeholder="6-digit code"
-                  className="w-full rounded-lg border-0 px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white"
+                  className="w-full rounded-lg border-0 bg-white px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white"
                 />
               </label>
 
@@ -126,7 +126,7 @@ export default function ForgotPassword() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="••••••••••"
-                  className="w-full rounded-lg border-0 px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white"
+                  className="w-full rounded-lg border-0 bg-white px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white"
                 />
               </label>
 
@@ -138,7 +138,7 @@ export default function ForgotPassword() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••••"
-                  className="w-full rounded-lg border-0 px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white"
+                  className="w-full rounded-lg border-0 bg-white px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white"
                 />
               </label>
 
