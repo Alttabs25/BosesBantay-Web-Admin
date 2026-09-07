@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { supabase } from '../lib/supabaseClient'
 import { ShieldCheck, Mail, ArrowLeft, RefreshCw } from 'lucide-react'
+import LoginLoadingScreen from '../components/LoginLoadingScreen'
 
 export default function TwoFactorAuth() {
   const { user, logout } = useAuth()
@@ -12,6 +13,7 @@ export default function TwoFactorAuth() {
   
   const [code, setCode] = useState(['', '', '', '', '', ''])
   const [loading, setLoading] = useState(false)
+  const [isSuccessLoading, setIsSuccessLoading] = useState(false)
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
   const [timer, setTimer] = useState(300) // 5 minutes countdown (300 seconds)
@@ -148,12 +150,8 @@ export default function TwoFactorAuth() {
           color: 'green',
         })
 
-        // Redirect to first-login change page or dashboard
-        if (user.mustChangePassword) {
-          navigate('/first-login')
-        } else {
-          navigate('/dashboard')
-        }
+        // Show cinematic transition before navigating
+        setIsSuccessLoading(true)
       } else {
         setError('Maling code o expired na ito. Mangyaring subukan muli.')
         setCode(['', '', '', '', '', ''])
@@ -201,11 +199,28 @@ export default function TwoFactorAuth() {
   }
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-bb-blue px-6 py-10 sm:px-12">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-8 text-white backdrop-blur-xl shadow-2xl">
-        
-        {/* Header */}
-        <div className="mb-6 flex flex-col items-center text-center">
+    <>
+      {isSuccessLoading && (
+        <LoginLoadingScreen
+          user={user}
+          is2fa={false}
+          customTitle="2FA Na-verify Nang Matagumpay"
+          customSubtitle="Inihahanda ang Command Center..."
+          onComplete={() => {
+            if (user?.mustChangePassword) {
+              navigate('/first-login')
+            } else {
+              navigate('/dashboard')
+            }
+          }}
+        />
+      )}
+
+      <div className="flex min-h-screen w-full items-center justify-center bg-bb-blue px-6 py-10 sm:px-12">
+        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-8 text-white backdrop-blur-xl shadow-2xl">
+          
+          {/* Header */}
+          <div className="mb-6 flex flex-col items-center text-center">
           <div className="mb-4 rounded-full bg-white/10 p-3.5 ring-4 ring-white/5">
             <ShieldCheck className="h-8 w-8 text-green-400" />
           </div>
@@ -303,5 +318,6 @@ export default function TwoFactorAuth() {
 
       </div>
     </div>
+    </>
   )
 }
