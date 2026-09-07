@@ -264,45 +264,58 @@ export default function KnowledgeBase() {
           {/* Controls Bar: Search & Status Tabs */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             {/* Filter Tabs */}
-            <div className="flex items-center gap-1 rounded-xl bg-gray-100 p-0.5 text-xs font-semibold text-gray-600 overflow-x-auto">
-              <button
-                onClick={() => setActiveTab('all')}
-                className={`rounded-lg px-2.5 py-1 text-xs transition-all cursor-pointer whitespace-nowrap ${
-                  activeTab === 'all' ? 'bg-white text-gray-900 shadow-xs font-bold' : 'hover:text-gray-900'
-                }`}
-              >
-                Lahat ({documents.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('approved')}
-                className={`rounded-lg px-2.5 py-1 text-xs transition-all cursor-pointer whitespace-nowrap ${
-                  activeTab === 'approved'
-                    ? 'bg-white text-emerald-700 shadow-xs font-bold'
-                    : 'hover:text-gray-900'
-                }`}
-              >
-                Published ({documents.filter((d) => d.officialStatus === 'Opisyal' && d.status !== 'Retired').length})
-              </button>
-              <button
-                onClick={() => setActiveTab('pending')}
-                className={`rounded-lg px-2.5 py-1 text-xs transition-all cursor-pointer whitespace-nowrap ${
-                  activeTab === 'pending'
-                    ? 'bg-white text-amber-700 shadow-xs font-bold'
-                    : 'hover:text-gray-900'
-                }`}
-              >
-                Pending ({pendingApprovalCount})
-              </button>
-              <button
-                onClick={() => setActiveTab('retired')}
-                className={`rounded-lg px-2.5 py-1 text-xs transition-all cursor-pointer whitespace-nowrap ${
-                  activeTab === 'retired'
-                    ? 'bg-white text-gray-700 shadow-xs font-bold'
-                    : 'hover:text-gray-900'
-                }`}
-              >
-                Archived ({documents.filter((d) => d.status === 'Retired' || d.officialStatus === 'Naka-retire').length})
-              </button>
+            <div className="flex flex-wrap items-center gap-1.5 bg-gray-50/50 rounded-xl p-1.5">
+              {[
+                {
+                  value: 'all',
+                  label: 'Lahat',
+                  count: documents.length,
+                  activeClass: 'bg-bb-blue text-white shadow-sm',
+                },
+                {
+                  value: 'approved',
+                  label: 'Published',
+                  count: documents.filter((d) => d.officialStatus === 'Opisyal' && d.status !== 'Retired').length,
+                  activeClass: 'bg-green-600 text-white shadow-sm',
+                },
+                {
+                  value: 'pending',
+                  label: 'Naghihintay',
+                  count: pendingApprovalCount,
+                  activeClass: 'bg-orange-500 text-white shadow-sm',
+                },
+                {
+                  value: 'retired',
+                  label: 'Archived',
+                  count: documents.filter((d) => d.status === 'Retired' || d.officialStatus === 'Naka-retire').length,
+                  activeClass: 'bg-gray-500 text-white shadow-sm',
+                },
+              ].map((pill) => {
+                const isActive = activeTab === pill.value
+
+                return (
+                  <button
+                    key={pill.value}
+                    onClick={() => setActiveTab(pill.value)}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
+                      isActive
+                        ? `${pill.activeClass} scale-102`
+                        : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                    }`}
+                  >
+                    <span>{pill.label}</span>
+                    <span
+                      className={`rounded-full px-1.5 py-0.2 text-[10px] ${
+                        isActive
+                          ? 'bg-white/20 text-white'
+                          : 'bg-gray-100 text-gray-500 border border-gray-200/50'
+                      }`}
+                    >
+                      {pill.count}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
 
             {/* Search Input */}
