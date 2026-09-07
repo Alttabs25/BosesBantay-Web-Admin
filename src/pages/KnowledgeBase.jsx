@@ -21,6 +21,7 @@ import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { can, ROLES } from '../config/permissions'
+import { extractTextFromFile, parseDocumentSections } from '../utils/pdfExtractor'
 
 const STATUS_COLOR = {
   'Fully Indexed': 'blue',
@@ -55,6 +56,8 @@ export default function KnowledgeBase() {
   const [ordinanceNo, setOrdinanceNo] = useState('')
   const [category, setCategory] = useState(DOCUMENT_CATEGORIES[0])
   const [summary, setSummary] = useState('')
+  const [documentText, setDocumentText] = useState('')
+  const [extracting, setExtracting] = useState(false)
   const [file, setFile] = useState(null)
   const [isDragging, setIsDragging] = useState(false)
   const inputRef = useRef(null)
@@ -119,16 +122,17 @@ export default function KnowledgeBase() {
     }, 1200)
   }
 
-  // File Validation
-  const handleFileSelection = (selectedFile) => {
+  // File Validation and Automatic Text Extraction
+  const handleFileSelection = async (selectedFile) => {
     if (!selectedFile) return
     const name = selectedFile.name.toLowerCase()
     const isPdf = name.endsWith('.pdf')
     const isDocx = name.endsWith('.docx')
+    const isTxt = name.endsWith('.txt') || name.endsWith('.md')
 
-    if (!isPdf && !isDocx) {
+    if (!isPdf && !isDocx && !isTxt) {
       showToast(
-        'Tanging text-searchable .PDF at Microsoft Word (.DOCX) lamang ang suportado.',
+        'Tanging text-searchable .PDF, Microsoft Word (.DOCX), at .TXT lamang ang suportado.',
         'error'
       )
       return
@@ -137,6 +141,26 @@ export default function KnowledgeBase() {
     setFile(selectedFile)
     if (!refName) {
       setRefName(selectedFile.name.replace(/\.[^/.]+$/, ''))
+    }
+
+    // Extract real text from file
+    setExtracting(true)
+    showToast('Sinisimulan ang pag-extract ng teksto mula sa file...', 'info')
+    try {
+      const extracted = await extractTextFromFile(selectedFile)
+      if (extracted && extracted.trim()) {
+        setDocumentText(extracted.trim())
+        if (!summary.trim()) {
+          setSummary(extracted.trim().slice(0, 250) + '...')
+        }
+        showToast('Matagumpay na na-extract ang teksto mula sa dokumento para sa AI indexing!', 'success')
+      } else {
+        showToast('Nai-attach ang file. Maaari ring mag-paste o mag-edit ng teksto sa kahon sa ibaba.', 'info')
+      }
+    } catch (err) {
+      console.warn('Text extraction error:', err)
+    } finally {
+      setExtracting(false)
     }
   }
 
@@ -164,6 +188,13 @@ export default function KnowledgeBase() {
       ? refName.trim()
       : `${refName.trim()}.${format.toLowerCase()}`
 
+    const cleanTitle = uploadedName.replace(/\.[^/.]+$/, '').replace(/_/g, ' ')
+    const contentToUse = documentText.trim() || summary.trim()
+    const finalSections = parseDocumentSections(contentToUse, cleanTitle)
+    const finalSummary =
+      summary.trim() ||
+      (documentText.trim() ? documentText.trim().slice(0, 300) + '...' : `Opisyal na dokumento ukol sa ${cleanTitle}.`)
+
     const newDoc = {
       id: Date.now(),
       title: uploadedName,
@@ -173,24 +204,11 @@ export default function KnowledgeBase() {
       fileFormat: format,
       fileSize,
       isMachineReadable: true,
-      chunkCount: Math.floor(Math.random() * 10) + 12, // Simulated chunk extraction
+      chunkCount: finalSections.length,
       status: 'Indexing',
       officialStatus: 'Naghihintay ng Pag-apruba',
-      summary:
-        summary.trim() ||
-        `Opisyal na dokumento ng barangay ukol sa ${category.toLowerCase()}.`,
-      sections: [
-        {
-          title: 'Seksyon 1: Pamagat at Saklaw',
-          content: `Ang dokumentong ito ay nagtatakda ng mga alituntunin at patakaran ukol sa ${category}.`,
-        },
-        {
-          title: 'Seksyon 2: Mga Rekisito at Pamantayan',
-          content:
-            summary.trim() ||
-            'Lahat ng residente at establisimyento ay inaatasang sumunod sa mga probisyon nito.',
-        },
-      ],
+      summary: finalSummary,
+      sections: finalSections,
       isActive: true,
     }
 
@@ -211,7 +229,9 @@ export default function KnowledgeBase() {
     setOrdinanceNo('')
     setCategory(DOCUMENT_CATEGORIES[0])
     setSummary('')
+    setDocumentText('')
     setFile(null)
+    if (inputRef.current) inputRef.current.value = ''
   }
 
   // Filtered List
@@ -612,6 +632,25 @@ export default function KnowledgeBase() {
               />
             </div>
 
+            {/* Full Document Content / Extracted Text Box */}
+            <label className="block">
+              <span className="mb-0.5 flex items-center justify-between text-[11px] font-semibold text-gray-700">
+                <span>Nilalaman ng Dokumento (AI Text Chunks)</span>
+                {extracting ? (
+                  <span className="text-[10px] text-bb-blue font-medium animate-pulse">Ini-extract ang PDF...</span>
+                ) : (
+                  <span className="text-[10px] text-gray-400 font-normal">Auto-extracted o i-paste</span>
+                )}
+              </span>
+              <textarea
+                rows={3}
+                value={documentText}
+                onChange={(e) => setDocumentText(e.target.value)}
+                placeholder="Awtomatikong lalabas dito ang teksto ng in-upload na PDF/DOCX, o maaari ring i-paste ang buong nilalaman dito..."
+                className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs placeholder:text-gray-400 focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue resize-y font-sans"
+              />
+            </label>
+
             <button
               type="submit"
               className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-2 text-xs font-semibold text-white transition-all active:scale-[0.98] cursor-pointer"
@@ -642,13 +681,13 @@ export default function KnowledgeBase() {
         documents={documents}
       />
 
-      {/* Confirmation Dialog: Punong Barangay Approve */}
+      {/* Confirmation Dialog: Approve / Publish */}
       <ConfirmDialog
         open={pendingApproveDoc != null}
         onClose={() => setPendingApproveDoc(null)}
         onConfirm={confirmApproveOfficial}
         title="Gawing Opisyal ang Dokumento"
-        message={`Bilang Punong Barangay, sigurado ka bang nais mong aprubahan bilang "Opisyal" ang "${pendingApproveDoc?.title}"? Magiging live reference na ito para sa pagsagot ng Barangay-Bot.`}
+        message={`Sigurado ka bang nais mong aprubahan bilang "Opisyal" ang "${pendingApproveDoc?.title}"? Magiging live reference na ito para sa pagsagot ng Barangay-Bot.`}
         confirmLabel="Gawing Opisyal"
         danger={false}
       />

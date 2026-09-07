@@ -42,7 +42,7 @@ export const PERMISSIONS = {
     [LUPON]: [],
     [KAGAWAD]: [],
     [CAPTAIN]: ['read', 'approve'],
-    [ADMIN]: ['create', 'read', 'update', 'delete'],
+    [ADMIN]: ['create', 'read', 'update', 'delete', 'approve'],
   },
   knowledgeBase: {
     [SECRETARY]: ['create', 'read', 'update'],
@@ -50,7 +50,7 @@ export const PERMISSIONS = {
     [LUPON]: [],
     [KAGAWAD]: [],
     [CAPTAIN]: ['read', 'approve'],
-    [ADMIN]: ['read', 'create', 'update', 'delete'],
+    [ADMIN]: ['read', 'create', 'update', 'delete', 'approve'],
   },
   alerts: {
     [SECRETARY]: ['create', 'read'],

@@ -24,12 +24,55 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
     (d) => d.officialStatus !== 'Opisyal' || d.status === 'Retired'
   )
 
+  // Dynamically generate sample queries directly from the active documents' actual sections
+  const dynamicDocQueries = officialDocs.flatMap((d) => {
+    const queries = []
+    const cleanTitle = d.title.replace(/\.[^/.]+$/, '').replace(/_/g, ' ')
+
+    if (d.sections && d.sections.length > 0) {
+      d.sections.forEach((sec) => {
+        const cleanSec = sec.title.replace(/^Seksyon\s+\d+:\s*/i, '').trim()
+        if (cleanSec && cleanSec.length > 3 && cleanSec.length < 55) {
+          queries.push(`Ano ang nakasaad ukol sa "${cleanSec}"?`)
+        }
+      })
+    } else {
+      queries.push(`Ano ang mga alituntunin at nilalaman ng "${cleanTitle}"?`)
+    }
+    return queries
+  })
+
   const sampleQueries = [
-    'Paano po kumuha ng Barangay Clearance at magkano ang bayad?',
-    'Bawal po ba ang videoke at ano ang curfew sa kabataan?',
-    'Kailan ang hakot ng basurang nabubulok at ano ang multa sa pagtapon sa kanal?',
-    'Ano po ang protocol para sa fogging at Dengue?',
+    ...dynamicDocQueries.slice(0, 4),
+    'Ano po ang recipe ng masarap na adobo? (Out-of-scope test)',
   ]
+
+  // Normalize Filipino words (strip -um- infix, -in- infix, -ng suffix, etc.)
+  const getRoots = (word) => {
+    const clean = word.toLowerCase().replace(/[^a-z0-9]/g, '')
+    const roots = [clean]
+
+    if (clean.endsWith('ng') && clean.length > 4) {
+      roots.push(clean.slice(0, -2))
+    }
+
+    const unInfixed = clean.replace(/^([bcdfghjklmnpqrstvwxyz])um([aeiou])/i, '$1$2')
+    if (unInfixed !== clean) {
+      roots.push(unInfixed)
+    }
+
+    const inInfixed = clean.replace(/^([bcdfghjklmnpqrstvwxyz])in([aeiou])/i, '$1$2')
+    if (inInfixed !== clean) {
+      roots.push(inInfixed)
+    }
+
+    const pagStripped = clean.replace(/^(pagka|paga|pag|mag|nag|pan|pam|pang)/i, '')
+    if (pagStripped.length >= 3 && pagStripped !== clean) {
+      roots.push(pagStripped)
+    }
+
+    return [...new Set(roots)]
+  }
 
   const handleTestQuery = (testText) => {
     const q = testText || query
@@ -46,46 +89,137 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
       const matchedSources = []
       let botResponse = ''
 
+      // Comprehensive Filipino & English stop words
+      const stopWords = new Set([
+        'paano', 'kailan', 'bawal', 'bakit', 'saan', 'magkano', 'ano', 'ating',
+        'para', 'mga', 'nang', 'sang', 'meron', 'mayroon', 'natin', 'inyo',
+        'po', 'ba', 'ng', 'sa', 'at', 'ang', 'na', 'ay', 'ito', 'kung', 'kayo', 'kami',
+        'what', 'how', 'when', 'where', 'why', 'the', 'and', 'for', 'with', 'from', 'about',
+        'sino', 'sinu', 'sino-sino', 'sinu-sino', 'pwede', 'pwedeng', 'puwede', 'puwedeng',
+        'sila', 'siya', 'niya', 'kanila', 'nila'
+      ])
+
+      const rawWords = qLower
+        .replace(/[^\w\s\u00C0-\u017F]/g, ' ')
+        .split(/\s+/)
+        .filter((w) => w.length >= 3)
+
+      const queryWords = rawWords.filter((w) => !stopWords.has(w))
+
+      const searchRoots = []
+      for (const w of queryWords) {
+        searchRoots.push(...getRoots(w))
+      }
+      const uniqueRoots = [...new Set(searchRoots)].filter((r) => r.length >= 3)
+
+      // Detect semantic intents
+      const isParticipationIntent =
+        qLower.includes('sali') ||
+        qLower.includes('lahok') ||
+        (qLower.includes('sino') && (qLower.includes('pwede') || qLower.includes('kalahok') || qLower.includes('sumali')))
+      const isScheduleIntent =
+        qLower.includes('kailan') ||
+        qLower.includes('oras') ||
+        qLower.includes('araw') ||
+        qLower.includes('iskedyul') ||
+        qLower.includes('petsa')
+      const isLocationIntent =
+        qLower.includes('saan') ||
+        qLower.includes('lokasyon') ||
+        qLower.includes('lugar')
+      const isPrizeIntent =
+        qLower.includes('premyo') ||
+        qLower.includes('panalo') ||
+        qLower.includes('kampeon') ||
+        qLower.includes('gantimpala') ||
+        (qLower.includes('magkano') && !qLower.includes('bayad'))
+
       // Check against official documents
       for (const doc of officialDocs) {
+        const docTextHeader = `${doc.title} ${doc.category || ''} ${doc.summary || ''}`.toLowerCase()
+        const docLevelMatches = uniqueRoots.filter((r) => docTextHeader.includes(r)).length
+
         if (doc.sections && doc.sections.length > 0) {
           for (const sec of doc.sections) {
             const secText = (sec.title + ' ' + sec.content).toLowerCase()
-            // Check relevance
-            const terms = qLower.split(' ').filter((t) => t.length > 3)
-            const matchCount = terms.filter((term) => secText.includes(term)).length
+            const fullDocText = `${docTextHeader} ${secText}`.toLowerCase()
 
-            let calculatedScore = 0.65
+            let matchedCount = 0
+            for (const root of uniqueRoots) {
+              if (secText.includes(root)) {
+                matchedCount += 2
+              } else if (fullDocText.includes(root)) {
+                matchedCount += 1
+              }
+            }
+
+            // Strong boost if the document itself is specifically named in query
+            if (docLevelMatches > 0) {
+              matchedCount += docLevelMatches * 2
+            }
+
             if (
-              (qLower.includes('clearance') && secText.includes('clearance')) ||
-              (qLower.includes('videoke') && secText.includes('videoke')) ||
-              (qLower.includes('ingay') && secText.includes('ingay')) ||
-              (qLower.includes('curfew') && secText.includes('curfew')) ||
-              (qLower.includes('basura') && secText.includes('basura')) ||
-              (qLower.includes('multa') && secText.includes('multa'))
+              isParticipationIntent &&
+              (secText.includes('kwalipikasyon') ||
+                secText.includes('pagsali') ||
+                secText.includes('kalahok') ||
+                secText.includes('bukas'))
             ) {
-              calculatedScore = Math.min(0.94, 0.76 + matchCount * 0.05)
-            } else if (matchCount > 0) {
-              calculatedScore = Math.min(0.85, 0.68 + matchCount * 0.06)
+              matchedCount += 3
+            }
+            if (
+              isLocationIntent &&
+              (secText.includes('lokasyon') ||
+                secText.includes('inspeksyon') ||
+                secText.includes('kalye') ||
+                secText.includes('court'))
+            ) {
+              matchedCount += 3
+            }
+            if (
+              isScheduleIntent &&
+              (secText.includes('iskedyul') ||
+                secText.includes('martes') ||
+                secText.includes('sabado') ||
+                secText.includes('oras'))
+            ) {
+              matchedCount += 3
+            }
+            if (
+              isPrizeIntent &&
+              (secText.includes('premyo') ||
+                secText.includes('kampeon') ||
+                secText.includes('₱') ||
+                secText.includes('cash'))
+            ) {
+              matchedCount += 3
+            }
+
+            let calculatedScore = 0.50
+            if (matchedCount >= 3) {
+              calculatedScore = Math.min(0.96, 0.78 + matchedCount * 0.02)
+            } else if (matchedCount >= 1) {
+              calculatedScore = Math.min(0.72, 0.60 + matchedCount * 0.05)
             }
 
             // Strictly enforce minimum cosine similarity threshold of 0.73 per specification
             if (calculatedScore >= 0.73) {
               matchedSources.push({
                 docTitle: doc.title,
-                ordinanceNo: doc.ordinanceNo || 'Opisyal na Dokumento',
+                ordinanceNo: doc.ordinanceNo && doc.ordinanceNo !== '—' ? doc.ordinanceNo : '',
                 category: doc.category,
                 sectionTitle: sec.title,
                 content: sec.content,
                 score: calculatedScore,
+                rawScore: matchedCount,
               })
             }
           }
         }
       }
 
-      // Rank by similarity descending and retrieve up to top 5 chunks
-      matchedSources.sort((a, b) => b.score - a.score)
+      // Rank by relevance descending and retrieve up to top 5 chunks
+      matchedSources.sort((a, b) => b.rawScore - a.rawScore || b.score - a.score)
       const top5Chunks = matchedSources.slice(0, 5)
 
       // Check if unapproved documents matched keywords (to demonstrate governance gate)
@@ -94,10 +228,10 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
         if (unappDoc.sections && unappDoc.sections.length > 0) {
           for (const sec of unappDoc.sections) {
             const secText = (sec.title + ' ' + sec.content).toLowerCase()
-            if (
-              (qLower.includes('fogging') || qLower.includes('dengue')) &&
-              (secText.includes('fogging') || secText.includes('dengue'))
-            ) {
+            const unappDocText = `${unappDoc.title} ${unappDoc.summary || ''} ${secText}`.toLowerCase()
+            const matchedKeywords = queryWords.filter((qw) => unappDocText.includes(qw)).length
+
+            if (queryWords.length > 0 && matchedKeywords >= 1 && (matchedKeywords / queryWords.length >= 0.4 || matchedKeywords >= 2)) {
               blockedMatches.push({
                 docTitle: unappDoc.title,
                 status: unappDoc.officialStatus,
@@ -111,12 +245,14 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
       if (top5Chunks.length > 0) {
         // Llama 3.1 8B Instruct Prompt-Constrained Grounded Generation
         const primary = top5Chunks[0]
-        botResponse = `Magandang araw po! Ayon sa ating **${primary.ordinanceNo} (${primary.docTitle})**, partikular sa **${primary.sectionTitle}**:\n\n`
+        const ordLabel = primary.ordinanceNo ? `${primary.ordinanceNo} - ` : ''
+        botResponse = `Magandang araw po! Ayon sa ating **${ordLabel}${primary.docTitle}**, partikular sa **${primary.sectionTitle}**:\n\n`
         botResponse += `> "${primary.content}"\n\n`
 
         if (top5Chunks.length > 1) {
           const secondary = top5Chunks[1]
-          botResponse += `Karagdagan din mula sa **${secondary.ordinanceNo} - ${secondary.sectionTitle}**:\n> "${secondary.content}"\n\n`
+          const secOrdLabel = secondary.ordinanceNo ? `${secondary.ordinanceNo} - ` : ''
+          botResponse += `Karagdagan din mula sa **${secOrdLabel}${secondary.sectionTitle}**:\n> "${secondary.content}"\n\n`
         }
 
         botResponse += `Kung may karagdagang paglilinaw, maaari pong magsadya sa Barangay Hall o mag-iwan ng opisyal na mensahe sa Desk Officer.`
@@ -258,7 +394,7 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
                                 <div className="flex items-center justify-between font-semibold text-emerald-900">
                                   <span className="flex items-center gap-1">
                                     <FileText className="h-3.5 w-3.5 text-emerald-700" />
-                                    {src.ordinanceNo}: {src.sectionTitle}
+                                    {src.ordinanceNo ? `${src.ordinanceNo} - ` : ''}{src.sectionTitle}
                                   </span>
                                   <span className="text-[10px] text-emerald-600 font-mono">
                                     Sim: {(src.score * 100).toFixed(0)}%

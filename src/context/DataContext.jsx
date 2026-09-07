@@ -333,26 +333,31 @@ export function DataProvider({ children }) {
         .order('document_id', { ascending: false })
       
       if (!docsErr && docsData) {
-        const mappedDocs = docsData.map(d => ({
-          id: d.document_id,
-          title: d.title,
-          ordinanceNo: d.ordinance_no || '',
-          category: d.document_type || 'Lokal na Ordinansa',
-          dateUploaded: d.upload_date ? new Date(d.upload_date).toLocaleDateString('en-US', {
-            month: 'long',
-            day: 'numeric',
-            year: 'numeric'
-          }) : 'Recently',
-          fileFormat: d.file_format || (d.title.endsWith('.docx') ? 'DOCX' : 'PDF'),
-          fileSize: d.file_size || '1.2 MB',
-          isMachineReadable: d.is_machine_readable ?? true,
-          chunkCount: d.chunk_count || 12,
-          status: !d.is_active || d.approval_status === 'Retired' ? 'Retired' : (d.vector_status || 'Fully Indexed'),
-          officialStatus: d.approval_status === 'Approved' ? 'Opisyal' : (d.approval_status === 'Retired' ? 'Naka-retire' : 'Naghihintay ng Pag-apruba'),
-          summary: d.summary || '',
-          sections: d.sections || [],
-          isActive: d.is_active ?? true
-        }))
+        const mappedDocs = docsData.map((d) => {
+          const sections = d.sections || []
+          const summary = d.summary || ''
+
+          return {
+            id: d.document_id,
+            title: d.title,
+            ordinanceNo: d.ordinance_no || '',
+            category: d.document_type || 'Lokal na Ordinansa',
+            dateUploaded: d.upload_date ? new Date(d.upload_date).toLocaleDateString('en-US', {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric'
+            }) : 'Recently',
+            fileFormat: d.file_format || (d.title.endsWith('.docx') ? 'DOCX' : 'PDF'),
+            fileSize: d.file_size || '1.2 MB',
+            isMachineReadable: d.is_machine_readable ?? true,
+            chunkCount: d.chunk_count || 12,
+            status: !d.is_active || d.approval_status === 'Retired' ? 'Retired' : (d.vector_status || 'Fully Indexed'),
+            officialStatus: d.approval_status === 'Approved' ? 'Opisyal' : (d.approval_status === 'Retired' ? 'Naka-retire' : 'Naghihintay ng Pag-apruba'),
+            summary,
+            sections,
+            isActive: d.is_active ?? true
+          }
+        })
         setDocuments(mappedDocs)
       } else if (docsErr) {
         console.error('Error fetching documents from Supabase:', docsErr)
