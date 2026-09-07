@@ -89,26 +89,30 @@ export function DataProvider({ children }) {
       })
 
       // 3. Check and seed documents
-      const { count: docCount } = await supabase
-        .from('documents')
-        .select('*', { count: 'exact', head: true })
-      if (docCount === 0) {
-        const docsToInsert = MOCK_DOCUMENTS.map(d => ({
-          title: d.title,
-          document_type: d.category || 'Lokal na Ordinansa',
-          ordinance_no: d.ordinanceNo || null,
-          file_path: `/uploads/${d.title}`,
-          file_format: d.fileFormat || 'PDF',
-          file_size: d.fileSize || '1.2 MB',
-          is_machine_readable: d.isMachineReadable ?? true,
-          chunk_count: d.chunkCount || 10,
-          vector_status: d.status || 'Fully Indexed',
-          summary: d.summary || '',
-          sections: d.sections || [],
-          approval_status: d.officialStatus === 'Opisyal' ? 'Approved' : 'Pending',
-          is_active: d.status !== 'Retired'
-        }))
-        await supabase.from('documents').insert(docsToInsert)
+      const hasDocsSeeded = localStorage.getItem('bb_docs_seeded_v2')
+      if (!hasDocsSeeded) {
+        const { count: docCount } = await supabase
+          .from('documents')
+          .select('*', { count: 'exact', head: true })
+        if (docCount === 0) {
+          const docsToInsert = MOCK_DOCUMENTS.map(d => ({
+            title: d.title,
+            document_type: d.category || 'Lokal na Ordinansa',
+            ordinance_no: d.ordinanceNo || null,
+            file_path: `/uploads/${d.title}`,
+            file_format: d.fileFormat || 'PDF',
+            file_size: d.fileSize || '1.2 MB',
+            is_machine_readable: d.isMachineReadable ?? true,
+            chunk_count: d.chunkCount || 10,
+            vector_status: d.status || 'Fully Indexed',
+            summary: d.summary || '',
+            sections: d.sections || [],
+            approval_status: d.officialStatus === 'Opisyal' ? 'Approved' : 'Pending',
+            is_active: d.status !== 'Retired'
+          }))
+          await supabase.from('documents').insert(docsToInsert)
+        }
+        localStorage.setItem('bb_docs_seeded_v2', 'true')
       }
 
       // 4. Check and seed pre_blotters
@@ -328,7 +332,7 @@ export function DataProvider({ children }) {
         .select('*')
         .order('document_id', { ascending: false })
       
-      if (!docsErr && docsData && docsData.length > 0) {
+      if (!docsErr && docsData) {
         const mappedDocs = docsData.map(d => ({
           id: d.document_id,
           title: d.title,
@@ -350,8 +354,9 @@ export function DataProvider({ children }) {
           isActive: d.is_active ?? true
         }))
         setDocuments(mappedDocs)
-      } else if (!docsData || docsData.length === 0) {
-        setDocuments(MOCK_DOCUMENTS)
+      } else if (docsErr) {
+        console.error('Error fetching documents from Supabase:', docsErr)
+        setDocuments(prev => (prev.length > 0 ? prev : MOCK_DOCUMENTS))
       }
 
       // 4. Fetch Audit Logs
@@ -486,8 +491,40 @@ export function DataProvider({ children }) {
           details: action
         }])
       
-      // Reload local state logs
-      fetchData()
+      // Reload only audit logs to avoid disrupting ongoing operations
+      const { data: logsData, error: logsErr } = await supabase
+        .from('audit_logs')
+        .select('*, users(first_name, last_name, roles(role_name))')
+        .order('created_at', { ascending: false })
+        .limit(100)
+      
+      if (!logsErr && logsData) {
+        const mappedLogs = logsData.map(l => {
+          const name = l.users ? `${l.users.first_name} ${l.users.last_name}`.trim() : 'System'
+          const role = l.users?.roles?.role_name || '—'
+          let logColor = 'blue'
+          if (l.action_type?.toLowerCase().includes('suspend') || l.action_type?.toLowerCase().includes('reject')) logColor = 'orange'
+          else if (l.action_type?.toLowerCase().includes('delete') || l.action_type?.toLowerCase().includes('deactivate')) logColor = 'red'
+          else if (l.action_type?.toLowerCase().includes('create') || l.action_type?.toLowerCase().includes('upload') || l.action_type?.toLowerCase().includes('approve') || l.action_type?.toLowerCase().includes('resolve')) logColor = 'green'
+
+          return {
+            id: l.audit_id,
+            actorName: name,
+            actorRole: role,
+            action: l.details || l.action_type,
+            timestamp: new Date(l.created_at).toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            }),
+            color: logColor
+          }
+        })
+        setAuditLog(mappedLogs)
+      }
     } catch (err) {
       console.error('Error adding audit entry:', err)
     }
@@ -871,30 +908,39 @@ export function DataProvider({ children }) {
       if (patch.summary !== undefined) docPatch.summary = patch.summary
 
       const query = supabase.from('documents').update(docPatch)
-      if (typeof identifier === 'number') {
-        await query.eq('document_id', identifier)
+      if (identifier && !isNaN(Number(identifier))) {
+        await query.eq('document_id', Number(identifier))
       } else {
-        await query.eq('title', identifier)
+        await query.eq('title', String(identifier))
       }
 
-      fetchData()
+      await fetchData()
     } catch (err) {
       console.error('Error updating document:', err)
     }
   }
 
-  const deleteDocument = async (identifier) => {
-    setDocuments((prev) => prev.filter((d) => d.title !== identifier && d.id !== identifier))
+  const deleteDocument = async (identifier, optionalTitle) => {
+    setDocuments((prev) =>
+      prev.filter(
+        (d) =>
+          d.id !== identifier &&
+          (typeof identifier !== 'number' || Number(d.id) !== identifier) &&
+          d.title !== identifier &&
+          (!optionalTitle || d.title !== optionalTitle)
+      )
+    )
 
     try {
-      const query = supabase.from('documents').delete()
-      if (typeof identifier === 'number') {
-        await query.eq('document_id', identifier)
-      } else {
-        await query.eq('title', identifier)
+      if (identifier && !isNaN(Number(identifier))) {
+        await supabase.from('documents').delete().eq('document_id', Number(identifier))
+      }
+      const titleToDelete = optionalTitle || (typeof identifier === 'string' && isNaN(Number(identifier)) ? identifier : null)
+      if (titleToDelete) {
+        await supabase.from('documents').delete().eq('title', titleToDelete)
       }
 
-      fetchData()
+      await fetchData()
     } catch (err) {
       console.error('Error deleting document:', err)
     }

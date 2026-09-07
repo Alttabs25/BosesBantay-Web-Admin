@@ -71,35 +71,38 @@ export default function KnowledgeBase() {
   const [testBenchOpen, setTestBenchOpen] = useState(false)
 
   // Confirmation Handlers
-  const confirmRetire = () => {
+  const confirmRetire = async () => {
     if (!pendingRetireDoc) return
-    const id = pendingRetireDoc.id || pendingRetireDoc.title
-    updateDocument(id, { status: 'Retired', officialStatus: 'Naka-retire' })
-    addAuditEntry(`Na-retire ang dokumentong "${pendingRetireDoc.title}"`, { color: 'red' })
-    showToast(`Na-retire ang "${pendingRetireDoc.title}". Hindi na ito gagamitin ng chatbot.`)
+    const docToRetire = pendingRetireDoc
     setPendingRetireDoc(null)
+    const id = docToRetire.id || docToRetire.title
+    await updateDocument(id, { status: 'Retired', officialStatus: 'Naka-retire' })
+    await addAuditEntry(`Na-retire ang dokumentong "${docToRetire.title}"`, { color: 'red' })
+    showToast(`Na-retire ang "${docToRetire.title}". Hindi na ito gagamitin ng chatbot.`)
   }
 
-  const confirmApproveOfficial = () => {
+  const confirmApproveOfficial = async () => {
     if (!pendingApproveDoc) return
-    const id = pendingApproveDoc.id || pendingApproveDoc.title
-    updateDocument(id, { officialStatus: 'Opisyal' })
-    addAuditEntry(`Inaprubahan bilang opisyal ang dokumentong "${pendingApproveDoc.title}"`, {
+    const docToApprove = pendingApproveDoc
+    setPendingApproveDoc(null)
+    const id = docToApprove.id || docToApprove.title
+    await updateDocument(id, { officialStatus: 'Opisyal' })
+    await addAuditEntry(`Inaprubahan bilang opisyal ang dokumentong "${docToApprove.title}"`, {
       color: 'green',
     })
-    showToast(`Opisyal na ngayon ang "${pendingApproveDoc.title}" para sa Barangay-Bot.`)
-    setPendingApproveDoc(null)
+    showToast(`Opisyal na ngayon ang "${docToApprove.title}" para sa Barangay-Bot.`)
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!pendingDeleteDoc) return
-    const id = pendingDeleteDoc.id || pendingDeleteDoc.title
-    deleteDocument(id)
-    addAuditEntry(`Tinanggal mula sa ingestion ang file: "${pendingDeleteDoc.title}"`, {
+    const docToDelete = pendingDeleteDoc
+    setPendingDeleteDoc(null)
+    const id = docToDelete.id || docToDelete.title
+    await deleteDocument(id, docToDelete.title)
+    await addAuditEntry(`Tinanggal mula sa ingestion ang file: "${docToDelete.title}"`, {
       color: 'red',
     })
-    showToast(`Tinanggal ang file na "${pendingDeleteDoc.title}".`, 'info')
-    setPendingDeleteDoc(null)
+    showToast(`Tinanggal ang file na "${docToDelete.title}".`, 'info')
   }
 
   const handleTriggerIngest = (doc) => {
