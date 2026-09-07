@@ -4,15 +4,12 @@ import {
   ShieldCheck,
   Search,
   Bot,
-  Sparkles,
   Eye,
   Trash2,
   Archive,
   FileText,
   AlertCircle,
   CheckCircle2,
-  Layers,
-  FileCode,
   Zap,
 } from 'lucide-react'
 import { DOCUMENT_CATEGORIES } from '../data/mockDocuments'
@@ -51,8 +48,6 @@ export default function KnowledgeBase() {
   const canDelete = can(user.role, 'knowledgeBase', 'delete')
   const canApprove = can(user.role, 'knowledgeBase', 'approve')
 
-  const isCaptain = user.role === ROLES.CAPTAIN
-  const isSecretary = user.role === ROLES.SECRETARY
   const isAdmin = user.role === ROLES.ADMIN
 
   // Form State
@@ -236,15 +231,15 @@ export default function KnowledgeBase() {
   ).length
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Top Header & Test Bench Trigger */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <FileText className="h-6 w-6 text-bb-blue" />
+          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <FileText className="h-5 w-5 text-bb-blue" />
             Knowledge Base & Document Management
           </h2>
-          <p className="mt-1 text-sm text-gray-500 max-w-2xl">
+          <p className="mt-0.5 text-xs text-gray-500 max-w-2xl">
             Upload, beripikahin ang format, at pamahalaan ang mga opisyal na ordinansa at rekisito upang manatiling tumpak ang kaalaman ng Barangay-Bot.
           </p>
         </div>
@@ -252,72 +247,24 @@ export default function KnowledgeBase() {
         {/* Barangay-Bot Test Bench Button */}
         <button
           onClick={() => setTestBenchOpen(true)}
-          className="flex items-center gap-2 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-4 py-2.5 text-sm font-semibold text-white transition-all active:scale-[0.98] cursor-pointer"
+          className="flex items-center gap-2 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-3.5 py-2 text-xs font-semibold text-white transition-all active:scale-[0.98] cursor-pointer shrink-0"
         >
           <Bot className="h-4 w-4 text-white" />
           <span>I-test ang Barangay-Bot</span>
         </button>
       </div>
 
-      {/* Role-Based Governance Banner */}
-      {isCaptain && (
-        <div className="flex items-start gap-3 rounded-xl border border-green-200 bg-green-50/80 p-4 text-green-900 shadow-2xs">
-          <ShieldCheck className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
-          <div className="text-xs space-y-1">
-            <h4 className="font-bold text-green-950 text-sm flex items-center gap-2">
-              Awtoridad sa Nilalaman: Punong Barangay
-              {pendingApprovalCount > 0 && (
-                <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
-                  {pendingApprovalCount} Naghihintay ng Iyong Lagda
-                </span>
-              )}
-            </h4>
-            <p className="text-green-800 leading-relaxed">
-              Bilang Punong Barangay, ikaw lamang ang may kapangyarihang mag-apruba ng dokumento bilang <strong>"Opisyal"</strong> bago ito magamit ng Barangay-Bot sa pagsagot sa mga residente. Ang teknikal na pag-upload at custodial ingestion ay ginagawa ng Barangay Secretary o System Administrator.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {isSecretary && (
-        <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50/80 p-4 text-blue-900 shadow-2xs">
-          <FileCode className="h-5 w-5 text-bb-blue mt-0.5 shrink-0" />
-          <div className="text-xs space-y-1">
-            <h4 className="font-bold text-blue-950 text-sm">
-              Tungkulin ng Barangay Secretary: Paggawa at Pag-update ng Dokumento
-            </h4>
-            <p className="text-blue-800 leading-relaxed">
-              Maaari kang mag-upload ng mga bagong resolusyon, ordinansa, at gabay sa clearance (PDF o Word .docx). Bawat dokumentong iyong i-upload ay dadaan muna sa technical ingestion bago pinal na aprubahan ng Punong Barangay bilang opisyal.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {isAdmin && (
-        <div className="flex items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50/80 p-4 text-indigo-900 shadow-2xs">
-          <Layers className="h-5 w-5 text-indigo-600 mt-0.5 shrink-0" />
-          <div className="text-xs space-y-1">
-            <h4 className="font-bold text-indigo-950 text-sm">
-              Tungkulin ng System Administrator: Technical Ingestion & Format Custody
-            </h4>
-            <p className="text-indigo-800 leading-relaxed">
-              Ikaw ang responsable sa technical ingestion, format compliance (pagsusuri kung machine-readable ang PDF/DOCX), at technical file deletion. Ang nilalaman at pagiging opisyal nito ay eksklusibong nasa desisyon ng Punong Barangay.
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* Main Grid: Document Table & Upload Form */}
-      <div className="flex flex-col gap-6 lg:flex-row">
+      <div className="flex flex-col gap-4 lg:flex-row items-start">
         {/* Document List & Filters */}
-        <div className="flex-1 space-y-4">
+        <div className="flex-1 min-w-0 space-y-3 w-full">
           {/* Controls Bar: Search & Status Tabs */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             {/* Filter Tabs */}
-            <div className="flex items-center gap-1 rounded-xl bg-gray-100 p-1 text-xs font-semibold text-gray-600">
+            <div className="flex items-center gap-1 rounded-xl bg-gray-100 p-0.5 text-xs font-semibold text-gray-600 overflow-x-auto">
               <button
                 onClick={() => setActiveTab('all')}
-                className={`rounded-lg px-3 py-1.5 transition-all cursor-pointer ${
+                className={`rounded-lg px-2.5 py-1 text-xs transition-all cursor-pointer whitespace-nowrap ${
                   activeTab === 'all' ? 'bg-white text-gray-900 shadow-xs font-bold' : 'hover:text-gray-900'
                 }`}
               >
@@ -325,7 +272,7 @@ export default function KnowledgeBase() {
               </button>
               <button
                 onClick={() => setActiveTab('approved')}
-                className={`rounded-lg px-3 py-1.5 transition-all cursor-pointer ${
+                className={`rounded-lg px-2.5 py-1 text-xs transition-all cursor-pointer whitespace-nowrap ${
                   activeTab === 'approved'
                     ? 'bg-white text-emerald-700 shadow-xs font-bold'
                     : 'hover:text-gray-900'
@@ -335,17 +282,17 @@ export default function KnowledgeBase() {
               </button>
               <button
                 onClick={() => setActiveTab('pending')}
-                className={`rounded-lg px-3 py-1.5 transition-all cursor-pointer ${
+                className={`rounded-lg px-2.5 py-1 text-xs transition-all cursor-pointer whitespace-nowrap ${
                   activeTab === 'pending'
                     ? 'bg-white text-amber-700 shadow-xs font-bold'
                     : 'hover:text-gray-900'
                 }`}
               >
-                Pending Review ({pendingApprovalCount})
+                Pending ({pendingApprovalCount})
               </button>
               <button
                 onClick={() => setActiveTab('retired')}
-                className={`rounded-lg px-3 py-1.5 transition-all cursor-pointer ${
+                className={`rounded-lg px-2.5 py-1 text-xs transition-all cursor-pointer whitespace-nowrap ${
                   activeTab === 'retired'
                     ? 'bg-white text-gray-700 shadow-xs font-bold'
                     : 'hover:text-gray-900'
@@ -355,43 +302,32 @@ export default function KnowledgeBase() {
               </button>
             </div>
 
-            {/* Search Input & Test Bot Button */}
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <div className="relative flex-1 sm:w-56">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Maghanap ng dokumento..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 py-2 text-xs focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-                />
-              </div>
-
-              <button
-                onClick={() => setTestBenchOpen(true)}
-                title="Subukan ang pagsagot ng Barangay-Bot gamit ang nomic-embed-text-v1 at Llama 3.1 8B"
-                className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-3 py-2 text-xs font-semibold text-white transition-all active:scale-[0.98] cursor-pointer whitespace-nowrap"
-              >
-                <Bot className="h-4 w-4 text-white" />
-                <span>Test Bot</span>
-              </button>
+            {/* Search Input */}
+            <div className="relative w-full sm:w-48 xl:w-56">
+              <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Maghanap ng dokumento..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-white pl-8 pr-2.5 py-1.5 text-xs focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+              />
             </div>
           </div>
 
           {/* Table Container */}
           <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xs">
-            <div className="max-h-[calc(100vh-320px)] overflow-auto">
+            <div className="max-h-[calc(100vh-230px)] overflow-x-auto overflow-y-auto">
               <table className="w-full text-left text-xs">
-                <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
                   <tr>
-                    <th className="px-4 py-3">Dokumento at Ordinansa</th>
-                    <th className="px-3 py-3">Format / Laki</th>
-                    <th className="px-3 py-3">Kategorya</th>
-                    <th className="px-3 py-3">Petsa</th>
-                    <th className="px-3 py-3">Ingestion</th>
-                    <th className="px-3 py-3">Status</th>
-                    <th className="px-4 py-3 text-right">Aksyon</th>
+                    <th className="px-3 py-2">Dokumento at Ordinansa</th>
+                    <th className="px-2 py-2">Format / Laki</th>
+                    <th className="px-2 py-2">Kategorya</th>
+                    <th className="px-2 py-2">Petsa</th>
+                    <th className="px-2 py-2">Ingestion</th>
+                    <th className="px-2 py-2">Status</th>
+                    <th className="px-3 py-2 text-right">Aksyon</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -407,21 +343,21 @@ export default function KnowledgeBase() {
                         key={doc.id || doc.title}
                         className="hover:bg-gray-50/70 transition-colors"
                       >
-                        <td className="px-4 py-3">
-                          <div className="font-semibold text-gray-800 max-w-xs truncate" title={doc.title}>
+                        <td className="px-3 py-2">
+                          <div className="font-semibold text-gray-800 max-w-[160px] sm:max-w-[190px] xl:max-w-[220px] truncate text-xs" title={doc.title}>
                             {doc.title}
                           </div>
-                          <div className="text-[11px] text-gray-500 flex items-center gap-1.5 mt-0.5">
-                            <span className="font-mono text-bb-blue font-medium">
+                          <div className="text-[10px] text-gray-500 flex items-center gap-1 mt-0.5">
+                            <span className="font-mono text-bb-blue font-medium truncate max-w-[150px]">
                               {doc.ordinanceNo || 'Walang Ordinance No.'}
                             </span>
                           </div>
                         </td>
 
-                        <td className="px-3 py-3">
+                        <td className="px-2 py-2 whitespace-nowrap">
                           <div className="flex items-center gap-1">
                             <span
-                              className={`rounded-sm px-1.5 py-0.5 text-[10px] font-bold ${
+                              className={`rounded px-1 py-0.2 text-[9px] font-bold ${
                                 doc.fileFormat === 'DOCX'
                                   ? 'bg-blue-100 text-blue-700'
                                   : 'bg-red-100 text-red-700'
@@ -429,41 +365,41 @@ export default function KnowledgeBase() {
                             >
                               {doc.fileFormat ?? 'PDF'}
                             </span>
-                            <span className="text-[11px] text-gray-400">{doc.fileSize ?? '1.2 MB'}</span>
+                            <span className="text-[10px] text-gray-400">{doc.fileSize ?? '1.2 MB'}</span>
                           </div>
                         </td>
 
-                        <td className="px-3 py-3">
-                          <span className="text-gray-600 block max-w-[120px] truncate" title={doc.category}>
+                        <td className="px-2 py-2">
+                          <span className="text-gray-600 block max-w-[100px] truncate text-[11px]" title={doc.category}>
                             {doc.category || 'Ordinansa'}
                           </span>
                         </td>
 
-                        <td className="px-3 py-3 text-gray-500 whitespace-nowrap">
+                        <td className="px-2 py-2 text-gray-500 whitespace-nowrap text-[11px]">
                           {doc.dateUploaded}
                         </td>
 
-                        <td className="px-3 py-3">
+                        <td className="px-2 py-2 whitespace-nowrap">
                           <Pill color={STATUS_COLOR[doc.status] ?? 'gray'} solid={false}>
                             {doc.status === 'Fully Indexed' ? 'Indexed' : doc.status === 'Pending' ? 'Not Indexed' : doc.status}
                           </Pill>
                         </td>
 
-                        <td className="px-3 py-3">
+                        <td className="px-2 py-2 whitespace-nowrap">
                           <Pill color={OFFICIAL_COLOR[doc.officialStatus] ?? 'gray'}>
-                            {doc.officialStatus === 'Opisyal' ? 'Published' : doc.officialStatus === 'Naghihintay ng Pag-apruba' ? 'Pending Review' : 'Archived'}
+                            {doc.officialStatus === 'Opisyal' ? 'Published' : doc.officialStatus === 'Naghihintay ng Pag-apruba' ? 'Pending' : 'Archived'}
                           </Pill>
                         </td>
 
-                        <td className="px-4 py-3 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1.5">
+                        <td className="px-3 py-2 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1">
                             {/* View / Detail Button */}
                             <button
                               onClick={() => setSelectedDoc(doc)}
                               title="Tingnan ang detalye at mga seksyon"
-                              className="rounded-full p-1.5 text-gray-400 hover:text-bb-blue hover:bg-blue-50 border border-transparent hover:border-blue-200/60 transition-all cursor-pointer"
+                              className="rounded-full p-1 text-gray-400 hover:text-bb-blue hover:bg-blue-50 border border-transparent hover:border-blue-200/60 transition-all cursor-pointer"
                             >
-                              <Eye className="h-4 w-4" />
+                              <Eye className="h-3.5 w-3.5" />
                             </button>
 
                             {/* System Administrator Ingest Button */}
@@ -471,9 +407,9 @@ export default function KnowledgeBase() {
                               <button
                                 onClick={() => handleTriggerIngest(doc)}
                                 title="I-proseso ang Ingestion at nomic-embed-text-v1 chunking"
-                                className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-2.5 py-1 text-xs font-semibold text-white transition-all active:scale-[0.98] cursor-pointer"
+                                className="flex items-center gap-1 rounded-md bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-xs hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-2 py-0.5 text-[11px] font-semibold text-white transition-all active:scale-[0.98] cursor-pointer"
                               >
-                                <Zap className="h-3.5 w-3.5 text-white" />
+                                <Zap className="h-3 w-3 text-white" />
                                 <span>Ingest</span>
                               </button>
                             )}
@@ -485,9 +421,9 @@ export default function KnowledgeBase() {
                                 <button
                                   onClick={() => setPendingApproveDoc(doc)}
                                   title="Aprubahan bilang Opisyal na Dokumento"
-                                  className="flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 shadow-sm hover:shadow px-2.5 py-1 text-xs font-semibold text-white transition-all active:scale-[0.98] cursor-pointer"
+                                  className="flex items-center gap-1 rounded-md bg-emerald-600 hover:bg-emerald-700 shadow-xs hover:shadow px-2 py-0.5 text-[11px] font-semibold text-white transition-all active:scale-[0.98] cursor-pointer"
                                 >
-                                  <ShieldCheck className="h-3.5 w-3.5 text-white" />
+                                  <ShieldCheck className="h-3 w-3 text-white" />
                                   <span>Publish</span>
                                 </button>
                               )}
@@ -497,9 +433,9 @@ export default function KnowledgeBase() {
                               <button
                                 onClick={() => setPendingRetireDoc(doc)}
                                 title="I-retire ang dokumento (hindi na magagamit ng chatbot)"
-                                className="rounded-full p-1.5 text-gray-400 hover:text-amber-700 hover:bg-amber-50 border border-transparent hover:border-amber-200/60 transition-all cursor-pointer"
+                                className="rounded-full p-1 text-gray-400 hover:text-amber-700 hover:bg-amber-50 border border-transparent hover:border-amber-200/60 transition-all cursor-pointer"
                               >
-                                <Archive className="h-4 w-4" />
+                                <Archive className="h-3.5 w-3.5" />
                               </button>
                             )}
 
@@ -508,9 +444,9 @@ export default function KnowledgeBase() {
                               <button
                                 onClick={() => setPendingDeleteDoc(doc)}
                                 title="Tanggalin ang file mula sa database (Hard Delete)"
-                                className="rounded-full p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200/60 transition-all cursor-pointer"
+                                className="rounded-full p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200/60 transition-all cursor-pointer"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-3.5 w-3.5" />
                               </button>
                             )}
                           </div>
@@ -528,30 +464,27 @@ export default function KnowledgeBase() {
         {canUpload && (
           <form
             onSubmit={handleSubmit}
-            className="w-full space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-xs lg:w-96 shrink-0"
+            className="w-full space-y-2.5 rounded-xl border border-gray-200 bg-white p-3.5 shadow-xs lg:w-72 xl:w-80 shrink-0"
           >
-            <div className="border-b border-gray-100 pb-3">
-              <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+            <div className="border-b border-gray-100 pb-2">
+              <h3 className="font-bold text-gray-900 text-xs flex items-center gap-1.5">
                 <UploadCloud className="h-4 w-4 text-bb-blue" />
                 Mag-upload ng Dokumento
               </h3>
-              <p className="text-[11px] text-gray-500 mt-0.5">
-                Para sa kaalaman ng Barangay-Bot at opisyal na archival.
+              <p className="text-[10px] text-gray-500 mt-0.5">
+                Para sa kaalaman ng Barangay-Bot at archival.
               </p>
             </div>
 
             {/* Compliance Warning Notice */}
-            <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-[11px] text-amber-900 leading-relaxed">
-              <div className="flex items-center gap-1.5 font-bold mb-1 text-amber-950">
-                <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                <span>Pansin: Format Compliance</span>
-              </div>
-              Tanging <strong>text-searchable PDF</strong> o <strong>Microsoft Word (.docx)</strong> lamang ang sinusuportahan. Hindi tinatanggap ang mga scanned image-only PDF at sulat-kamay.
+            <div className="rounded-lg border border-amber-200/80 bg-amber-50/60 px-2.5 py-1.5 text-[10px] text-amber-900 flex items-center gap-1.5 leading-snug">
+              <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+              <span><strong>Paalala:</strong> Text-searchable PDF o DOCX lamang.</span>
             </div>
 
             {/* Document Title */}
             <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-gray-700">
+              <span className="mb-0.5 block text-[11px] font-semibold text-gray-700">
                 Document Reference Name *
               </span>
               <input
@@ -560,53 +493,54 @@ export default function KnowledgeBase() {
                 value={refName}
                 onChange={(e) => setRefName(e.target.value)}
                 placeholder="Hal. Ordinance_2026_Curfew.pdf"
-                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-xs placeholder:text-gray-400 focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+                className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs placeholder:text-gray-400 focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
               />
             </label>
 
-            {/* Ordinance / Resolution No. */}
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-gray-700">
-                Ordinance / Resolution / Policy No.
-              </span>
-              <input
-                type="text"
-                value={ordinanceNo}
-                onChange={(e) => setOrdinanceNo(e.target.value)}
-                placeholder="Hal. Ord. Blg. 2026-003"
-                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-xs placeholder:text-gray-400 focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-              />
-            </label>
+            {/* Ordinance / Resolution No. & Classification in 2 columns */}
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block">
+                <span className="mb-0.5 block text-[11px] font-semibold text-gray-700 truncate">
+                  Ord. / Res. Blg.
+                </span>
+                <input
+                  type="text"
+                  value={ordinanceNo}
+                  onChange={(e) => setOrdinanceNo(e.target.value)}
+                  placeholder="Hal. Ord. 2026-003"
+                  className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs placeholder:text-gray-400 focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+                />
+              </label>
 
-            {/* Classification Category */}
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-gray-700">
-                Klase ng Klasipikasyon
-              </span>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-xs focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue bg-white"
-              >
-                {DOCUMENT_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <label className="block">
+                <span className="mb-0.5 block text-[11px] font-semibold text-gray-700 truncate">
+                  Klasipikasyon
+                </span>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue bg-white"
+                >
+                  {DOCUMENT_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
 
             {/* Brief Executive Summary */}
             <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-gray-700">
+              <span className="mb-0.5 block text-[11px] font-semibold text-gray-700">
                 Maikling Buod (Executive Summary)
               </span>
               <textarea
                 rows={2}
                 value={summary}
                 onChange={(e) => setSummary(e.target.value)}
-                placeholder="Maikling paglalarawan sa nilalaman ng ordinansa o gabay..."
-                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-xs placeholder:text-gray-400 focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue resize-none"
+                placeholder="Maikling buod ng ordinansa o gabay..."
+                className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs placeholder:text-gray-400 focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue resize-none"
               />
             </label>
 
@@ -624,7 +558,7 @@ export default function KnowledgeBase() {
                 const dropped = e.dataTransfer.files?.[0]
                 if (dropped) handleFileSelection(dropped)
               }}
-              className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-5 text-center transition-colors ${
+              className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 border-dashed p-3 text-center transition-colors ${
                 isDragging
                   ? 'border-bb-blue bg-bb-blue/5'
                   : file
@@ -634,19 +568,19 @@ export default function KnowledgeBase() {
             >
               {file ? (
                 <>
-                  <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                   <p className="text-xs font-semibold text-emerald-900 truncate max-w-full">
                     {file.name}
                   </p>
-                  <p className="text-[10px] text-gray-500">
-                    {(file.size / 1024).toFixed(0)} KB • I-click upang palitan ang file
+                  <p className="text-[9px] text-gray-500">
+                    {(file.size / 1024).toFixed(0)} KB • I-click upang palitan
                   </p>
                 </>
               ) : (
                 <>
-                  <UploadCloud className="h-6 w-6 text-bb-blue" />
+                  <UploadCloud className="h-5 w-5 text-bb-blue" />
                   <p className="text-xs text-gray-600 font-medium">
-                    I-click upang pumili o i-drag ang file dito
+                    I-click o i-drag ang file dito
                   </p>
                   <p className="text-[10px] text-gray-400">
                     Suportado: Text-searchable .PDF o Word .DOCX
@@ -664,9 +598,9 @@ export default function KnowledgeBase() {
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-2.5 text-xs font-semibold text-white transition-all active:scale-[0.98] cursor-pointer"
+              className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-2 text-xs font-semibold text-white transition-all active:scale-[0.98] cursor-pointer"
             >
-              <UploadCloud className="h-4 w-4 text-white" />
+              <UploadCloud className="h-3.5 w-3.5 text-white" />
               <span>Isumite para sa Ingestion</span>
             </button>
           </form>
