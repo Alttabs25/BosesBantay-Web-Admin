@@ -26,9 +26,12 @@ import { useData } from '../context/DataContext'
 import { can, ROLES } from '../config/permissions'
 
 const STATUS_COLOR = {
-  'Fully Indexed': 'green',
-  Indexing: 'orange',
-  Pending: 'orange',
+  'Fully Indexed': 'blue',
+  'Indexed': 'blue',
+  Indexing: 'sky',
+  Pending: 'slate',
+  'Pending Ingest': 'slate',
+  'Not Indexed': 'slate',
   Retired: 'gray',
   'Format Issue': 'red',
 }
@@ -249,11 +252,10 @@ export default function KnowledgeBase() {
         {/* Barangay-Bot Test Bench Button */}
         <button
           onClick={() => setTestBenchOpen(true)}
-          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-bb-blue to-bb-blue-dark px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:from-bb-blue-dark hover:to-blue-900 transition-all active:scale-[0.98] cursor-pointer"
+          className="flex items-center gap-2 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-4 py-2.5 text-sm font-semibold text-white transition-all active:scale-[0.98] cursor-pointer"
         >
-          <Bot className="h-4 w-4" />
+          <Bot className="h-4 w-4 text-white" />
           <span>I-test ang Barangay-Bot</span>
-          <Sparkles className="h-3.5 w-3.5 text-amber-300" />
         </button>
       </div>
 
@@ -369,11 +371,10 @@ export default function KnowledgeBase() {
               <button
                 onClick={() => setTestBenchOpen(true)}
                 title="Subukan ang pagsagot ng Barangay-Bot gamit ang nomic-embed-text-v1 at Llama 3.1 8B"
-                className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-bb-blue to-bb-blue-dark px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:from-bb-blue-dark hover:to-blue-900 transition-all active:scale-[0.98] cursor-pointer whitespace-nowrap"
+                className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-3 py-2 text-xs font-semibold text-white transition-all active:scale-[0.98] cursor-pointer whitespace-nowrap"
               >
-                <Bot className="h-4 w-4" />
+                <Bot className="h-4 w-4 text-white" />
                 <span>Test Bot</span>
-                <Sparkles className="h-3 w-3 text-amber-300" />
               </button>
             </div>
           </div>
@@ -444,7 +445,7 @@ export default function KnowledgeBase() {
 
                         <td className="px-3 py-3">
                           <Pill color={STATUS_COLOR[doc.status] ?? 'gray'} solid={false}>
-                            {doc.status === 'Fully Indexed' ? 'Indexed' : doc.status === 'Pending' ? 'Pending Ingest' : doc.status}
+                            {doc.status === 'Fully Indexed' ? 'Indexed' : doc.status === 'Pending' ? 'Not Indexed' : doc.status}
                           </Pill>
                         </td>
 
@@ -460,20 +461,20 @@ export default function KnowledgeBase() {
                             <button
                               onClick={() => setSelectedDoc(doc)}
                               title="Tingnan ang detalye at mga seksyon"
-                              className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100 hover:text-bb-blue transition-colors cursor-pointer"
+                              className="rounded-full p-1.5 text-gray-400 hover:text-bb-blue hover:bg-blue-50 border border-transparent hover:border-blue-200/60 transition-all cursor-pointer"
                             >
                               <Eye className="h-4 w-4" />
                             </button>
 
-                            {/* System Administrator Ingest Button for Pending Docs */}
+                            {/* System Administrator Ingest Button */}
                             {isAdmin && (doc.status === 'Pending' || doc.status === 'Indexing') && (
                               <button
                                 onClick={() => handleTriggerIngest(doc)}
                                 title="I-proseso ang Ingestion at nomic-embed-text-v1 chunking"
-                                className="flex items-center gap-1 rounded-full bg-amber-500 hover:bg-amber-600 px-3 py-1 text-xs font-semibold text-white shadow-xs transition-all active:scale-[0.96] cursor-pointer"
+                                className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-2.5 py-1 text-xs font-semibold text-white transition-all active:scale-[0.98] cursor-pointer"
                               >
-                                <Zap className="h-3.5 w-3.5" />
-                                Ingest
+                                <Zap className="h-3.5 w-3.5 text-white" />
+                                <span>Ingest</span>
                               </button>
                             )}
 
@@ -483,10 +484,11 @@ export default function KnowledgeBase() {
                               doc.status !== 'Retired' && (
                                 <button
                                   onClick={() => setPendingApproveDoc(doc)}
-                                  className="flex items-center gap-1 rounded-full bg-gradient-to-b from-green-600 to-green-700 px-3 py-1 text-xs font-semibold text-white shadow-xs hover:from-green-700 hover:to-green-800 transition-all active:scale-[0.96] cursor-pointer"
+                                  title="Aprubahan bilang Opisyal na Dokumento"
+                                  className="flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 shadow-sm hover:shadow px-2.5 py-1 text-xs font-semibold text-white transition-all active:scale-[0.98] cursor-pointer"
                                 >
-                                  <ShieldCheck className="h-3.5 w-3.5" />
-                                  Publish
+                                  <ShieldCheck className="h-3.5 w-3.5 text-white" />
+                                  <span>Publish</span>
                                 </button>
                               )}
 
@@ -495,7 +497,7 @@ export default function KnowledgeBase() {
                               <button
                                 onClick={() => setPendingRetireDoc(doc)}
                                 title="I-retire ang dokumento (hindi na magagamit ng chatbot)"
-                                className="rounded-lg p-1.5 text-amber-600 hover:bg-amber-50 transition-colors cursor-pointer"
+                                className="rounded-full p-1.5 text-gray-400 hover:text-amber-700 hover:bg-amber-50 border border-transparent hover:border-amber-200/60 transition-all cursor-pointer"
                               >
                                 <Archive className="h-4 w-4" />
                               </button>
@@ -506,7 +508,7 @@ export default function KnowledgeBase() {
                               <button
                                 onClick={() => setPendingDeleteDoc(doc)}
                                 title="Tanggalin ang file mula sa database (Hard Delete)"
-                                className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                                className="rounded-full p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200/60 transition-all cursor-pointer"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
@@ -662,9 +664,10 @@ export default function KnowledgeBase() {
 
             <button
               type="submit"
-              className="w-full rounded-xl bg-bb-blue py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-bb-blue-dark transition-all active:scale-[0.98] cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-2.5 text-xs font-semibold text-white transition-all active:scale-[0.98] cursor-pointer"
             >
-              Isumite para sa Ingestion
+              <UploadCloud className="h-4 w-4 text-white" />
+              <span>Isumite para sa Ingestion</span>
             </button>
           </form>
         )}

@@ -2,8 +2,12 @@ import { FileText, ShieldCheck, Hash, X, CheckCircle2, Layers } from 'lucide-rea
 import Pill from './Pill'
 
 const STATUS_COLOR = {
-  'Fully Indexed': 'green',
-  Indexing: 'orange',
+  'Fully Indexed': 'blue',
+  'Indexed': 'blue',
+  Indexing: 'sky',
+  Pending: 'slate',
+  'Pending Ingest': 'slate',
+  'Not Indexed': 'slate',
   Retired: 'gray',
   'Format Issue': 'red',
 }
@@ -66,7 +70,7 @@ export default function DocumentDetailModal({ open, onClose, doc, onApprove, onR
             <div>
               <span className="text-gray-400 block mb-0.5">Teknikal na Ingestion</span>
               <Pill color={STATUS_COLOR[doc.status] ?? 'gray'} solid={false}>
-                {doc.status === 'Fully Indexed' ? 'Indexed' : doc.status === 'Pending' ? 'Pending Ingest' : doc.status}
+                {doc.status === 'Fully Indexed' ? 'Indexed' : doc.status === 'Pending' ? 'Not Indexed' : doc.status}
               </Pill>
             </div>
           </div>
@@ -133,7 +137,7 @@ export default function DocumentDetailModal({ open, onClose, doc, onApprove, onR
                   onClose()
                   onRetire(doc)
                 }}
-                className="rounded-xl border border-red-200 bg-white px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                className="rounded-full border border-amber-200 bg-amber-50 px-3.5 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100/80 transition-all cursor-pointer"
               >
                 I-retire ang Dokumento
               </button>
@@ -144,7 +148,7 @@ export default function DocumentDetailModal({ open, onClose, doc, onApprove, onR
                   onClose()
                   onDelete(doc)
                 }}
-                className="rounded-xl border border-red-300 bg-red-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-red-700 transition-colors cursor-pointer"
+                className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2 text-xs font-semibold text-red-700 hover:bg-red-100/80 transition-all cursor-pointer shadow-xs"
               >
                 Tanggalin (Hard Delete)
               </button>
@@ -154,7 +158,7 @@ export default function DocumentDetailModal({ open, onClose, doc, onApprove, onR
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+              className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-all cursor-pointer shadow-xs"
             >
               Isara
             </button>
@@ -164,10 +168,10 @@ export default function DocumentDetailModal({ open, onClose, doc, onApprove, onR
                   onClose()
                   onApprove(doc)
                 }}
-                className="flex items-center gap-1.5 rounded-xl bg-gradient-to-b from-green-600 to-green-700 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:from-green-700 hover:to-green-800 transition-all cursor-pointer"
+                className="flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 shadow-sm hover:shadow px-4 py-2 text-xs font-semibold text-white transition-all active:scale-[0.98] cursor-pointer"
               >
-                <ShieldCheck className="h-4 w-4" />
-                Publish (Gawing Opisyal)
+                <ShieldCheck className="h-4 w-4 text-white" />
+                <span>Publish (Gawing Opisyal)</span>
               </button>
             )}
           </div>
