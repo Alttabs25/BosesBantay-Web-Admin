@@ -138,6 +138,13 @@ CREATE TABLE IF NOT EXISTS public.documents (
     ordinance_no VARCHAR(50) NULL,
     section VARCHAR(50) NULL,
     file_path TEXT NOT NULL,
+    file_format VARCHAR(10) DEFAULT 'PDF',
+    file_size VARCHAR(50) NULL,
+    is_machine_readable BOOLEAN DEFAULT TRUE,
+    chunk_count INT DEFAULT 0,
+    vector_status VARCHAR(30) DEFAULT 'Pending',
+    summary TEXT NULL,
+    sections JSONB NULL,
     uploaded_by UUID REFERENCES public.users(id),
     upload_date TIMESTAMPTZ DEFAULT NOW(),
     approval_status VARCHAR(20) DEFAULT 'Pending',
@@ -145,6 +152,18 @@ CREATE TABLE IF NOT EXISTS public.documents (
     approved_at TIMESTAMPTZ NULL,
     is_active BOOLEAN DEFAULT TRUE
 );
+
+-- 10.1 DOCUMENT CHUNKS (For Barangay-Bot RAG & Vector Embeddings)
+CREATE TABLE IF NOT EXISTS public.document_chunks (
+    chunk_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    document_id BIGINT REFERENCES public.documents(document_id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    section_title VARCHAR(255) NULL,
+    chunk_index INT NOT NULL,
+    embedding vector(1536) NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 
 -- 11. NOTIFICATIONS
 CREATE TABLE IF NOT EXISTS public.notifications (

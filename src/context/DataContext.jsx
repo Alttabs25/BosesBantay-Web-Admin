@@ -95,10 +95,18 @@ export function DataProvider({ children }) {
       if (docCount === 0) {
         const docsToInsert = MOCK_DOCUMENTS.map(d => ({
           title: d.title,
-          document_type: d.title.includes('Ordinance') ? 'Lokal na Ordinansa' : 'Executive Order',
+          document_type: d.category || 'Lokal na Ordinansa',
+          ordinance_no: d.ordinanceNo || null,
           file_path: `/uploads/${d.title}`,
+          file_format: d.fileFormat || 'PDF',
+          file_size: d.fileSize || '1.2 MB',
+          is_machine_readable: d.isMachineReadable ?? true,
+          chunk_count: d.chunkCount || 10,
+          vector_status: d.status || 'Fully Indexed',
+          summary: d.summary || '',
+          sections: d.sections || [],
           approval_status: d.officialStatus === 'Opisyal' ? 'Approved' : 'Pending',
-          is_active: true
+          is_active: d.status !== 'Retired'
         }))
         await supabase.from('documents').insert(docsToInsert)
       }
@@ -318,19 +326,32 @@ export function DataProvider({ children }) {
       const { data: docsData, error: docsErr } = await supabase
         .from('documents')
         .select('*')
+        .order('document_id', { ascending: false })
       
-      if (!docsErr && docsData) {
+      if (!docsErr && docsData && docsData.length > 0) {
         const mappedDocs = docsData.map(d => ({
+          id: d.document_id,
           title: d.title,
-          dateUploaded: new Date(d.upload_date).toLocaleDateString('en-US', {
+          ordinanceNo: d.ordinance_no || '',
+          category: d.document_type || 'Lokal na Ordinansa',
+          dateUploaded: d.upload_date ? new Date(d.upload_date).toLocaleDateString('en-US', {
             month: 'long',
             day: 'numeric',
             year: 'numeric'
-          }),
-          status: 'Fully Indexed',
-          officialStatus: d.approval_status === 'Approved' ? 'Opisyal' : 'Naghihintay ng Pag-apruba'
+          }) : 'Recently',
+          fileFormat: d.file_format || (d.title.endsWith('.docx') ? 'DOCX' : 'PDF'),
+          fileSize: d.file_size || '1.2 MB',
+          isMachineReadable: d.is_machine_readable ?? true,
+          chunkCount: d.chunk_count || 12,
+          status: !d.is_active || d.approval_status === 'Retired' ? 'Retired' : (d.vector_status || 'Fully Indexed'),
+          officialStatus: d.approval_status === 'Approved' ? 'Opisyal' : (d.approval_status === 'Retired' ? 'Naka-retire' : 'Naghihintay ng Pag-apruba'),
+          summary: d.summary || '',
+          sections: d.sections || [],
+          isActive: d.is_active ?? true
         }))
         setDocuments(mappedDocs)
+      } else if (!docsData || docsData.length === 0) {
+        setDocuments(MOCK_DOCUMENTS)
       }
 
       // 4. Fetch Audit Logs
@@ -760,15 +781,46 @@ export function DataProvider({ children }) {
   }
 
   const addDocument = async (doc) => {
+    const newDocItem = {
+      id: doc.id || Date.now(),
+      title: doc.title,
+      ordinanceNo: doc.ordinanceNo || '',
+      category: doc.category || doc.type || 'Lokal na Ordinansa',
+      dateUploaded: doc.dateUploaded || new Date().toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+      fileFormat: doc.fileFormat || (doc.title.endsWith('.docx') ? 'DOCX' : 'PDF'),
+      fileSize: doc.fileSize || '1.2 MB',
+      isMachineReadable: doc.isMachineReadable ?? true,
+      chunkCount: doc.chunkCount || 10,
+      status: doc.status || 'Indexing',
+      officialStatus: doc.officialStatus || 'Naghihintay ng Pag-apruba',
+      summary: doc.summary || '',
+      sections: doc.sections || [],
+      isActive: true,
+    }
+
+    setDocuments((prev) => [newDocItem, ...prev.filter((d) => d.title !== doc.title)])
+
     try {
       await supabase
         .from('documents')
         .insert([{
           title: doc.title,
-          document_type: doc.type || 'Lokal na Ordinansa',
+          document_type: doc.category || doc.type || 'Lokal na Ordinansa',
+          ordinance_no: doc.ordinanceNo || null,
           file_path: `/uploads/${doc.title}`,
+          file_format: newDocItem.fileFormat,
+          file_size: newDocItem.fileSize,
+          is_machine_readable: newDocItem.isMachineReadable,
+          chunk_count: newDocItem.chunkCount,
+          vector_status: doc.status === 'Fully Indexed' ? 'Fully Indexed' : 'Indexing',
+          summary: doc.summary || '',
+          sections: doc.sections || [],
           approval_status: doc.officialStatus === 'Opisyal' ? 'Approved' : 'Pending',
-          is_active: true
+          is_active: true,
         }])
 
       fetchData()
@@ -777,20 +829,74 @@ export function DataProvider({ children }) {
     }
   }
 
-  const updateDocument = async (title, patch) => {
-    try {
-      let docPatch = {}
-      if (patch.officialStatus) docPatch.approval_status = patch.officialStatus === 'Opisyal' ? 'Approved' : 'Pending'
-      if (patch.title) docPatch.title = patch.title
+  const updateDocument = async (identifier, patch) => {
+    setDocuments((prev) =>
+      prev.map((d) => {
+        if (d.title === identifier || d.id === identifier) {
+          return { ...d, ...patch }
+        }
+        return d
+      })
+    )
 
-      await supabase
-        .from('documents')
-        .update(docPatch)
-        .eq('title', title)
+    try {
+      const docPatch = {}
+      if (patch.officialStatus !== undefined) {
+        docPatch.approval_status =
+          patch.officialStatus === 'Opisyal'
+            ? 'Approved'
+            : patch.officialStatus === 'Naka-retire'
+            ? 'Retired'
+            : 'Pending'
+
+        if (patch.officialStatus === 'Opisyal') {
+          docPatch.approved_at = new Date().toISOString()
+          docPatch.approved_by = user?.id || null
+          docPatch.is_active = true
+        }
+      }
+
+      if (patch.status !== undefined) {
+        if (patch.status === 'Retired') {
+          docPatch.is_active = false
+          docPatch.approval_status = 'Retired'
+        } else {
+          docPatch.vector_status = patch.status
+        }
+      }
+
+      if (patch.title !== undefined) docPatch.title = patch.title
+      if (patch.category !== undefined) docPatch.document_type = patch.category
+      if (patch.ordinanceNo !== undefined) docPatch.ordinance_no = patch.ordinanceNo
+      if (patch.summary !== undefined) docPatch.summary = patch.summary
+
+      const query = supabase.from('documents').update(docPatch)
+      if (typeof identifier === 'number') {
+        await query.eq('document_id', identifier)
+      } else {
+        await query.eq('title', identifier)
+      }
 
       fetchData()
     } catch (err) {
       console.error('Error updating document:', err)
+    }
+  }
+
+  const deleteDocument = async (identifier) => {
+    setDocuments((prev) => prev.filter((d) => d.title !== identifier && d.id !== identifier))
+
+    try {
+      const query = supabase.from('documents').delete()
+      if (typeof identifier === 'number') {
+        await query.eq('document_id', identifier)
+      } else {
+        await query.eq('title', identifier)
+      }
+
+      fetchData()
+    } catch (err) {
+      console.error('Error deleting document:', err)
     }
   }
 
@@ -867,6 +973,7 @@ export function DataProvider({ children }) {
         documents,
         addDocument,
         updateDocument,
+        deleteDocument,
         alertHistory,
         addAlert,
         deleteAlert,
