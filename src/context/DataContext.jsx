@@ -426,7 +426,7 @@ export function DataProvider({ children }) {
             : 'System'
 
           return {
-            id: n.notification_id,
+            id: n.id ?? n.notification_id,
             title: actualTitle,
             message: n.message,
             target,
@@ -952,18 +952,26 @@ export function DataProvider({ children }) {
 
   const deleteAlert = async (id) => {
     try {
+      // Optimistically remove from state for instant responsiveness
+      setAlertHistory((prev) => prev.filter((a) => String(a.id) !== String(id)))
+
       const { error } = await supabase
         .from('notifications')
         .delete()
-        .eq('notification_id', id)
+        .eq('id', id)
       
       if (!error) {
         await fetchData()
+        return { success: true }
       } else {
         console.error('Error deleting notification:', error)
+        await fetchData()
+        return { success: false, error }
       }
     } catch (err) {
       console.error('Error deleting alert:', err)
+      await fetchData()
+      return { success: false, error: err }
     }
   }
 

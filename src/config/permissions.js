@@ -53,12 +53,12 @@ export const PERMISSIONS = {
     [ADMIN]: ['read', 'create', 'update', 'delete', 'approve'],
   },
   alerts: {
-    [SECRETARY]: ['create', 'read'],
+    [SECRETARY]: ['create', 'read', 'delete'],
     [TANOD]: ['read'],
     [LUPON]: [],
-    [KAGAWAD]: ['create', 'read'],
-    [CAPTAIN]: ['create', 'read'],
-    [ADMIN]: ['create', 'read'],
+    [KAGAWAD]: ['create', 'read', 'delete'],
+    [CAPTAIN]: ['create', 'read', 'delete'],
+    [ADMIN]: ['create', 'read', 'delete'],
   },
   auditLogs: {
     [SECRETARY]: [],

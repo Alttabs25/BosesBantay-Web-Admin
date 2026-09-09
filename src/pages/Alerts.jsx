@@ -109,18 +109,26 @@ export default function Alerts() {
     setConfirmingSend(false)
   }
 
-  const handleDeleteClick = (id) => {
-    setAlertToDelete(id)
+  const handleDeleteClick = (alert, e) => {
+    if (e) e.stopPropagation()
+    setAlertToDelete(alert)
     setConfirmingDelete(true)
   }
 
   const confirmDelete = async () => {
-    if (alertToDelete) {
-      await deleteAlert(alertToDelete)
-      showToast('Matagumpay na nabura ang abiso.')
-      setAlertToDelete(null)
-    }
+    const target = alertToDelete
+    if (!target) return
+    const id = target.id
+    const titleText = target.title || 'Abiso'
     setConfirmingDelete(false)
+    setAlertToDelete(null)
+    const result = await deleteAlert(id)
+    if (result?.success) {
+      addAuditEntry(`Binura ang abiso ("${titleText}")`, { color: 'red' })
+      showToast('Matagumpay na nabura ang abiso.')
+    } else {
+      showToast('Hindi nabura ang abiso. Subukan muli.', 'error')
+    }
   }
 
   // Filter history based on role restrictions first, then user filter controls
@@ -151,7 +159,11 @@ export default function Alerts() {
   const emergencyCount = filteredHistory.filter((h) => h.level === 'Emergency').length
   const highCount = filteredHistory.filter((h) => h.level === 'Mataas na Alerto').length
 
-  const canDeleteAlert = user.role === ROLES.SECRETARY || user.role === ROLES.CAPTAIN || user.role === ROLES.ADMIN
+  const canDeleteAlert =
+    user.role === ROLES.SECRETARY ||
+    user.role === ROLES.CAPTAIN ||
+    user.role === ROLES.ADMIN ||
+    user.role === ROLES.KAGAWAD
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 pb-12">
@@ -473,11 +485,13 @@ export default function Alerts() {
                         {/* Delete Button */}
                         {canDeleteAlert && (
                           <button
-                            onClick={() => handleDeleteClick(h.id)}
-                            className="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                            type="button"
+                            onClick={(e) => handleDeleteClick(h, e)}
+                            className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 border border-transparent hover:border-red-200/60 transition-all hover:scale-110 active:scale-95 cursor-pointer"
                             title="Burahin ang abiso"
+                            aria-label="Burahin ang abiso"
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={15} />
                           </button>
                         )}
                       </div>
@@ -536,10 +550,17 @@ export default function Alerts() {
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         open={confirmingDelete}
-        onClose={() => setConfirmingDelete(false)}
+        onClose={() => {
+          setConfirmingDelete(false)
+          setAlertToDelete(null)
+        }}
         onConfirm={confirmDelete}
         title="Burahin ang Abiso?"
-        message="Sigurado ka bang nais mong burahin ang abisong ito? Ito ay permanenteng mawawala sa talaan at hindi na makikita ng mga residenteng target nito."
+        message={
+          alertToDelete?.title
+            ? `Sigurado ka bang nais mong burahin ang abisong "${alertToDelete.title}"? Ito ay permanenteng mawawala sa talaan at hindi na makikita ng mga residenteng target nito.`
+            : 'Sigurado ka bang nais mong burahin ang abisong ito? Ito ay permanenteng mawawala sa talaan at hindi na makikita ng mga residenteng target nito.'
+        }
         confirmLabel="Burahin"
         danger={true}
       />
