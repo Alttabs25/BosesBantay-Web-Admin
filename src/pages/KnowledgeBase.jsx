@@ -317,19 +317,17 @@ export default function KnowledgeBase() {
                   <button
                     key={pill.value}
                     onClick={() => setActiveTab(pill.value)}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
-                      isActive
-                        ? `${pill.activeClass} scale-102`
-                        : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-                    }`}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${isActive
+                      ? `${pill.activeClass} scale-102`
+                      : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                      }`}
                   >
                     <span>{pill.label}</span>
                     <span
-                      className={`rounded-full px-1.5 py-0.2 text-[10px] ${
-                        isActive
-                          ? 'bg-white/20 text-white'
-                          : 'bg-gray-100 text-gray-500 border border-gray-200/50'
-                      }`}
+                      className={`rounded-full px-1.5 py-0.2 text-[10px] ${isActive
+                        ? 'bg-white/20 text-white'
+                        : 'bg-gray-100 text-gray-500 border border-gray-200/50'
+                        }`}
                     >
                       {pill.count}
                     </span>
@@ -393,11 +391,10 @@ export default function KnowledgeBase() {
                         <td className="px-2 py-2 whitespace-nowrap">
                           <div className="flex items-center gap-1">
                             <span
-                              className={`rounded px-1 py-0.2 text-[9px] font-bold ${
-                                doc.fileFormat === 'DOCX'
-                                  ? 'bg-blue-100 text-blue-700'
-                                  : 'bg-red-100 text-red-700'
-                              }`}
+                              className={`rounded px-1 py-0.2 text-[9px] font-bold ${doc.fileFormat === 'DOCX'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-red-100 text-red-700'
+                                }`}
                             >
                               {doc.fileFormat ?? 'PDF'}
                             </span>
@@ -594,13 +591,12 @@ export default function KnowledgeBase() {
                 const dropped = e.dataTransfer.files?.[0]
                 if (dropped) handleFileSelection(dropped)
               }}
-              className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 border-dashed p-3 text-center transition-colors ${
-                isDragging
-                  ? 'border-bb-blue bg-bb-blue/5'
-                  : file
+              className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 border-dashed p-3 text-center transition-colors ${isDragging
+                ? 'border-bb-blue bg-bb-blue/5'
+                : file
                   ? 'border-emerald-300 bg-emerald-50/40'
                   : 'border-gray-300 hover:border-bb-blue'
-              }`}
+                }`}
             >
               {file ? (
                 <>

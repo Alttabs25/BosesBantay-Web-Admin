@@ -103,8 +103,11 @@ export function parseDocumentSections(rawText, docTitle = 'Dokumento') {
       const body = text.substring(startIndex, endIndex).trim()
 
       if (body.length > 0) {
+        const cleanHeading = heading.startsWith('Seksyon') || heading.startsWith('Section')
+          ? heading
+          : `Seksyon ${i + 1}: ${heading}`
         sections.push({
-          title: `Seksyon ${i + 1}: ${heading}`,
+          title: cleanHeading,
           content: body,
         })
       }

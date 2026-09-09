@@ -4,7 +4,6 @@ import { useAuth } from './AuthContext'
 import { MOCK_USERS } from '../data/mockUsers'
 import { MOCK_INCIDENTS } from '../data/mockIncidents'
 import { MOCK_BLOTTER } from '../data/mockBlotter'
-import { MOCK_DOCUMENTS } from '../data/mockDocuments'
 import { MOCK_AUDIT_LOGS } from '../data/mockAuditLogs'
 import {
   ROLES,
@@ -88,32 +87,8 @@ export function DataProvider({ children }) {
         sectorMap[s.sector_name] = s.sector_id
       })
 
-      // 3. Check and seed documents
-      const hasDocsSeeded = localStorage.getItem('bb_docs_seeded_v2')
-      if (!hasDocsSeeded) {
-        const { count: docCount } = await supabase
-          .from('documents')
-          .select('*', { count: 'exact', head: true })
-        if (docCount === 0) {
-          const docsToInsert = MOCK_DOCUMENTS.map(d => ({
-            title: d.title,
-            document_type: d.category || 'Lokal na Ordinansa',
-            ordinance_no: d.ordinanceNo || null,
-            file_path: `/uploads/${d.title}`,
-            file_format: d.fileFormat || 'PDF',
-            file_size: d.fileSize || '1.2 MB',
-            is_machine_readable: d.isMachineReadable ?? true,
-            chunk_count: d.chunkCount || 10,
-            vector_status: d.status || 'Fully Indexed',
-            summary: d.summary || '',
-            sections: d.sections || [],
-            approval_status: d.officialStatus === 'Opisyal' ? 'Approved' : 'Pending',
-            is_active: d.status !== 'Retired'
-          }))
-          await supabase.from('documents').insert(docsToInsert)
-        }
-        localStorage.setItem('bb_docs_seeded_v2', 'true')
-      }
+      // 3. Documents are managed live in Supabase (no mock seeding)
+      // Preserving only user uploaded test documents
 
       // 4. Check and seed pre_blotters
       const { count: pbCount } = await supabase
@@ -361,7 +336,7 @@ export function DataProvider({ children }) {
         setDocuments(mappedDocs)
       } else if (docsErr) {
         console.error('Error fetching documents from Supabase:', docsErr)
-        setDocuments(prev => (prev.length > 0 ? prev : MOCK_DOCUMENTS))
+        setDocuments(prev => prev)
       }
 
       // 4. Fetch Audit Logs

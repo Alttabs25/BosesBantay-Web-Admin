@@ -25,30 +25,6 @@ import {
   User,
 } from 'lucide-react'
 
-// Fallback comprehensive sections for Pet Registration & Rabies Ordinance in case document was uploaded with empty text
-const PET_ORDINANCE_SECTIONS = [
-  {
-    title: 'Seksyon 1: Pamagat at Saklaw',
-    content: 'Ang Ordinansang ito ay kikilalanin bilang "Barangay Responsible Pet Ownership and Anti-Rabies Ordinance of 2026". Saklaw nito ang lahat ng mga residente, may-ari ng bahay, nangungupahan, at establisyimento sa loob ng hurisdiksyon ng Barangay na nagmamay-ari o nag-aalaga ng aso, pusa, at iba pang katulad na hayop.',
-  },
-  {
-    title: 'Seksyon 2: Pagpaparehistro at Libreng Bakuna Laban sa Rabies',
-    content: '1. Lahat ng residenteng may alagang aso at pusa na may edad na tatlong (3) buwan pataas ay kinakailangang magparehistro sa Barangay Veterinary and Health Desk sa Barangay Hall tuwing buwan ng Enero hanggang Marso taon-taon.\n2. Ang pagpaparehistro at paglalagay ng official barangay pet tag ay may bayad na ₱50.00 bawat alaga para sa processing fee.\n3. Ang taunang anti-rabies vaccination ay LIBRE (₱0.00) para sa lahat ng rehistradong alaga, at isasagawa tuwing unang Sabado ng bawat buwan sa Barangay Covered Court mula 8:00 AM hanggang 3:00 PM.',
-  },
-  {
-    title: 'Seksyon 3: Pagbabawal sa Pagpapagala-gala ng Hayop (Stray Animals)',
-    content: '1. Mahigpit na ipinagbabawal ang pagpapabaya o pagpapakawala ng mga alagang aso at pusa sa mga pampublikong lansangan, eskinita, plasa, at mga pampublikong pasilidad nang walang tali (leash) at walang kasamang may-ari.\n2. Ang sinumang maglalakad ng aso sa pampublikong lugar ay kinakailangang gumamit ng tali na hindi lalampas sa 1.5 metro ang haba at may dalang pooper scooper o plastic bag upang linisin ang dumi ng alaga.\n3. Ang lahat ng hayop na mahuhuling pagala-gala ay dadalhin ng Barangay Animal Control Task Force sa Barangay Impounding Facility.',
-  },
-  {
-    title: 'Seksyon 4: Pananagutan sa Pagkagat o Pinsala',
-    content: '1. Sakaling makakagat o makapanakit ang isang alagang hayop, ang may-ari nito ang buong mananagot sa lahat ng gastusing medikal ng biktima, kabilang ang buong serye ng anti-rabies vaccines, anti-tetanus injections, at kaukulang consultation fees sa ospital.\n2. Obligado ang may-ari na isailalim sa labing-apat (14) na araw na observation ang nakakagat na hayop sa ilalim ng gabay ng City Veterinarian o lisensyadong beterinaryo.\n3. Ang hindi pagtupad sa pagpapagamot sa biktima sa loob ng 48 oras mula sa insidente ay ituturing na paglabag sa ordinansa at idudulog sa Lupon Tagapamayapa para sa kaukulang kasong kriminal at sibil.',
-  },
-  {
-    title: 'Seksyon 5: Mga Multa at Parusa sa mga Lalabag',
-    content: 'Ang sinumang may-ari na lalabag sa mga probisyon ng Ordinansang ito ay papatawan ng sumusunod na mga multa at parusa:\n- Unang Paglabag (First Offense): Pormal na babala mula sa Punong Barangay at obligadong pagpaparehistro at pagpapabakuna ng alaga sa loob ng tatlong (3) araw.\n- Ikalawang Paglabag (Second Offense): Multa na ₱500.00 o walong (8) oras na community service sa paglilinis ng drainage o parke ng barangay.\n- Ikatlong Paglabag (Third Offense): Multa na ₱1,500.00, pagkumpiska sa alagang hayop para ilipat sa City Animal Care and Adoption Facility, at paghahain ng pormal na reklamo alinsunod sa Republic Act 9482 (Anti-Rabies Act of 2007).',
-  },
-]
-
 export default function KnowledgeTestBenchModal({ open, onClose, documents = [] }) {
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
@@ -77,31 +53,10 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
 
   if (!open) return null
 
-  const officialDocs = documents
-    .filter((d) => d.officialStatus === 'Opisyal' && d.status !== 'Retired')
-    .map((d) => {
-      const titleLower = (d.title || '').toLowerCase()
-      const summaryLower = (d.summary || '').toLowerCase()
-      const isPetDoc =
-        titleLower.includes('pet') ||
-        titleLower.includes('aso') ||
-        titleLower.includes('hayop') ||
-        titleLower.includes('rabies') ||
-        titleLower.includes('2026-008') ||
-        summaryLower.includes('aso') ||
-        summaryLower.includes('alaga') ||
-        summaryLower.includes('rabies')
-
-      // If document is about pet ordinance and has fewer than 3 sections, hydrate with the full 5 sections
-      if (isPetDoc && (!d.sections || d.sections.length < 3)) {
-        return {
-          ...d,
-          sections: PET_ORDINANCE_SECTIONS,
-          chunkCount: PET_ORDINANCE_SECTIONS.length,
-        }
-      }
-      return d
-    })
+  // Pure Supabase documents only (no mock hydration)
+  const officialDocs = documents.filter(
+    (d) => d.officialStatus === 'Opisyal' && d.status !== 'Retired'
+  )
   const unapprovedDocs = documents.filter(
     (d) => d.officialStatus !== 'Opisyal' || d.status === 'Retired'
   )
@@ -130,151 +85,53 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
     return queries
   })
 
-  // Categorized starter prompts for the empty state
-  const categorizedStarters = [
-    {
-      category: 'Clearance & Rekisito',
-      icon: FileText,
-      badgeColor: 'text-blue-700 bg-blue-50 border-blue-200',
-      query: 'Ano ang mga rekisito at bayarin sa pagkuha ng Barangay Clearance?',
-    },
-    {
-      category: 'Curfew & Kapayapaan',
-      icon: Scale,
-      badgeColor: 'text-amber-700 bg-amber-50 border-amber-200',
-      query: 'Ano ang curfew para sa kabataan at ano ang parusa sa labis na videoke sa gabi?',
-    },
-    {
-      category: 'Kalinisan & Basura',
-      icon: Trash2,
-      badgeColor: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-      query: 'Kailan ang araw ng hakot ng nabubulok na basura at magkano ang multa sa paglabag?',
-    },
-    {
-      category: 'Governance Gate (Draft)',
-      icon: ShieldCheck,
-      badgeColor: 'text-purple-700 bg-purple-50 border-purple-200',
-      query: 'Ano ang health & safety protocols sa EO 2026-004? (Unapproved Doc)',
-    },
-    {
-      category: 'Out-of-Scope Fallback',
-      icon: AlertTriangle,
-      badgeColor: 'text-rose-700 bg-rose-50 border-rose-200',
-      query: 'Ano po ba ang sikreto sa pagluluto ng masarap na adobo?',
-    },
-  ]
-
-  // Bilingual concept clusters for English, Tagalog, and Taglish inquiries
-  const BILINGUAL_CONCEPTS = [
-    {
-      name: 'fees',
-      terms: [
-        'fee', 'fees', 'cost', 'costs', 'price', 'prices', 'rate', 'rates', 'charge', 'charges',
-        'how much', 'pay', 'payment', 'magkano', 'bayad', 'bayarin', 'singil', 'halaga', 'presyo',
-        'processing fee', 'libre', 'free', '₱', 'pesos', 'peso',
-      ],
-      keywords: ['bayad', 'fee', '₱', 'singil', 'libre', 'processing', 'pesos', 'magkano'],
-    },
-    {
-      name: 'registration',
-      terms: [
-        'register', 'registered', 'registering', 'registration', 'rehistro', 'rehistrado',
-        'pagpaparehistro', 'magparehistro', 'iparehistro', 'irehistro', 'tag', 'pet tag', 'enlist',
-      ],
-      keywords: ['rehistro', 'register', 'tag', 'pagpaparehistro', 'pet tag', 'magparehistro'],
-    },
-    {
-      name: 'pets',
-      terms: [
-        'pet', 'pets', 'dog', 'dogs', 'cat', 'cats', 'animal', 'animals', 'puppy', 'aso', 'pusa',
-        'hayop', 'alaga', 'alagang', 'rabies', 'anti-rabies', 'vaccine', 'vaccines', 'vaccination',
-        'bakuna', 'bakunahan', 'kagat', 'bite', 'bites', 'stray', 'gala', 'pagala-gala', 'tali', 'leash',
-      ],
-      keywords: ['aso', 'pusa', 'hayop', 'pet', 'alaga', 'rabies', 'bakuna', 'kagat', 'tali', 'leash'],
-    },
-    {
-      name: 'vaccine',
-      terms: [
-        'vaccine', 'vaccines', 'vaccination', 'anti-rabies', 'bakuna', 'bakunahan', 'turok',
-        'anti-tetanus', 'tetanus', 'injection',
-      ],
-      keywords: ['bakuna', 'vaccine', 'rabies', 'anti-rabies', 'turok', 'injection'],
-    },
-    {
-      name: 'bites_injury',
-      terms: [
-        'bite', 'bites', 'biting', 'attack', 'kagat', 'nakakagat', 'makakagat', 'nakagat', 'pinsala',
-        'pananagutan', 'pananagot', 'hospital', 'observation', 'gamot', 'medical', 'gastusin',
-      ],
-      keywords: ['kagat', 'nakakagat', 'pananagot', 'gastusing medikal', 'observation'],
-    },
-    {
-      name: 'penalties',
-      terms: [
-        'penalty', 'penalties', 'fine', 'fines', 'punish', 'punishment', 'sanction', 'warning',
-        'multa', 'parusa', 'babala', 'paglabag', 'violation', 'offense', 'lalabag', 'kumpiska',
-        'community service',
-      ],
-      keywords: ['multa', 'parusa', 'paglabag', 'offense', 'babala', 'penalty', 'fine', 'lalabag'],
-    },
-    {
-      name: 'clearance',
-      terms: [
-        'clearance', 'permit', 'permits', 'indigency', 'business clearance', 'first-time jobseeker',
-        'rekisito', 'requirement', 'requirements', 'valid id', 'paninirahan', 'katibayan', 'residency',
-      ],
-      keywords: ['clearance', 'indigency', 'rekisito', 'requirement', 'permit', 'valid id'],
-    },
-    {
-      name: 'curfew',
-      terms: [
-        'curfew', 'minor', 'minors', 'youth', 'children', 'kabataan', 'menor', 'bata', 'edad',
-        'night', 'hours', 'oras', 'gabi', '10:00 pm', '4:00 am', 'klase', 'trabaho',
-      ],
-      keywords: ['curfew', 'menor de edad', 'kabataan', '10:00 pm', '4:00 am', 'oras', 'menor'],
-    },
-    {
-      name: 'noise',
-      terms: [
-        'noise', 'loud', 'sound', 'amplifier', 'videoke', 'karaoke', 'music', 'kantahan',
-        'ingay', 'katahimikan', 'tahimik', 'disturb', 'istorbo',
-      ],
-      keywords: ['videoke', 'karaoke', 'ingay', 'sound amplifier', 'katahimikan'],
-    },
-    {
-      name: 'waste',
-      terms: [
-        'waste', 'garbage', 'trash', 'rubbish', 'segregation', 'collection', 'biodegradable',
-        'residual', 'recyclable', 'basura', 'hakot', 'kolekta', 'tapon', 'nabubulok', 'di-nabubulok',
-        'kalinisan', 'mrf', 'kanal',
-      ],
-      keywords: ['basura', 'segregation', 'nabubulok', 'kolekta', 'hakot', 'tapon', 'mrf'],
-    },
-    {
-      name: 'prizes',
-      terms: [
-        'prize', 'prizes', 'cash prize', 'award', 'awards', 'trophy', 'trophies', 'champion',
-        'winner', 'premyo', 'gantimpala', 'tropeo', 'kampeon', 'panalo', 'runner-up', 'mvp',
-      ],
-      keywords: ['premyo', 'prize', 'tropeo', 'kampeon', 'trophy', 'panalo', 'cash prize'],
-    },
-    {
-      name: 'schedule',
-      terms: [
-        'when', 'schedule', 'time', 'date', 'days', 'hours', 'day', 'kailan', 'oras', 'araw',
-        'petsa', 'iskedyul', 'tuwing', 'sabado', 'lunes', 'martes',
-      ],
-      keywords: ['iskedyul', 'araw', 'oras', 'schedule', 'sabado', 'lunes'],
-    },
-    {
-      name: 'location',
-      terms: [
-        'where', 'location', 'place', 'venue', 'hall', 'court', 'covered court', 'saan', 'lugar',
-        'lokasyon', 'bulwagan', 'tanggapan',
-      ],
-      keywords: ['court', 'hall', 'lokasyon', 'lugar', 'covered court', 'bulwagan'],
-    },
-  ]
+  // Dynamically generate starter prompt cards directly from whichever official documents are uploaded
+  const categorizedStarters = officialDocs.length > 0
+    ? officialDocs.slice(0, 3).map((d, idx) => {
+        const cleanTitle = d.title.replace(/\.[^/.]+$/, '').replace(/_/g, ' ')
+        const operativeSec = d.sections && d.sections.length > 1 ? d.sections[1] : d.sections?.[0]
+        const cleanSecTitle = operativeSec ? operativeSec.title.replace(/^Seksyon\s+\d+:\s*/i, '').trim() : ''
+        return {
+          category: cleanTitle,
+          icon: idx === 0 ? CheckCircle2 : idx === 1 ? FileText : BookOpen,
+          badgeColor:
+            idx === 0
+              ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+              : idx === 1
+              ? 'text-orange-700 bg-orange-50 border-orange-200'
+              : 'text-teal-700 bg-teal-50 border-teal-200',
+          query: cleanSecTitle
+            ? `Ano ang nakasaad ukol sa ${cleanSecTitle}?`
+            : `Ano ang nilalaman at alituntunin ng ${cleanTitle}?`,
+        }
+      }).concat([
+        {
+          category: 'Greeting Test (Pagbati)',
+          icon: Bot,
+          badgeColor: 'text-purple-700 bg-purple-50 border-purple-200',
+          query: 'Kumusta! Ano ang maitutulong mo?',
+        },
+        {
+          category: 'Out-of-Scope Fallback Test',
+          icon: AlertTriangle,
+          badgeColor: 'text-rose-700 bg-rose-50 border-rose-200',
+          query: 'May tala ba kayo tungkol sa lotto results?',
+        },
+      ])
+    : [
+        {
+          category: 'Greeting Test (Pagbati)',
+          icon: Bot,
+          badgeColor: 'text-purple-700 bg-purple-50 border-purple-200',
+          query: 'Kumusta! Ano ang maitutulong mo?',
+        },
+        {
+          category: 'Out-of-Scope Fallback Test',
+          icon: AlertTriangle,
+          badgeColor: 'text-rose-700 bg-rose-50 border-rose-200',
+          query: 'Anong oras bukas ang opisina?',
+        },
+      ]
 
   // Detect whether resident asked in English
   const isEnglishQuery = (text) => {
@@ -323,158 +180,225 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
     setTimeout(() => {
       const qLower = q.toLowerCase()
 
-      // Pure grammatical stop words (never strip inquiry words like magkano, fee, bawal, etc.)
+      // 1. Natural Greeting Interceptor (Personalized & Courteous)
+      const isGreeting = [
+        'hi', 'hello', 'kumusta', 'kamusta', 'magandang araw',
+        'magandang umaga', 'magandang hapon', 'magandang gabi',
+        'good morning', 'good afternoon', 'good evening', 'hey', 'yo',
+      ].some((g) => qLower === g || qLower.startsWith(`${g} `) || qLower.endsWith(` ${g}`))
+
+      if (isGreeting) {
+        const botResponse = isEnglish
+          ? 'Hello! How can I assist you today regarding our official barangay ordinances or guidelines?'
+          : 'Magandang araw po! Kumusta po kayo? Ako ang inyong Barangay-Bot assistant. Ano po ang maitutulong ko sa inyo ukol sa ating mga opisyal na ordinansa at alituntunin?'
+        setChatHistory((prev) => [
+          ...prev,
+          {
+            sender: 'bot',
+            text: botResponse,
+            sources: [],
+            blocked: [],
+            isGreeting: true,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ])
+        setLoading(false)
+        return
+      }
+
+      // 2. Comprehensive Stopwords (Never treat structural/generic barangay words or verbal prefixes as topic keywords)
       const grammaticalStopWords = new Set([
         'po', 'ba', 'ng', 'sa', 'at', 'ang', 'na', 'ay', 'ito', 'kung', 'kayo', 'kami',
         'namin', 'inyo', 'sila', 'kanila', 'mo', 'ko', 'ni', 'din', 'rin', 'nga', 'naman',
         'the', 'a', 'an', 'and', 'or', 'of', 'in', 'on', 'at', 'to', 'for', 'with', 'from',
         'by', 'is', 'are', 'was', 'were', 'am', 'it', 'its', 'be', 'do', 'does', 'did',
+        'barangay', 'hall', 'bosesbantay', 'opisyal', 'tala', 'mga', 'may', 'meron', 'wala',
+        'lahat', 'bawat', 'anong', 'ano', 'kailan', 'saan', 'paano', 'bakit', 'sino', 'alin',
+        'dito', 'doon', 'nito', 'para', 'ukol', 'hinggil', 'bukas', 'oras', 'araw', 'petsa',
+        'mag', 'nag', 'pag', 'makapag',
       ])
 
-      const rawWords = qLower
+      // Normalize colloquial contractions
+      const normalizedQuery = qLower
+        .replace(/\bpano\b/g, 'paano')
+        .replace(/\bsan\b/g, 'saan')
+        .replace(/\bkelan\b/g, 'kailan')
+
+      // 3. 100% DYNAMIC SENTENCE-LEVEL TOPIC & DOCUMENT QUALIFICATION
+      const queryTokens = normalizedQuery
         .replace(/[^\w\s\u00C0-\u017F]/g, ' ')
         .split(/\s+/)
-        .filter((w) => w.length >= 2 && !grammaticalStopWords.has(w))
+        .filter((w) => w.length >= 3 && !grammaticalStopWords.has(w))
 
-      // Identify active semantic concept clusters from user query
-      const activeConcepts = new Set()
-      for (const concept of BILINGUAL_CONCEPTS) {
-        for (const term of concept.terms) {
-          if (qLower.includes(term)) {
-            activeConcepts.add(concept.name)
-            break
-          }
-        }
+      // Generate query bigrams (adjacent token pairs) for phrase relevance
+      const queryBigrams = []
+      for (let i = 0; i < queryTokens.length - 1; i++) {
+        queryBigrams.push(`${queryTokens[i]} ${queryTokens[i + 1]}`)
       }
 
-      // Collect expanded search keywords from active concepts + raw query roots
-      const expandedKeywords = new Set(rawWords)
-      for (const conceptName of activeConcepts) {
-        const cluster = BILINGUAL_CONCEPTS.find((c) => c.name === conceptName)
-        if (cluster) {
-          cluster.keywords.forEach((kw) => expandedKeywords.add(kw.toLowerCase()))
-        }
+      // Robust morphological, stem, and bilingual cognate matcher
+      const tokenMatchesText = (token, text) => {
+        const t = token.toLowerCase()
+        const txt = text.toLowerCase()
+        if (new RegExp('(?:^|[^a-zA-Z0-9])' + t + '(?:$|[^a-zA-Z0-9])', 'i').test(txt)) return true
+        if (t.length >= 4 && txt.includes(t) && t !== 'pet') return true
+
+        // Universal bilingual cognates and root stems (supports any ordinance)
+        if (t.startsWith('regist') || t.startsWith('rehistr')) return txt.includes('regist') || txt.includes('rehistr')
+        if (t === 'liga' || t === 'league' || t.includes('liga')) return txt.includes('liga') || txt.includes('league')
+        if (t.includes('linis') || t.startsWith('clean')) return txt.includes('linis') || txt.includes('clean')
+        if (t.startsWith('inspek') || t.startsWith('inspect')) return txt.includes('inspek') || txt.includes('inspect')
+        if (t.startsWith('bakun') || t.startsWith('vaccin')) return txt.includes('bakun') || txt.includes('vaccin')
+        if (t === 'aso' || t === 'pusa' || t === 'pet' || t === 'pets') return /\b(pet|pets|aso|asong|pusa|pusang)\b/i.test(txt)
+        return false
       }
 
-      // Step 1: Document-level Topic Affinity Scoring (Isolates cross-document noise)
-      const docAffinities = officialDocs.map((doc) => {
-        const docHeader = `${doc.title} ${doc.category || ''} ${doc.summary || ''}`.toLowerCase()
-        let docScore = 0
+      // Dynamically score every official document based on topic relevance to query
+      const scoredOfficialDocs = officialDocs.map((doc) => {
+        const cleanTitle = (doc.title || '')
+          .replace(/\.[^/.]+$/, '')
+          .replace(/[_\W]+/g, ' ')
+          .toLowerCase()
+        const summaryLower = (doc.summary || '').toLowerCase()
 
-        // Match active concepts against document
-        for (const conceptName of activeConcepts) {
-          const cluster = BILINGUAL_CONCEPTS.find((c) => c.name === conceptName)
-          if (cluster) {
-            const hasConceptInDoc = cluster.keywords.some((kw) => docHeader.includes(kw))
-            if (hasConceptInDoc) docScore += 6
+        let docTopicScore = 0
+
+        // Title matches (high weight)
+        for (const token of queryTokens) {
+          if (tokenMatchesText(token, cleanTitle)) docTopicScore += 8
+          if (tokenMatchesText(token, summaryLower)) docTopicScore += 4
+        }
+
+        // Phrase / bigram matches in title/summary
+        for (const bigram of queryBigrams) {
+          if (cleanTitle.includes(bigram)) docTopicScore += 10
+          if (summaryLower.includes(bigram)) docTopicScore += 5
+        }
+
+        // Content density across sections
+        if (Array.isArray(doc.sections)) {
+          let matchingSecs = 0
+          for (const sec of doc.sections) {
+            const secFull = `${sec.title || ''} ${sec.content || ''}`.toLowerCase()
+            const hasMatch = queryTokens.some((tok) => tokenMatchesText(tok, secFull))
+            if (hasMatch) matchingSecs++
           }
+          docTopicScore += Math.min(8, matchingSecs * 2.5)
         }
 
-        // Match raw words against title & summary
-        for (const word of rawWords) {
-          if (docHeader.includes(word)) docScore += 3
-        }
+        // Sentence-Level Topic Completeness: Count how many DISTINCT query tokens this document addresses
+        const fullDocText = (cleanTitle + ' ' + summaryLower + ' ' + (doc.sections || []).map((s) => `${s.title || ''} ${s.content || ''}`).join(' ')).toLowerCase()
+        const matchedTokensCount = queryTokens.filter((tok) => tokenMatchesText(tok, fullDocText)).length
 
-        return { doc, docScore }
+        return { doc, docTopicScore, matchedTokensCount }
       })
 
-      // Sort documents by overall topical relevance
-      docAffinities.sort((a, b) => b.docScore - a.docScore)
-      const maxDocScore = docAffinities[0]?.docScore || 0
+      // Sort by distinct topic tokens matched descending, then by overall topic score descending
+      scoredOfficialDocs.sort(
+        (a, b) => b.matchedTokensCount - a.matchedTokensCount || b.docTopicScore - a.docTopicScore
+      )
+      const topDocCandidate = scoredOfficialDocs.length > 0 ? scoredOfficialDocs[0] : null
+      const maxMatchedTokens = topDocCandidate ? topDocCandidate.matchedTokensCount : 0
+      const topDocScore = topDocCandidate ? topDocCandidate.docTopicScore : 0
 
-      // If top document has a strong topic match, isolate strictly to that document!
-      let candidateDocs = officialDocs
-      if (maxDocScore >= 5) {
-        candidateDocs = docAffinities
-          .filter((item) => item.docScore >= maxDocScore * 0.75)
-          .map((item) => item.doc)
+      // If no document addresses the sentence topic:
+      if (!topDocCandidate || maxMatchedTokens === 0 || topDocScore < 3.0) {
+        const fallbackText = isEnglish
+          ? 'I apologize, but there is no official record or active document in our database regarding this inquiry. Please coordinate with or visit the Barangay Hall for further assistance.'
+          : 'Paumanhin po, wala pa po akong tala o opisyal na dokumento ukol sa katanungang ito sa ating database. Mangyaring makipag-ugnayan o magsadya sa Barangay Hall para sa inyong karagdagang katanungan at tulong.'
+
+        setChatHistory((prev) => [
+          ...prev,
+          {
+            sender: 'bot',
+            text: fallbackText,
+            sources: [],
+            blocked: [],
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ])
+        setLoading(false)
+        return
       }
 
-      // Step 2: Section-level Chunk Matching & Scoring
+      // Sentence-Level Topic Locking: ONLY qualify documents that match the sentence's maximum distinct tokens!
+      // This prevents a generic word (e.g. "register") from pulling sections from an unrelated document (e.g. Pets when asking about Liga)
+      const candidateDocs = scoredOfficialDocs
+        .filter((d) => d.matchedTokensCount === maxMatchedTokens && d.docTopicScore >= Math.max(3.0, topDocScore * 0.70))
+        .map((d) => d.doc)
+
+      // Step 4: Universal, Document-Agnostic Intent Detection
+      const isFeeQuery = ['magkano', 'bayad', 'libre', 'singil', 'halaga', 'premyo', 'pabuya', 'cost', 'fee', 'price', 'prize', 'free'].some((w) => tokenMatchesText(w, normalizedQuery))
+      const isPenaltyQuery = ['multa', 'parusa', 'penalty', 'huli', 'violation', 'paglabag', 'bawal', 'pananagutan', 'saklaw'].some((w) => tokenMatchesText(w, normalizedQuery))
+      const isScheduleQuery = ['oras', 'kailan', 'iskedyul', 'araw', 'petsa', 'panahon', 'when', 'schedule', 'time', 'date', 'inspeksyon'].some((w) => tokenMatchesText(w, normalizedQuery))
+      const isRequirementsQuery = ['paano', 'rehistro', 'register', 'kuha', 'sumali', 'kwalipikasyon', 'edad', 'requisitos', 'requirement', 'qualify', 'how', 'who'].some((w) => tokenMatchesText(w, normalizedQuery))
+
+      // Step 5: Dynamic Section-level Chunk Matching within Qualified Candidate Documents
       const matchedSources = []
 
       for (const doc of candidateDocs) {
         if (doc.sections && doc.sections.length > 0) {
           for (const sec of doc.sections) {
-            const secTitleLower = sec.title.toLowerCase()
-            const secContentLower = sec.content.toLowerCase()
-            const fullSecText = `${secTitleLower} ${secContentLower}`
+            const secTitleLower = (sec.title || '').toLowerCase()
+            const secContentLower = (sec.content || '').toLowerCase()
 
             let chunkScore = 0
 
-            // Direct concept synergy match
-            for (const conceptName of activeConcepts) {
-              const cluster = BILINGUAL_CONCEPTS.find((c) => c.name === conceptName)
-              if (cluster) {
-                const titleHits = cluster.keywords.filter((kw) => secTitleLower.includes(kw)).length
-                const contentHits = cluster.keywords.filter((kw) => secContentLower.includes(kw)).length
-                chunkScore += titleHits * 3 + contentHits * 1.5
+            // Dynamic Token Matching
+            for (const token of queryTokens) {
+              if (tokenMatchesText(token, secTitleLower)) {
+                chunkScore += 5.0
+              } else if (tokenMatchesText(token, secContentLower)) {
+                chunkScore += 2.0
               }
             }
 
-            // Keyword hits
-            for (const kw of expandedKeywords) {
-              if (secTitleLower.includes(kw)) {
-                chunkScore += 2.5
-              } else if (secContentLower.includes(kw)) {
-                chunkScore += 1.0
+            // Dynamic Bigram/Phrase Matching
+            for (const bigram of queryBigrams) {
+              if (secTitleLower.includes(bigram)) chunkScore += 5.0
+              else if (secContentLower.includes(bigram)) chunkScore += 2.5
+            }
+
+            // Universal Interrogative Intent Boosts:
+            if (isFeeQuery) {
+              if (['bayad', 'libre', 'singil', 'halaga', 'premyo', 'pabuya', 'pagpaparehistro', 'fee', 'cost', 'price'].some((w) => secTitleLower.includes(w))) {
+                chunkScore += 5.0
+              }
+              if (/[₱$]|php|pesos?|\b\d+([.,]\d{2})?\b|\blibre\b|\bfree\b/i.test(secContentLower)) {
+                chunkScore += 3.5
               }
             }
 
-            // Specific intent pair boosts:
-            // 1. Pet registration + fee
-            const isPetQuery =
-              activeConcepts.has('pets') ||
-              qLower.includes('aso') ||
-              qLower.includes('pusa') ||
-              qLower.includes('alaga') ||
-              qLower.includes('dog') ||
-              qLower.includes('pet')
-            const isFeeQuery =
-              activeConcepts.has('fees') ||
-              qLower.includes('magkano') ||
-              qLower.includes('how much') ||
-              qLower.includes('bayad') ||
-              qLower.includes('fee') ||
-              qLower.includes('cost')
-            const isRegisterQuery =
-              activeConcepts.has('registration') ||
-              qLower.includes('rehistro') ||
-              qLower.includes('register')
+            if (isPenaltyQuery) {
+              if (['multa', 'parusa', 'paglabag', 'penalty', 'sanction', 'pananagutan', 'kagat'].some((w) => secTitleLower.includes(w))) {
+                chunkScore += 6.0
+              }
+              if (['multa', 'parusa', 'unang paglabag', 'penalty', 'pananagutan'].some((w) => secContentLower.includes(w))) {
+                chunkScore += 3.0
+              }
+            }
 
-            if (isPetQuery && isFeeQuery) {
-              if (
-                secContentLower.includes('50') ||
-                secContentLower.includes('processing fee') ||
-                secTitleLower.includes('pagpaparehistro') ||
-                secTitleLower.includes('bakuna')
-              ) {
-                chunkScore += 16
+            if (isScheduleQuery) {
+              if (['oras', 'iskedyul', 'araw', 'petsa', 'panahon', 'inspeksyon', 'schedule', 'time'].some((w) => secTitleLower.includes(w))) {
+                chunkScore += 5.0
               }
-            } else if (isPetQuery && isRegisterQuery) {
-              if (secTitleLower.includes('pagpaparehistro') || secContentLower.includes('magparehistro')) {
-                chunkScore += 12
+              if (['lunes', 'martes', 'miyerkules', 'huwebes', 'biyernes', 'sabado', 'linggo', 'am', 'pm', 'umaga', 'hapon', 'gabi'].some((w) => secContentLower.includes(w))) {
+                chunkScore += 3.0
               }
             }
-            // 2. Pet bite liability
-            if (activeConcepts.has('bites_injury') && (fullSecText.includes('kagat') || fullSecText.includes('gastusing medikal'))) {
-              chunkScore += 8
+
+            if (isRequirementsQuery) {
+              if (['requisitos', 'kwalipikasyon', 'pamantayan', 'requirements', 'edad', 'pagpaparehistro', 'registration'].some((w) => secTitleLower.includes(w))) {
+                chunkScore += 6.0
+              }
             }
-            // 3. Stray animals / leash
-            if ((qLower.includes('stray') || qLower.includes('gala') || qLower.includes('kalsada') || qLower.includes('tali') || qLower.includes('leash')) && fullSecText.includes('pagpapagala-gala')) {
-              chunkScore += 8
-            }
-            // 4. Curfew hours
-            if (activeConcepts.has('curfew') && (fullSecText.includes('curfew') || fullSecText.includes('10:00 pm'))) {
-              chunkScore += 8
-            }
-            // 5. Garbage schedule
-            if (activeConcepts.has('waste') && activeConcepts.has('schedule') && (fullSecText.includes('iskedyul') || fullSecText.includes('hakot'))) {
-              chunkScore += 8
-            }
-            // 6. Clearance requirements
-            if (activeConcepts.has('clearance') && (fullSecText.includes('rekisito') || fullSecText.includes('clearance'))) {
-              chunkScore += 8
+
+            // Substantive Section Priority: Demote Seksyon 1 (Pamagat at Saklaw) when asking specific questions
+            if (
+              (secTitleLower.includes('pamagat') || secTitleLower.includes('saklaw')) &&
+              (isFeeQuery || isPenaltyQuery || isScheduleQuery || isRequirementsQuery)
+            ) {
+              chunkScore -= 10
             }
 
             // Calculate cosine similarity approximation
@@ -576,9 +500,9 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
         }
       } else {
         if (isEnglish) {
-          botResponse = `We apologize, but no records from our approved ordinances and policies met the required relevance threshold (Cosine Similarity < 0.73).\n\nPlease visit the Barangay Hall or consult with the Desk Officer for personal assistance with your inquiry.`
+          botResponse = `I apologize, but I don't have any data for that yet. Please contact or visit the Barangay Hall for further questions and assistance.`
         } else {
-          botResponse = `Paumanhin po, ngunit walang sapat na tala sa ating mga naaprubahang opisyal na ordinansa at patakaran na umabot sa minimum threshold (Cosine Similarity < 0.73).\n\nMangyaring magsadya sa Tanggapan ng Barangay Hall o sumangguni sa Desk Officer para sa personal na tulong at katanungan.`
+          botResponse = `Paumanhin po, wala pa po akong sapat na tala ukol sa paksang ito. Mangyaring makipag-ugnayan o magsadya sa Barangay Hall para sa inyong karagdagang katanungan at tulong.`
         }
       }
 
@@ -894,8 +818,22 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
                       {/* Action Bar (Copy, Status) */}
                       <div className="flex items-center justify-between border-t border-gray-100 pt-2.5 text-xs text-gray-400">
                         <span className="text-[11px] flex items-center gap-1 text-gray-500">
-                          <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                          Grounded on PostgreSQL Vector Embeddings
+                          {msg.sources && msg.sources.length > 0 ? (
+                            <>
+                              <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                              Grounded on Official Document ({msg.sources.length} chunk{msg.sources.length > 1 ? 's' : ''})
+                            </>
+                          ) : msg.isGreeting ? (
+                            <>
+                              <Bot className="h-3 w-3 text-purple-500" />
+                              Pagbati (Greeting)
+                            </>
+                          ) : (
+                            <>
+                              <AlertTriangle className="h-3 w-3 text-amber-500" />
+                              Walang Opisyal na Tala sa Database
+                            </>
+                          )}
                         </span>
                         <button
                           onClick={() => handleCopyText(msg.text, idx)}
@@ -1052,22 +990,22 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
             <div className="mb-2.5 flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] scrollbar-none">
               <span className="text-gray-400 shrink-0">Subukan:</span>
               <button
-                onClick={() => handleTestQuery('Ano ang bayad sa Barangay Clearance?')}
+                onClick={() => handleTestQuery('Magkano ang premyo sa Inter-Purok Basketball League?')}
                 className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-gray-600 hover:border-bb-blue hover:text-bb-blue transition-colors shrink-0 cursor-pointer"
               >
-                Bayad sa Clearance?
+                Premyo sa Basketball?
               </button>
               <button
-                onClick={() => handleTestQuery('Iskedyul ng hakot ng basura?')}
+                onClick={() => handleTestQuery('Kailan ang iskedyul ng inspeksyon sa Tapat Ko, Linis Ko?')}
                 className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-gray-600 hover:border-bb-blue hover:text-bb-blue transition-colors shrink-0 cursor-pointer"
               >
-                Hakot ng basura?
+                Cleanliness Drive?
               </button>
               <button
-                onClick={() => handleTestQuery('Curfew para sa menor de edad?')}
+                onClick={() => handleTestQuery('Magkano mag pa register ng alagang aso?')}
                 className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-gray-600 hover:border-bb-blue hover:text-bb-blue transition-colors shrink-0 cursor-pointer"
               >
-                Curfew sa kabataan?
+                Pet Registration?
               </button>
             </div>
           )}
