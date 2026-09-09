@@ -1,4 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist'
+import mammoth from 'mammoth'
 
 // Configure pdfjs worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -7,7 +8,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 ).toString()
 
 /**
- * Extracts plain text from an uploaded PDF, text, or markdown file.
+ * Extracts plain text from an uploaded PDF, DOCX, text, or markdown file.
  * @param {File} file
  * @returns {Promise<string>}
  */
@@ -46,6 +47,19 @@ export async function extractTextFromFile(file) {
       }
     } catch (err) {
       console.warn('PDF text extraction error:', err)
+    }
+  }
+
+  // 3. Microsoft Word (.docx) Files via mammoth
+  if (name.endsWith('.docx')) {
+    try {
+      const arrayBuffer = await file.arrayBuffer()
+      const result = await mammoth.extractRawText({ arrayBuffer })
+      if (result && result.value && result.value.trim().length > 10) {
+        return result.value.trim()
+      }
+    } catch (err) {
+      console.warn('DOCX text extraction error:', err)
     }
   }
 
