@@ -188,7 +188,15 @@ function maskId(id) {
 }
 
 export default function UserAccounts() {
-  const { user, accounts, createAdminAccount, createResidentAccount, resetAdminAccountPassword, deleteAdminAccount } = useAuth()
+  const {
+    user,
+    accounts,
+    createAdminAccount,
+    createResidentAccount,
+    resetAdminAccountPassword,
+    deleteAdminAccount,
+    updateAdminAccountRole,
+  } = useAuth()
   const { users, updateUser, removeUser, addAuditEntry, roleModuleAccess, setModuleAccess, fetchData } = useData()
   const { showToast } = useToast()
 
@@ -209,6 +217,8 @@ export default function UserAccounts() {
   const [newAdminAccount, setNewAdminAccount] = useState(BLANK_ADMIN_ACCOUNT)
   const [pendingResetId, setPendingResetId] = useState(null)
   const [resetPasswordValue, setResetPasswordValue] = useState('')
+  const [editingRoleAdmin, setEditingRoleAdmin] = useState(null)
+  const [selectedNewRole, setSelectedNewRole] = useState('')
   const [pendingAdminDeleteId, setPendingAdminDeleteId] = useState(null)
   const [pendingModuleToggle, setPendingModuleToggle] = useState(null)
   const [pendingStatusActionId, setPendingStatusActionId] = useState(null)
@@ -517,6 +527,30 @@ export default function UserAccounts() {
     setResetPasswordValue('')
   }
 
+  async function handleAdminRoleChangeSubmit(e) {
+    e.preventDefault()
+    if (!isAdmin || !editingRoleAdmin || !selectedNewRole || selectedNewRole === editingRoleAdmin.role) return
+
+    const targetAccount = editingRoleAdmin
+    const oldRole = targetAccount.role
+    const newRole = selectedNewRole
+
+    const res = await updateAdminAccountRole(targetAccount.id, newRole)
+    if (res && !res.success) {
+      showToast(res.error || 'Hindi nabago ang tungkulin.', 'error')
+      return
+    }
+
+    addAuditEntry(
+      `Binago ang tungkulin ni ${targetAccount.name} mula "${oldRole}" patungong "${newRole}"`,
+      { color: 'blue' }
+    )
+    showToast(`Matagumpay na nabago ang tungkulin ni ${targetAccount.name} bilang ${newRole}.`)
+    fetchData()
+    setEditingRoleAdmin(null)
+    setSelectedNewRole('')
+  }
+
   async function confirmDeleteAdminAccount() {
     const account = accounts.find((a) => a.id === pendingAdminDeleteId)
     if (!account) return
@@ -608,7 +642,7 @@ export default function UserAccounts() {
           {showAdminAccounts && (
             <button
               onClick={() => setAddingAdminAccount(true)}
-              className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-navy to-bb-navy/90 border border-bb-navy/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-4 py-2 text-sm font-semibold text-white transition-all active:scale-[0.98]"
+              className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-4 py-2 text-sm font-semibold text-white transition-all active:scale-[0.98]"
             >
               <Plus size={16} />
               Gumawa ng Admin Account
@@ -973,12 +1007,27 @@ export default function UserAccounts() {
                               <div id={`dropdown-menu-${a.id}`} className={`absolute right-4 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-30 text-left ${
                                 openUpward ? 'bottom-8 mb-1' : 'top-10 mt-1'
                               }`}>
+                                {isAdmin && (
+                                  <button
+                                    onClick={() => {
+                                      setOpenMenuId(null)
+                                      setEditingRoleAdmin(a)
+                                      setSelectedNewRole(a.role)
+                                    }}
+                                    disabled={a.id === user.id}
+                                    title={a.id === user.id ? 'Hindi mo maaaring palitan ang sarili mong tungkulin.' : undefined}
+                                    className="flex w-full items-center gap-2 px-4 py-2 text-[11px] font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                  >
+                                    <ShieldCheck size={13} className="text-bb-blue shrink-0" />
+                                    Palitan ang Tungkulin
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => {
                                     setOpenMenuId(null)
                                     setPendingResetId(a.id)
                                   }}
-                                  className="flex w-full items-center gap-2 px-4 py-2 text-[11px] font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                                  className={`flex w-full items-center gap-2 px-4 py-2 text-[11px] font-semibold text-gray-700 hover:bg-gray-50 transition-colors ${isAdmin ? 'border-t border-gray-100' : ''}`}
                                 >
                                   <KeyRound size={13} className="text-orange-500 shrink-0" />
                                   I-reset ang Password
@@ -1437,7 +1486,7 @@ export default function UserAccounts() {
           </label>
           <button
             type="submit"
-            className="w-full rounded-lg bg-bb-navy py-2.5 font-semibold text-white hover:bg-bb-blue-dark transition-colors"
+            className="w-full rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-2.5 font-semibold text-white transition-all active:scale-[0.98]"
           >
             Gumawa ng Account
           </button>
@@ -1544,12 +1593,80 @@ export default function UserAccounts() {
             </button>
             <button
               type="submit"
-              className="w-1/2 rounded-lg bg-bb-navy py-2.5 font-semibold text-white hover:bg-bb-blue-dark transition-colors"
+              className="w-1/2 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-2.5 font-semibold text-white transition-all active:scale-[0.98]"
             >
               I-save
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* MODAL: Palitan ang Tungkulin ng Admin */}
+      <Modal
+        open={editingRoleAdmin != null}
+        onClose={() => {
+          setEditingRoleAdmin(null)
+          setSelectedNewRole('')
+        }}
+        title="Palitan ang Tungkulin ng Admin"
+      >
+        {editingRoleAdmin && (
+          <form onSubmit={handleAdminRoleChangeSubmit} className="space-y-4">
+            <div className="rounded-lg border border-gray-200 bg-gray-50/70 p-3 text-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-bold text-gray-900">{editingRoleAdmin.name}</p>
+                  <p className="text-xs text-gray-500">{editingRoleAdmin.email}</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-[11px] font-semibold text-gray-400 block mb-0.5">Kasalukuyan:</span>
+                  <Pill color="blue" solid={false}>{editingRoleAdmin.role}</Pill>
+                </div>
+              </div>
+            </div>
+
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-semibold text-gray-700">
+                Pumili ng Bagong Tungkulin
+              </span>
+              <select
+                value={selectedNewRole}
+                onChange={(e) => setSelectedNewRole(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+              >
+                {PORTAL_ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {r} {r === editingRoleAdmin.role ? '(Kasalukuyan)' : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3 text-xs text-blue-700 leading-relaxed">
+              * Ang pagpapalit ng tungkulin ay magbabago sa mga module at permissions na maaaring ma-access ng admin na ito sa Command Center.
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingRoleAdmin(null)
+                  setSelectedNewRole('')
+                }}
+                className="w-1/2 rounded-lg border border-gray-300 py-2.5 font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Kanselahin
+              </button>
+              <button
+                type="submit"
+                disabled={!selectedNewRole || selectedNewRole === editingRoleAdmin.role}
+                className="w-1/2 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-2.5 font-semibold text-white transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                I-save ang Tungkulin
+              </button>
+            </div>
+          </form>
+        )}
       </Modal>
 
       <ConfirmDialog

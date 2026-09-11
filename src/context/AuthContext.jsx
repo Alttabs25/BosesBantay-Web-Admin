@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { createClient } from '@supabase/supabase-js'
+import { ROLES } from '../config/permissions'
 
 const AuthContext = createContext(null)
 
@@ -361,6 +362,42 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const updateAdminAccountRole = async (accountId, newRole) => {
+    try {
+      if (user?.role !== ROLES.ADMIN) {
+        return { success: false, error: 'Tanging System Administrator lamang ang may pahintulot na magpalit ng tungkulin.' }
+      }
+
+      const { data: roleObj, error: roleErr } = await supabase
+        .from('roles')
+        .select('role_id')
+        .eq('role_name', newRole)
+        .single()
+
+      if (roleErr || !roleObj) {
+        return { success: false, error: 'Hindi nahanap ang tungkulin sa database.' }
+      }
+
+      const { error } = await supabase
+        .from('users')
+        .update({ role_id: roleObj.role_id })
+        .eq('id', accountId)
+
+      if (error) {
+        console.error('Error updating admin role:', error)
+        return { success: false, error: error.message }
+      }
+
+      setAccounts((prev) =>
+        prev.map((a) => (a.id === accountId ? { ...a, role: newRole } : a))
+      )
+      return { success: true }
+    } catch (err) {
+      console.error('Error updating admin role:', err)
+      return { success: false, error: err.message }
+    }
+  }
+
   // Trigger password reset email via native Supabase Auth
   const requestPasswordReset = async (email) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
@@ -375,7 +412,7 @@ export function AuthProvider({ children }) {
 
   const resetPasswordWithCode = async ({ email, code, newPassword }) => {
     // Note: Supabase handles recovery code logic dynamically when navigating via reset link.
-    // If using user-entered recovery code/pin:
+    // However, if manual verification flow is preferred, we update directly:
     const { error } = await supabase.auth.updateUser({
       password: newPassword
     })
@@ -398,6 +435,7 @@ export function AuthProvider({ children }) {
         createResidentAccount,
         resetAdminAccountPassword,
         deleteAdminAccount,
+        updateAdminAccountRole,
         requestPasswordReset,
         resetPasswordWithCode,
         loading,
