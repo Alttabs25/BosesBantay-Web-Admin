@@ -15,7 +15,6 @@ import {
   Dices,
   SlidersHorizontal,
   Clock,
-  Award,
   Copy,
   MoreVertical,
   Eye,
@@ -42,6 +41,32 @@ const PORTAL_ROLES = [
   ROLES.CAPTAIN,
   ROLES.ADMIN,
 ]
+
+const ADMIN_ROLE_FILTERS = [
+  { value: 'All', label: 'Lahat', activeClass: 'bg-bb-blue text-white shadow-sm' },
+  { value: ROLES.CAPTAIN, label: 'Barangay Captain', activeClass: 'bg-emerald-600 text-white shadow-sm' },
+  { value: ROLES.SECRETARY, label: 'Secretary', activeClass: 'bg-blue-600 text-white shadow-sm' },
+  { value: ROLES.TANOD, label: 'Tanod', activeClass: 'bg-teal-600 text-white shadow-sm' },
+  { value: ROLES.KAGAWAD, label: 'Kagawad', activeClass: 'bg-indigo-600 text-white shadow-sm' },
+  { value: ROLES.LUPON, label: 'Lupon Member', activeClass: 'bg-amber-600 text-white shadow-sm' },
+  { value: ROLES.ADMIN, label: 'System Admin', activeClass: 'bg-purple-600 text-white shadow-sm' },
+]
+
+function matchesRoleFilter(accountRole, filterVal) {
+  if (filterVal === 'All') return true
+  if (!accountRole) return false
+  if (accountRole === filterVal) return true
+  const normAcc = accountRole.toLowerCase()
+  const normFilter = filterVal.toLowerCase()
+  if (normAcc === normFilter) return true
+  if (normFilter.includes('captain') && (normAcc.includes('captain') || normAcc.includes('punong barangay'))) return true
+  if (normFilter.includes('secretary') && normAcc.includes('secretary')) return true
+  if (normFilter.includes('tanod') && normAcc.includes('tanod')) return true
+  if (normFilter.includes('lupon') && normAcc.includes('lupon')) return true
+  if (normFilter.includes('kagawad') && normAcc.includes('kagawad')) return true
+  if ((normFilter.includes('admin') || normFilter.includes('administrator')) && (normAcc.includes('admin') || normAcc.includes('administrator'))) return true
+  return false
+}
 
 const BLANK_ADMIN_ACCOUNT = { name: '', email: '', role: PORTAL_ROLES[0], tempPassword: '' }
 
@@ -192,12 +217,35 @@ export default function UserAccounts() {
 
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
+  const [adminQuery, setAdminQuery] = useState('')
+  const [adminRoleFilter, setAdminRoleFilter] = useState('All')
   const [openMenuId, setOpenMenuId] = useState(null)
   const [viewingId, setViewingId] = useState(null)
   const [roleChoice, setRoleChoice] = useState('')
   const [pendingDeleteId, setPendingDeleteId] = useState(null)
   const [addingAccount, setAddingAccount] = useState(false)
   const [newAccount, setNewAccount] = useState(BLANK_NEW_ACCOUNT)
+
+  const filteredAdminAccounts = useMemo(() => {
+    let result = accounts || []
+
+    if (adminRoleFilter !== 'All') {
+      result = result.filter((a) => matchesRoleFilter(a.role, adminRoleFilter))
+    }
+
+    const q = adminQuery.trim().toLowerCase()
+    if (q) {
+      result = result.filter(
+        (a) =>
+          (a.name && a.name.toLowerCase().includes(q)) ||
+          (a.id && a.id.toLowerCase().includes(q)) ||
+          (a.email && a.email.toLowerCase().includes(q)) ||
+          (a.role && a.role.toLowerCase().includes(q))
+      )
+    }
+
+    return result
+  }, [accounts, adminRoleFilter, adminQuery])
 
   const filtered = useMemo(() => {
     let result = users
@@ -809,111 +857,162 @@ export default function UserAccounts() {
       )}
 
       {showAdminAccounts && (
-        <div className="mt-4 max-h-[calc(100vh-260px)] overflow-auto rounded-lg border border-gray-200 pb-10">
-          <table className="w-full text-left text-sm">
-            <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
-              <tr>
-                <th className="px-4 py-3 font-semibold">Admin ID</th>
-                <th className="px-4 py-3 font-semibold">Pangalan</th>
-                <th className="px-4 py-3 font-semibold">Email</th>
-                <th className="px-4 py-3 font-semibold">Tungkulin</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
-                <th className="px-4 py-3 font-semibold">Aksyon</th>
-              </tr>
-            </thead>
-            <tbody>
-              {accounts.map((a, index) => {
-                const openUpward = index >= accounts.length - 2
-                return (
-                  <tr id={`admin-row-${a.id}`} key={a.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <div className="font-medium flex items-center gap-1.5 text-xs font-mono text-gray-700 whitespace-nowrap">
-                      <span className="whitespace-nowrap">ID: {maskId(a.id)}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyId(a.id)}
-                        className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors p-0.5"
-                        title="Kopyahin ang ID"
-                      >
-                        {copiedId === a.id ? (
-                          <Check size={12} className="text-green-600" />
-                        ) : (
-                          <Copy size={12} />
-                        )}
-                      </button>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-700 font-semibold">{a.name}</td>
-                  <td className="px-4 py-3 text-gray-500">{a.email}</td>
-                  <td className="px-4 py-3 text-gray-500">{a.role}</td>
-                  <td className="px-4 py-3">
-                    {a.mustChangePassword ? (
-                      <Pill color="orange" solid>
-                        Pansamantalang Password
-                      </Pill>
-                    ) : (
-                      <Pill color="green" solid>
-                        Aktibo
-                      </Pill>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 relative">
-                    <div className="flex justify-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setOpenMenuId(openMenuId === a.id ? null : a.id)
-                        }}
-                        className="inline-flex items-center justify-center rounded-lg p-1.5 text-gray-500 hover:bg-gray-150 transition-colors focus:outline-none"
-                        title="Higit pang Aksyon"
-                      >
-                        <MoreVertical size={16} />
-                      </button>
+        <>
+          <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="w-full max-w-md">
+              <SearchInput
+                value={adminQuery}
+                onChange={setAdminQuery}
+                placeholder="Hanapin ang pangalan, email, role, o ID..."
+              />
+            </div>
 
-                      {openMenuId === a.id && (
-                        <>
-                          <div
-                            className="fixed inset-0 z-20"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setOpenMenuId(null)
-                            }}
-                          />
-                          <div id={`dropdown-menu-${a.id}`} className={`absolute right-4 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-30 text-left ${
-                            openUpward ? 'bottom-8 mb-1' : 'top-10 mt-1'
-                          }`}>
-                            <button
-                              onClick={() => {
-                                setOpenMenuId(null)
-                                setPendingResetId(a.id)
-                              }}
-                              className="flex w-full items-center gap-2 px-4 py-2 text-[11px] font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
-                              <KeyRound size={13} className="text-orange-500 shrink-0" />
-                              I-reset ang Password
-                            </button>
-                            <button
-                              onClick={() => {
-                                setOpenMenuId(null)
-                                setPendingAdminDeleteId(a.id)
-                              }}
-                              disabled={a.id === user.id}
-                              className="flex w-full items-center gap-2 border-t border-gray-100 px-4 py-2 text-[11px] font-semibold text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                              <Trash2 size={13} className="text-red-500 shrink-0" />
-                              Burahin ang Admin
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+            <div className="flex flex-wrap items-center gap-1.5 bg-gray-50/50 rounded-xl p-1.5">
+              {ADMIN_ROLE_FILTERS.map((pill) => {
+                const count = pill.value === 'All'
+                  ? accounts.length
+                  : accounts.filter((a) => matchesRoleFilter(a.role, pill.value)).length
+                const isActive = adminRoleFilter === pill.value
+
+                return (
+                  <button
+                    key={pill.value}
+                    onClick={() => setAdminRoleFilter(pill.value)}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
+                      isActive
+                        ? `${pill.activeClass} scale-102`
+                        : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                    }`}
+                  >
+                    <span>{pill.label}</span>
+                    <span
+                      className={`rounded-full px-1.5 py-0.2 text-[10px] ${
+                        isActive
+                          ? 'bg-white/20 text-white'
+                          : 'bg-gray-100 text-gray-500 border border-gray-200/50'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
                 )
               })}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </div>
+
+          <div className="mt-4 max-h-[calc(100vh-360px)] overflow-auto rounded-lg border border-gray-200 pb-10">
+            <table className="w-full text-left text-sm">
+              <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Admin ID</th>
+                  <th className="px-4 py-3 font-semibold">Pangalan</th>
+                  <th className="px-4 py-3 font-semibold">Email</th>
+                  <th className="px-4 py-3 font-semibold">Tungkulin</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Aksyon</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredAdminAccounts.map((a, index) => {
+                  const openUpward = index >= filteredAdminAccounts.length - 2
+                  return (
+                    <tr id={`admin-row-${a.id}`} key={a.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="font-medium flex items-center gap-1.5 text-xs font-mono text-gray-700 whitespace-nowrap">
+                          <span className="whitespace-nowrap">ID: {maskId(a.id)}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyId(a.id)}
+                            className="inline-flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors p-0.5"
+                            title="Kopyahin ang ID"
+                          >
+                            {copiedId === a.id ? (
+                              <Check size={12} className="text-green-600" />
+                            ) : (
+                              <Copy size={12} />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-700 font-semibold">{a.name}</td>
+                      <td className="px-4 py-3 text-gray-500">{a.email}</td>
+                      <td className="px-4 py-3 text-gray-500">{a.role}</td>
+                      <td className="px-4 py-3">
+                        {a.mustChangePassword ? (
+                          <Pill color="orange" solid>
+                            Pansamantalang Password
+                          </Pill>
+                        ) : (
+                          <Pill color="green" solid>
+                            Aktibo
+                          </Pill>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 relative">
+                        <div className="flex justify-center">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setOpenMenuId(openMenuId === a.id ? null : a.id)
+                            }}
+                            className="inline-flex items-center justify-center rounded-lg p-1.5 text-gray-500 hover:bg-gray-150 transition-colors focus:outline-none"
+                            title="Higit pang Aksyon"
+                          >
+                            <MoreVertical size={16} />
+                          </button>
+
+                          {openMenuId === a.id && (
+                            <>
+                              <div
+                                className="fixed inset-0 z-20"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setOpenMenuId(null)
+                                }}
+                              />
+                              <div id={`dropdown-menu-${a.id}`} className={`absolute right-4 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-30 text-left ${
+                                openUpward ? 'bottom-8 mb-1' : 'top-10 mt-1'
+                              }`}>
+                                <button
+                                  onClick={() => {
+                                    setOpenMenuId(null)
+                                    setPendingResetId(a.id)
+                                  }}
+                                  className="flex w-full items-center gap-2 px-4 py-2 text-[11px] font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                                >
+                                  <KeyRound size={13} className="text-orange-500 shrink-0" />
+                                  I-reset ang Password
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setOpenMenuId(null)
+                                    setPendingAdminDeleteId(a.id)
+                                  }}
+                                  disabled={a.id === user.id}
+                                  className="flex w-full items-center gap-2 border-t border-gray-100 px-4 py-2 text-[11px] font-semibold text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  <Trash2 size={13} className="text-red-500 shrink-0" />
+                                  Burahin ang Admin
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+                {filteredAdminAccounts.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
+                      Walang nahanap na admin account.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {showModuleAccess && (
