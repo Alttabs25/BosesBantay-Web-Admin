@@ -76,7 +76,7 @@ export default function Alerts() {
   const [target, setTarget] = useState(roleConfig.allowedTargets[0] || '')
   const [level, setLevel] = useState(ALERT_LEVELS[0])
   const [message, setMessage] = useState('')
-  
+
   const [confirmingSend, setConfirmingSend] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [alertToDelete, setAlertToDelete] = useState(null)
@@ -294,15 +294,13 @@ export default function Alerts() {
                         key={l}
                         type="button"
                         onClick={() => setLevel(l)}
-                        className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-[11px] font-bold transition-all duration-200 ${
-                          isSelected
+                        className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-[11px] font-bold transition-all duration-200 ${isSelected
                             ? `${colorMap[l]} ring-2`
                             : 'border-gray-200 text-gray-600 bg-white hover:bg-gray-50 hover:border-gray-300'
-                        }`}
+                          }`}
                       >
-                        <span className={`inline-block w-2.5 h-2.5 rounded-full mb-1 ${
-                          l === 'Emergency' ? 'bg-red-500' : l === 'Mataas na Alerto' ? 'bg-orange-500' : 'bg-blue-500'
-                        }`} />
+                        <span className={`inline-block w-2.5 h-2.5 rounded-full mb-1 ${l === 'Emergency' ? 'bg-red-500' : l === 'Mataas na Alerto' ? 'bg-orange-500' : 'bg-blue-500'
+                          }`} />
                         {l === 'Normal na Pagpapayo' ? 'Normal' : l === 'Mataas na Alerto' ? 'Mataas' : 'Emergency'}
                       </button>
                     )
@@ -341,9 +339,8 @@ export default function Alerts() {
                 <span>📱 Real-time Mobile Push Preview</span>
               </h4>
               <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-md max-w-sm mx-auto">
-                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${
-                  level === 'Emergency' ? 'bg-red-500' : level === 'Mataas na Alerto' ? 'bg-orange-500' : 'bg-blue-500'
-                }`} />
+                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${level === 'Emergency' ? 'bg-red-500' : level === 'Mataas na Alerto' ? 'bg-orange-500' : 'bg-blue-500'
+                  }`} />
                 <div className="pl-2">
                   <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
                     <span className="font-bold text-bb-blue flex items-center gap-1 text-[11px]">
@@ -354,9 +351,8 @@ export default function Alerts() {
                   <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tight flex items-center gap-1.5 mb-1.5">
                     <span>{noticeType || 'Abiso'}</span>
                     <span className="text-gray-300">•</span>
-                    <span className={`${
-                      level === 'Emergency' ? 'text-red-500' : level === 'Mataas na Alerto' ? 'text-orange-500' : 'text-blue-500'
-                    }`}>{level}</span>
+                    <span className={`${level === 'Emergency' ? 'text-red-500' : level === 'Mataas na Alerto' ? 'text-orange-500' : 'text-blue-500'
+                      }`}>{level}</span>
                   </div>
                   <h5 className="text-sm font-bold text-gray-800 leading-tight">
                     {title ? title : 'Pamagat ng Abiso'}
@@ -463,9 +459,8 @@ export default function Alerts() {
                     className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 group"
                   >
                     {/* Left accent bar for alert level */}
-                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${
-                      h.level === 'Emergency' ? 'bg-red-500' : h.level === 'Mataas na Alerto' ? 'bg-orange-500' : 'bg-blue-500'
-                    }`} />
+                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${h.level === 'Emergency' ? 'bg-red-500' : h.level === 'Mataas na Alerto' ? 'bg-orange-500' : 'bg-blue-500'
+                      }`} />
 
                     <div className="pl-2">
                       <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
