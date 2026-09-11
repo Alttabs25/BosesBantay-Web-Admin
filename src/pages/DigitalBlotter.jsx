@@ -36,7 +36,15 @@ export default function DigitalBlotter() {
   const canManageInvestigation = user.role === ROLES.LUPON || user.role === ROLES.ADMIN
 
   const filtered = useMemo(() => {
-    let list = blotterReports
+    let list = [...blotterReports]
+
+    // Sort by oldest first so newest reports appear at the bottom
+    list.sort((a, b) => {
+      const timeA = new Date(a.rawDate).getTime() || 0
+      const timeB = new Date(b.rawDate).getTime() || 0
+      return timeA - timeB
+    })
+
     if (selectedStatus) {
       list = list.filter((r) => r.status === selectedStatus)
     }
@@ -104,7 +112,6 @@ export default function DigitalBlotter() {
       showToast('Pumili muna ng petsa ng pagdinig.', 'error')
       return
     }
-    // (Re)scheduling always means the next hearing hasn't happened yet.
     updateBlotterReport(report.id, { ...hearingDraft, hearingCompleted: false })
     addAuditEntry(`In-iskedyul ang pagdinig sa Barangay Hall para sa ${report.id}`, { color: 'blue' })
     showToast('Naka-iskedyul na ang pagdinig sa Barangay Hall.')
@@ -197,8 +204,6 @@ export default function DigitalBlotter() {
       danger: false,
     },
   }
-
-
 
   return (
     <div>
@@ -497,8 +502,6 @@ export default function DigitalBlotter() {
                   {report.filedBy}.
                 </div>
               )}
-
-
             </div>
           )
         })}

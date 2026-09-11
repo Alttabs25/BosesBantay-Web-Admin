@@ -1,10 +1,8 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from './AuthContext'
-import { MOCK_USERS } from '../data/mockUsers'
 import { MOCK_INCIDENTS } from '../data/mockIncidents'
 import { MOCK_BLOTTER } from '../data/mockBlotter'
-import { MOCK_AUDIT_LOGS } from '../data/mockAuditLogs'
 import {
   ROLES,
   ALWAYS_ON_MODULES,
@@ -58,7 +56,6 @@ export function DataProvider({ children }) {
   // Seed database if empty
   const seedDatabaseIfEmpty = async () => {
     try {
-      // 1. Check roles table
       const { data: currentRoles } = await supabase.from('roles').select('*')
       if (!currentRoles || currentRoles.length === 0) return
 
@@ -67,7 +64,6 @@ export function DataProvider({ children }) {
         roleMap[r.role_name] = r.role_id
       })
 
-      // 2. Check and seed sectors
       const { data: sectors } = await supabase.from('barangay_sectors').select('*')
       let dbSectors = sectors || []
       if (dbSectors.length === 0) {
@@ -87,13 +83,10 @@ export function DataProvider({ children }) {
         sectorMap[s.sector_name] = s.sector_id
       })
 
-      // 3. Documents are managed live in Supabase (no mock seeding)
-      // Preserving only user uploaded test documents
-
-      // 4. Check and seed pre_blotters
       const { count: pbCount } = await supabase
         .from('pre_blotters')
         .select('*', { count: 'exact', head: true })
+
       if (pbCount === 0) {
         for (let i = 0; i < MOCK_INCIDENTS.length; i++) {
           const inc = MOCK_INCIDENTS[i]
@@ -105,12 +98,12 @@ export function DataProvider({ children }) {
               incident_location: inc.location,
               narrative_summary: inc.excerpt,
               json_output: {
-                what: inc.excerpt,
+                what: inc.title,
                 who: 'Unknown Suspect',
                 where: inc.location,
                 when: inc.dateISO,
-                why: 'Unknown',
-                how: 'Reported by resident'
+                why: 'Community hazard requiring barangay inspection and action',
+                how: inc.excerpt
               }
             }])
             .select()
@@ -131,10 +124,11 @@ export function DataProvider({ children }) {
           }
         }
       }
-      // 5. Check and seed emergency_contacts
+
       const { count: contactsCount } = await supabase
         .from('emergency_contacts')
         .select('*', { count: 'exact', head: true })
+
       if (contactsCount === 0) {
         const contactsToInsert = [
           { agency_name: 'BFP Milagrosa', contact_person: 'Fire Department', phone_number: '0912-345-6789', category: 'Emergency', is_active: true },
@@ -187,6 +181,7 @@ export function DataProvider({ children }) {
         .from('pre_blotters')
         .select('*, ai_extractions(*), barangay_sectors(*)')
       
+      let mappedBlotter = []
       if (!pbsErr && pbsData) {
         // Map to Incidents for GIS
         const mappedIncidents = pbsData.map(b => ({
@@ -204,19 +199,19 @@ export function DataProvider({ children }) {
         setIncidents(mappedIncidents)
 
         // Map to Blotter reports
-        const mappedBlotter = pbsData.map(b => {
+        mappedBlotter = pbsData.map(b => {
           const json = b.ai_extractions?.json_output || {}
           const complainantName = json.complainant || b.ai_extractions?.complainant || 'Residente'
           
-          // Fallback lookup for user profile in usersData
           const userObj = usersData?.find(u => u.id === b.user_id) ||
                           usersData?.find(u => `${u.first_name} ${u.last_name}`.trim().toLowerCase() === complainantName.toLowerCase())
 
           return {
             id: b.reference_no,
+            rawDate: b.submitted_at || b.created_at,
             title: b.ai_extractions?.incident_type || 'Kaganapan',
             status: b.status || 'Sinuri',
-            datetime: new Date(b.submitted_at).toLocaleString('en-US', {
+            datetime: new Date(b.submitted_at || Date.now()).toLocaleString('en-US', {
               month: 'short',
               day: 'numeric',
               year: 'numeric',
@@ -225,83 +220,92 @@ export function DataProvider({ children }) {
               hour12: true
             }).toUpperCase(),
             filedBy: complainantName,
-            what: json.what || b.ai_extractions?.narrative_summary || '',
-            who: json.who || b.ai_extractions?.respondent || '',
-            where: json.where || b.ai_extractions?.incident_location || '',
-            when: json.when || '',
-            why: json.why || '',
-            how: json.how || '',
+            what: json.what || b.ai_extractions?.incident_type || 'Kaganapan',
+            who: json.who || b.ai_extractions?.respondent || 'Hindi Alam',
+            where: json.where || b.ai_extractions?.incident_location || 'N/A',
+            when: json.when || 'N/A',
+            why: json.why || 'N/A',
+            how: json.how || b.ai_extractions?.narrative_summary || 'N/A',
             hearingDate: formatDateTimeLocal(b.hearing_date),
             hearingNote: b.hearing_note || b.remarks || '',
             hearingCompleted: b.hearing_completed !== undefined && b.hearing_completed !== null ? b.hearing_completed : (b.status === 'Nareselba' || b.status === 'Spam'),
             outcome: b.outcome || (b.status === 'Nareselba' ? (b.remarks || 'Resolbado na.') : ''),
-            // Complainant detailed profile fields
-            complainantPhone: userObj?.mobile_number || json.phone || json.complainant_phone || userObj?.phone || '',
-            complainantAddress: userObj?.address || json.address || json.complainant_address || '',
-            complainantGender: userObj?.gender || json.gender || json.complainant_gender || '',
+            complainantPhone: userObj?.mobile_number || json.phone || json.complainant_phone || userObj?.phone || 'N/A',
+            complainantAddress: userObj?.address || json.address || json.complainant_address || 'N/A',
+            complainantGender: userObj?.gender || json.gender || json.complainant_gender || 'N/A',
             complainantAge: userObj?.birthdate ? calculateAge(userObj.birthdate) : (json.age || json.complainant_age || ''),
             isMinor: userObj?.birthdate ? calculateAge(userObj.birthdate) < 18 : (json.is_minor || false)
           }
         })
-        // Fetch Manual Form Reports submitted by residents
-        const { data: reportsData, error: reportsErr } = await supabase
-          .from('reports')
-          .select('*')
-
-        let mappedReports = []
-        if (!reportsErr && reportsData) {
-          mappedReports = reportsData.map(r => {
-            const userObj = usersData?.find(u => u.id === r.user_id)
-            const filedBy = userObj ? `${userObj.first_name} ${userObj.last_name}`.trim() : 'Residente'
-            
-            // Translate resident-end status to web-admin status
-            let adminStatus = 'Sinuri'
-            if (r.status === 'Under Review') adminStatus = 'Sinuri'
-            else if (r.status === 'Investigating') adminStatus = 'Inimbestigahan'
-            else if (r.status === 'Resolved') adminStatus = 'Nareselba'
-            else if (r.status === 'Spam') adminStatus = 'Spam'
-            else if (r.status) adminStatus = r.status
-
-            const finalAge = userObj?.birthdate ? calculateAge(userObj.birthdate) : (r.full_details?.age || '')
-
-            return {
-              id: r.reference_no || `REP-${String(r.id || '').substring(0, 8)}`,
-              dbId: r.id,
-              isFormReport: true,
-              title: r.category || 'Resident Form Report',
-              status: adminStatus,
-              datetime: new Date(r.created_at || r.submitted_at || Date.now()).toLocaleString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-              }).toUpperCase(),
-              filedBy,
-              what: r.incident_details || r.description || r.details || r.full_details?.description || '',
-              who: r.other_party || r.respondent || r.full_details?.otherParties || 'Hindi Alam',
-              where: r.location || r.full_details?.location || 'N/A',
-              when: r.date_time || r.incident_date || r.full_details?.incidentAt || 'N/A',
-              why: r.full_details?.why || '',
-              how: r.incident_details || r.description || r.full_details?.description || '',
-              hearingDate: formatDateTimeLocal(r.hearing_date),
-              hearingNote: r.hearing_note || ((r.witnesses || r.full_details?.witnesses) ? `Saksi: ${r.witnesses || r.full_details?.witnesses}` : ''),
-              hearingCompleted: r.hearing_completed !== undefined && r.hearing_completed !== null ? r.hearing_completed : (adminStatus === 'Nareselba' || adminStatus === 'Spam'),
-              outcome: r.outcome || (adminStatus === 'Nareselba' ? 'Resolbado na.' : ''),
-              // Complainant detailed profile fields
-              complainantPhone: userObj?.mobile_number || r.full_details?.phone || userObj?.phone || '',
-              complainantAddress: userObj?.address || r.full_details?.address || '',
-              complainantGender: userObj?.gender || r.full_details?.gender || '',
-              complainantAge: finalAge,
-              isMinor: finalAge ? Number(finalAge) < 18 : false
-            }
-          })
-        }
-        setBlotterReports([...mappedBlotter, ...mappedReports])
       }
 
-      // 3. Fetch Documents
+      // 3. Fetch Mobile Form Reports submitted by residents from `reports` table
+      const { data: reportsData, error: reportsErr } = await supabase
+        .from('reports')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      let mappedReports = []
+      if (!reportsErr && reportsData) {
+        mappedReports = reportsData.map(r => {
+          const userObj = usersData?.find(u => u.id === r.user_id)
+          const filedBy = r.full_details?.complainant_name || (userObj ? `${userObj.first_name} ${userObj.last_name}`.trim() : 'Residente')
+          
+          let adminStatus = 'Sinuri'
+          if (r.status === 'Under Review' || r.status === 'Pending') adminStatus = 'Sinuri'
+          else if (r.status === 'Investigating') adminStatus = 'Inimbestigahan'
+          else if (r.status === 'Resolved' || r.status === 'Nareselba') adminStatus = 'Nareselba'
+          else if (r.status === 'Spam') adminStatus = 'Spam'
+          else if (r.status) adminStatus = r.status
+
+          const finalAge = userObj?.birthdate ? calculateAge(userObj.birthdate) : (r.full_details?.age || '')
+          const rawDateStr = r.created_at || r.submitted_at || new Date().toISOString()
+
+          return {
+            id: r.reference_no || (r.id ? `REP-${String(r.id).substring(0, 8)}` : `REP-${Math.floor(100000 + Math.random() * 900000)}`),
+            dbId: r.id,
+            isFormReport: true,
+            rawDate: rawDateStr,
+            title: r.category || r.summary || 'Resident Form Report',
+            status: adminStatus,
+            datetime: new Date(rawDateStr).toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            }).toUpperCase(),
+            filedBy,
+            what: r.full_details?.what || r.category || r.summary || 'Unspecified Incident',
+            who: r.full_details?.who || r.other_party || r.respondent || r.full_details?.otherParties || 'Hindi Alam',
+            where: r.location || r.full_details?.where || r.full_details?.location || 'N/A',
+            when: r.full_details?.when || r.date_time || r.incident_date || r.full_details?.incidentAt || 'N/A',
+            why: r.full_details?.why || 'N/A',
+            how: r.description || r.full_details?.how || r.incident_details || r.full_details?.description || 'N/A',
+            hearingDate: formatDateTimeLocal(r.hearing_date),
+            hearingNote: r.hearing_note || ((r.witnesses || r.full_details?.witnesses) ? `Saksi: ${r.witnesses || r.full_details?.witnesses}` : ''),
+            hearingCompleted: r.hearing_completed !== undefined && r.hearing_completed !== null ? r.hearing_completed : (adminStatus === 'Nareselba' || adminStatus === 'Spam'),
+            outcome: r.outcome || (adminStatus === 'Nareselba' ? 'Resolbado na.' : ''),
+            complainantPhone: r.full_details?.complainant_phone || userObj?.mobile_number || r.full_details?.phone || userObj?.phone || 'N/A',
+            complainantAddress: r.full_details?.complainant_address || userObj?.address || r.full_details?.address || 'N/A',
+            complainantGender: r.full_details?.complainant_gender || userObj?.gender || r.full_details?.gender || 'N/A',
+            complainantAge: finalAge,
+            isMinor: finalAge ? Number(finalAge) < 18 : false
+          }
+        })
+      }
+
+      // Combine and sort by newest date first
+      const combinedBlotter = [...mappedBlotter, ...mappedReports].sort((a, b) => {
+        const timeA = new Date(a.rawDate).getTime() || 0
+        const timeB = new Date(b.rawDate).getTime() || 0
+        return timeB - timeA
+      })
+
+      setBlotterReports(combinedBlotter)
+
+      // 4. Fetch Documents
       const { data: docsData, error: docsErr } = await supabase
         .from('documents')
         .select('*')
@@ -334,12 +338,9 @@ export function DataProvider({ children }) {
           }
         })
         setDocuments(mappedDocs)
-      } else if (docsErr) {
-        console.error('Error fetching documents from Supabase:', docsErr)
-        setDocuments(prev => prev)
       }
 
-      // 4. Fetch Audit Logs
+      // 5. Fetch Audit Logs
       const { data: logsData, error: logsErr } = await supabase
         .from('audit_logs')
         .select('*, users(first_name, last_name, roles(role_name))')
@@ -375,7 +376,7 @@ export function DataProvider({ children }) {
         setAuditLog(mappedLogs)
       }
 
-      // 5. Fetch Emergency Contacts
+      // 6. Fetch Emergency Contacts
       const { data: contactsData, error: contactsErr } = await supabase
         .from('emergency_contacts')
         .select('*')
@@ -393,7 +394,7 @@ export function DataProvider({ children }) {
         })))
       }
 
-      // 6. Fetch Notifications
+      // 7. Fetch Notifications
       const { data: notificationsData, error: notificationsErr } = await supabase
         .from('notifications')
         .select(`
@@ -451,13 +452,43 @@ export function DataProvider({ children }) {
     }
   }
 
-  // Load and seed on start
+  // Initial setup and Supabase Realtime Subscriptions
   useEffect(() => {
     const init = async () => {
       await seedDatabaseIfEmpty()
       await fetchData()
     }
     init()
+
+    // Realtime listener for incoming mobile reports & blotters
+    const realtimeChannel = supabase
+      .channel('public-datacontext-updates')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'reports' },
+        () => {
+          fetchData()
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'pre_blotters' },
+        () => {
+          fetchData()
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications' },
+        () => {
+          fetchData()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(realtimeChannel)
+    }
   }, [user])
 
   const addAuditEntry = async (action, { color = 'blue', actorName, actorRole } = {}) => {
@@ -471,7 +502,6 @@ export function DataProvider({ children }) {
           details: action
         }])
       
-      // Reload only audit logs to avoid disrupting ongoing operations
       const { data: logsData, error: logsErr } = await supabase
         .from('audit_logs')
         .select('*, users(first_name, last_name, roles(role_name))')
@@ -676,12 +706,12 @@ export function DataProvider({ children }) {
           incident_location: incident.location,
           narrative_summary: incident.excerpt,
           json_output: {
-            what: incident.excerpt,
+            what: incident.title,
             who: 'Unknown',
             where: incident.location,
-            when: incident.dateISO,
-            why: 'N/A',
-            how: 'N/A'
+            when: incident.dateISO || new Date().toISOString(),
+            why: 'Community hazard requiring barangay inspection and action',
+            how: incident.excerpt
           }
         }])
         .select()
@@ -741,10 +771,11 @@ export function DataProvider({ children }) {
 
   const updateBlotterReport = async (id, patch) => {
     try {
-      if (id.startsWith('REP-') || id.startsWith('BGY-')) {
+      const existingReport = blotterReports.find(r => r.id === id)
+
+      if (existingReport?.isFormReport || id.startsWith('REP-')) {
         const updateFields = {}
         if (patch.status) {
-          // Translate web-admin status back to resident-end status
           let residentStatus = 'Under Review'
           if (patch.status === 'Sinuri') residentStatus = 'Under Review'
           else if (patch.status === 'Inimbestigahan') residentStatus = 'Investigating'
@@ -758,12 +789,13 @@ export function DataProvider({ children }) {
         if (patch.hearingCompleted !== undefined) updateFields.hearing_completed = patch.hearingCompleted
         if (patch.outcome !== undefined) updateFields.outcome = patch.outcome
 
-        const isUuid = id.includes('-') && id.split('-').length > 2
-        const query = supabase.from('reports').update(updateFields)
+        const dbTarget = existingReport?.dbId || id
+        const isUuid = typeof dbTarget === 'string' && dbTarget.includes('-') && dbTarget.length > 20
+
         if (isUuid) {
-          await query.eq('id', id)
+          await supabase.from('reports').update(updateFields).eq('id', dbTarget)
         } else {
-          await query.eq('reference_no', id)
+          await supabase.from('reports').update(updateFields).eq('reference_no', id)
         }
       } else {
         const { data: pb } = await supabase
@@ -780,11 +812,7 @@ export function DataProvider({ children }) {
         if (patch.hearingNote !== undefined) pbPatch.hearing_note = patch.hearingNote
         if (patch.hearingCompleted !== undefined) pbPatch.hearing_completed = patch.hearingCompleted
         if (patch.outcome !== undefined) pbPatch.outcome = patch.outcome
-
-        // Backward compatibility
-        if (patch.hearingNote !== undefined) pbPatch.remarks = patch.hearingNote
         if (patch.remarks !== undefined) pbPatch.remarks = patch.remarks
-        if (patch.outcome !== undefined) pbPatch.remarks = patch.outcome
 
         await supabase
           .from('pre_blotters')
@@ -868,7 +896,7 @@ export function DataProvider({ children }) {
 
         if (patch.officialStatus === 'Opisyal') {
           docPatch.approved_at = new Date().toISOString()
-          docPatch.approved_by = user?.id || null
+          docPatch.approved_by = user?.id || null,
           docPatch.is_active = true
         }
       }
@@ -929,7 +957,7 @@ export function DataProvider({ children }) {
   const addAlert = async (entry) => {
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser()
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('notifications')
         .insert([{
           sent_by: authUser?.id || null,
@@ -938,7 +966,6 @@ export function DataProvider({ children }) {
           notification_type: entry.type,
           is_read: false
         }])
-        .select()
       
       if (!error) {
         await fetchData()
@@ -952,7 +979,6 @@ export function DataProvider({ children }) {
 
   const deleteAlert = async (id) => {
     try {
-      // Optimistically remove from state for instant responsiveness
       setAlertHistory((prev) => prev.filter((a) => String(a.id) !== String(id)))
 
       const { error } = await supabase
@@ -1033,4 +1059,51 @@ export function useData() {
   const ctx = useContext(DataContext)
   if (!ctx) throw new Error('useData must be used within DataProvider')
   return ctx
+}
+
+export function mapSupabaseToBlotterReport(row) {
+  const complainant = Array.isArray(row.complainant_details) && row.complainant_details.length > 0
+    ? row.complainant_details[0]
+    : (row.complainant_details || {})
+
+  const respondentNames = Array.isArray(row.respondent_details) && row.respondent_details.length > 0
+    ? row.respondent_details.map((r) => r.full_name || r.name).filter(Boolean).join(', ')
+    : 'Hindi Alam'
+
+  return {
+    id: row.reference_no || `SC-${row.blotter_id}`,
+    title: row.incident_type || 'Unspecified Incident',
+    status: row.status || 'Sinuri',
+    datetime: row.submitted_at
+      ? new Date(row.submitted_at).toLocaleString('en-US', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        })
+      : 'N/A',
+
+    filedBy: complainant.full_name || complainant.name || 'Anonymous',
+    complainantPhone: complainant.contact_number || complainant.phone || 'N/A',
+    complainantGender: complainant.gender || 'N/A',
+    complainantAge: complainant.age || null,
+    complainantAddress: complainant.address || row.location_address || 'N/A',
+    isMinor: complainant.age ? complainant.age < 18 : false,
+
+    what: row.incident_type || 'Unspecified Incident',
+    who: respondentNames || 'Hindi Alam',
+    where: row.location_address || 'N/A',
+    when: row.submitted_at
+      ? new Date(row.submitted_at).toLocaleString('en-US', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        })
+      : 'N/A',
+    why: row.motive_cause || 'N/A',
+    how: row.modus_operandi || 'N/A',
+
+    actionTaken: row.action_taken || '',
+    hearingDate: row.hearing_date || '',
+    hearingNote: row.hearing_note || '',
+    hearingCompleted: row.hearing_completed || false,
+    outcome: row.outcome || '',
+  }
 }
