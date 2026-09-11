@@ -208,9 +208,9 @@ export default function UserAccounts() {
     setTimeout(() => setCopiedId(null), 2000)
   }
 
-  const isAdmin = user.role === ROLES.ADMIN
-  const isCaptain = user.role === ROLES.CAPTAIN
-  const isSecretary = user.role === ROLES.SECRETARY
+  const isAdmin = user?.role === ROLES.ADMIN || user?.role === 'System Administrator' || user?.role === 'System Admin' || (user?.role || '').toLowerCase().includes('admin')
+  const isCaptain = user?.role === ROLES.CAPTAIN || user?.role === 'Barangay Captain'
+  const isSecretary = user?.role === ROLES.SECRETARY || user?.role === 'Barangay Secretary'
 
   const [activeTab, setActiveTab] = useState('residents') // 'residents' | 'admin' | 'modules'
   const [addingAdminAccount, setAddingAdminAccount] = useState(false)
@@ -734,7 +734,7 @@ export default function UserAccounts() {
             </div>
           </div>
 
-          <div className="mt-4 max-h-[calc(100vh-360px)] overflow-auto rounded-lg border border-gray-200 pb-10">
+          <div className="mt-4 min-h-[320px] max-h-[calc(100vh-360px)] overflow-auto rounded-lg border border-gray-200 pb-20">
             <table className="w-full text-left text-sm">
               <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                 <tr>
@@ -753,7 +753,7 @@ export default function UserAccounts() {
                   const idStatusKey = u.barangayIdStatus || 'unverified'
                   const idStatusMeta = BARANGAY_ID_STATUS_BADGE[idStatusKey] || BARANGAY_ID_STATUS_BADGE.unverified
                   const StatusIcon = idStatusMeta.icon
-                  const openUpward = index >= filtered.length - 2
+                  const openUpward = filtered.length >= 4 && index >= filtered.length - 2 && index >= 2
 
                   return (
                     <tr id={`user-row-${u.id}`} key={u.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
@@ -824,7 +824,7 @@ export default function UserAccounts() {
                                   setOpenMenuId(null)
                                 }}
                               />
-                              <div id={`dropdown-menu-${u.id}`} className={`absolute right-4 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-30 text-left ${
+                              <div id={`dropdown-menu-${u.id}`} className={`absolute right-4 w-52 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-30 text-left ${
                                 openUpward ? 'bottom-8 mb-1' : 'top-10 mt-1'
                               }`}>
                                 <button
@@ -934,7 +934,7 @@ export default function UserAccounts() {
             </div>
           </div>
 
-          <div className="mt-4 max-h-[calc(100vh-360px)] overflow-auto rounded-lg border border-gray-200 pb-10">
+          <div className="mt-4 min-h-[320px] max-h-[calc(100vh-360px)] overflow-auto rounded-lg border border-gray-200 pb-20">
             <table className="w-full text-left text-sm">
               <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                 <tr>
@@ -948,7 +948,7 @@ export default function UserAccounts() {
               </thead>
               <tbody>
                 {filteredAdminAccounts.map((a, index) => {
-                  const openUpward = index >= filteredAdminAccounts.length - 2
+                  const openUpward = filteredAdminAccounts.length >= 4 && index >= filteredAdminAccounts.length - 2 && index >= 2
                   return (
                     <tr id={`admin-row-${a.id}`} key={a.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
                       <td className="px-4 py-3 whitespace-nowrap">
@@ -1004,7 +1004,7 @@ export default function UserAccounts() {
                                   setOpenMenuId(null)
                                 }}
                               />
-                              <div id={`dropdown-menu-${a.id}`} className={`absolute right-4 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-30 text-left ${
+                              <div id={`dropdown-menu-${a.id}`} className={`absolute right-4 w-52 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-30 text-left ${
                                 openUpward ? 'bottom-8 mb-1' : 'top-10 mt-1'
                               }`}>
                                 {isAdmin && (
