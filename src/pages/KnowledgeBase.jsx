@@ -115,10 +115,10 @@ export default function KnowledgeBase() {
 
     setTimeout(() => {
       updateDocument(id, { status: 'Fully Indexed', chunkCount: 14, isMachineReadable: true })
-      addAuditEntry(`Nagsagawa ng technical ingestion para sa "${doc.title}" gamit ang nomic-embed-text-v1`, {
+      addAuditEntry(`Nagsagawa ng pag-index para sa dokumentong "${doc.title}"`, {
         color: 'green',
       })
-      showToast(`Nai-index na ang "${doc.title}" gamit ang nomic-embed-text-v1 (768d). Handa na para sa RAG!`)
+      showToast(`Nai-index na ang "${doc.title}". Handa na para sa pagsubok.`)
     }, 1200)
   }
 
@@ -439,7 +439,7 @@ export default function KnowledgeBase() {
                             {isAdmin && (doc.status === 'Pending' || doc.status === 'Indexing') && (
                               <button
                                 onClick={() => handleTriggerIngest(doc)}
-                                title="I-proseso ang Ingestion at nomic-embed-text-v1 chunking"
+                                title="I-proseso at i-index ang dokumento"
                                 className="flex items-center gap-1 rounded-md bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-xs hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-2 py-0.5 text-[11px] font-semibold text-white transition-all active:scale-[0.98] cursor-pointer"
                               >
                                 <Zap className="h-3 w-3 text-white" />

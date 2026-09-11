@@ -26,6 +26,36 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Sleek, modern scrollbars across the application */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
 @keyframes pulseGlow {
   0%, 100% {
     transform: scale(1);
@@ -109,6 +139,58 @@ body {
 
 .animate-float-gentle {
   animation: floatGentle 2.4s ease-in-out infinite;
+}
+
+@keyframes slideInRight {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutRight {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes fadeInBackdrop {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOutBackdrop {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-out-right {
+  animation: slideOutRight 0.24s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-fade-in-backdrop {
+  animation: fadeInBackdrop 0.28s ease-out forwards;
+}
+
+.animate-fade-out-backdrop {
+  animation: fadeOutBackdrop 0.22s ease-in forwards;
 }
 
 

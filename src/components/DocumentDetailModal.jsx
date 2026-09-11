@@ -80,7 +80,7 @@ export default function DocumentDetailModal({ open, onClose, doc, onApprove, onR
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-blue-600" />
               <span>
-                <strong>Format Compliance:</strong> Machine-readable text verified ({doc.chunkCount ?? 12} vector chunks generated for RAG).
+                <strong>Format Compliance:</strong> Machine-readable na teksto ({doc.chunkCount ?? 12} seksyon).
               </span>
             </div>
             <span className="rounded-md bg-white px-2 py-0.5 font-mono text-[11px] text-blue-700 font-semibold shadow-xs">

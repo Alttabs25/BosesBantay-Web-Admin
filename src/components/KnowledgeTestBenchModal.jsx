@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Bot,
   X,
@@ -9,19 +10,12 @@ import {
   Info,
   CheckCircle2,
   RotateCcw,
-  Sliders,
-  Maximize2,
-  Minimize2,
   Copy,
   Check,
   ChevronDown,
   ChevronUp,
-  Cpu,
-  Database,
   ArrowRight,
   BookOpen,
-  Scale,
-  Trash2,
   User,
 } from 'lucide-react'
 
@@ -29,13 +23,56 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [chatHistory, setChatHistory] = useState([])
-  const [isExpanded, setIsExpanded] = useState(false) // Toggle between right slide-over drawer and wide studio
-  const [showSpecs, setShowSpecs] = useState(false) // Parameter inspector popover
   const [copiedIndex, setCopiedIndex] = useState(null)
   const [expandedCitations, setExpandedCitations] = useState({}) // { [msgIdx_srcIdx]: boolean }
+  const [isRendered, setIsRendered] = useState(open)
+  const [isClosing, setIsClosing] = useState(false)
 
   const chatEndRef = useRef(null)
   const inputRef = useRef(null)
+
+  // Sync rendered state with open prop and manage smooth exit animation & body lock
+  useEffect(() => {
+    if (open) {
+      setIsRendered(true)
+      setIsClosing(false)
+      const originalOverflow = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = originalOverflow
+      }
+    } else if (isRendered) {
+      setIsClosing(true)
+      const timer = setTimeout(() => {
+        setIsRendered(false)
+        setIsClosing(false)
+      }, 250)
+      return () => clearTimeout(timer)
+    }
+  }, [open, isRendered])
+
+  // Handle close with exit animation before unmounting
+  const handleClose = useCallback(() => {
+    if (isClosing) return
+    setIsClosing(true)
+    setTimeout(() => {
+      setIsRendered(false)
+      setIsClosing(false)
+      onClose?.()
+    }, 240)
+  }, [isClosing, onClose])
+
+  // Keyboard shortcut: Escape to close
+  useEffect(() => {
+    if (!open) return
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        handleClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [open, handleClose])
 
   // Auto-scroll to bottom of chat
   useEffect(() => {
@@ -47,11 +84,11 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
   // Focus input when opened
   useEffect(() => {
     if (open) {
-      setTimeout(() => inputRef.current?.focus(), 150)
+      setTimeout(() => inputRef.current?.focus(), 250)
     }
   }, [open])
 
-  if (!open) return null
+  if (!isRendered && !open) return null
 
   // Pure Supabase documents only (no mock hydration)
   const officialDocs = documents.filter(
@@ -532,71 +569,41 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
     }))
   }
 
-  return (
-    <div
-      className={`fixed inset-0 z-50 flex transition-all duration-300 ${
-        isExpanded
-          ? 'items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-6'
-          : 'justify-end bg-black/30 backdrop-blur-[2px]'
-      }`}
-    >
-      {/* Click outside to close in drawer mode */}
-      {!isExpanded && (
-        <div
-          className="fixed inset-0"
-          onClick={onClose}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Main Container: Slides in from right in drawer mode, expands in studio mode */}
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex justify-end overflow-hidden">
+      {/* Click outside backdrop with fade animation */}
       <div
-        className={`relative flex flex-col bg-white shadow-2xl transition-all duration-300 ease-out border-l border-gray-200 z-10 ${
-          isExpanded
-            ? 'h-[92vh] w-full max-w-5xl rounded-2xl border border-gray-200 overflow-hidden animate-fade-in-scale'
-            : 'h-full w-full sm:w-[540px] md:w-[600px] lg:w-[640px] overflow-hidden animate-in slide-in-from-right duration-300'
+        className={`fixed inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity ${
+          isClosing ? 'animate-fade-out-backdrop' : 'animate-fade-in-backdrop'
+        }`}
+        onClick={handleClose}
+        aria-hidden="true"
+      />
+
+      {/* Main Container: Smooth slide-in from right */}
+      <div
+        className={`relative flex flex-col bg-white shadow-2xl border-l border-gray-200 z-10 h-full w-full sm:w-[540px] md:w-[600px] lg:w-[640px] overflow-hidden ${
+          isClosing ? 'animate-slide-out-right' : 'animate-slide-in-right'
         }`}
       >
-        {/* Top Header: BosesBantay AI Brand Bar */}
+        {/* Top Header */}
         <div className="flex items-center justify-between border-b border-gray-200 bg-white px-5 py-3.5 shadow-2xs">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 text-white shadow-xs">
               <Bot className="h-5 w-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-gray-900 tracking-tight">
-                  Barangay-Bot Copilot
-                </h3>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  RAG Active
-                </span>
-              </div>
-              <p className="text-[11px] text-gray-500 flex items-center gap-1.5 mt-0.5">
-                <span>Simulator ng Pagsagot ng AI</span>
-                <span>•</span>
-                <span className="font-mono text-bb-blue text-[10px]">Llama 3.1 8B</span>
+              <h3 className="text-sm font-bold text-gray-900 tracking-tight">
+                Barangay-Bot Test Bench
+              </h3>
+              <p className="text-[11px] text-gray-500 mt-0.5">
+                Pagsubok sa pagsagot batay sa mga opisyal na ordinansa
               </p>
             </div>
           </div>
 
           {/* Action Buttons */}
           <div className="flex items-center gap-1">
-            {/* Specs / Parameters Toggle */}
-            <button
-              onClick={() => setShowSpecs((prev) => !prev)}
-              title="Tingnan ang Parameter & AI Specs"
-              className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
-                showSpecs
-                  ? 'bg-blue-50 text-bb-blue border border-blue-200'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-              }`}
-            >
-              <Sliders className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Specs</span>
-            </button>
-
             {/* Clear Chat */}
             {chatHistory.length > 0 && (
               <button
@@ -608,18 +615,9 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
               </button>
             )}
 
-            {/* Expand / Minimize Toggle */}
-            <button
-              onClick={() => setIsExpanded((prev) => !prev)}
-              title={isExpanded ? 'I-dock sa side panel' : 'I-expand sa full studio mode'}
-              className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors cursor-pointer hidden sm:block"
-            >
-              {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-            </button>
-
             {/* Close */}
             <button
-              onClick={onClose}
+              onClick={handleClose}
               title="Isara ang Test Bench"
               className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors cursor-pointer"
             >
@@ -628,132 +626,73 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
           </div>
         </div>
 
-        {/* Collapsible Parameter Inspector Drawer */}
-        {showSpecs && (
-          <div className="border-b border-gray-200 bg-slate-50/90 p-3.5 text-xs animate-in fade-in duration-150">
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-semibold text-gray-800 flex items-center gap-1.5">
-                <Cpu className="h-3.5 w-3.5 text-bb-blue" />
-                Technical Pipeline & Retrieval Parameters
-              </span>
-              <span className="text-[10px] text-gray-500 font-mono">BosesBantay RAG v2.4</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <div className="rounded-lg border border-gray-200 bg-white p-2">
-                <span className="text-[10px] text-gray-400 block font-medium">LLM Model</span>
-                <span className="font-semibold text-gray-800 text-[11px] truncate block">Llama 3.1 8B Instruct</span>
-              </div>
-              <div className="rounded-lg border border-gray-200 bg-white p-2">
-                <span className="text-[10px] text-gray-400 block font-medium">Embedding Engine</span>
-                <span className="font-mono text-gray-800 text-[11px] truncate block">nomic-embed (768d)</span>
-              </div>
-              <div className="rounded-lg border border-gray-200 bg-white p-2">
-                <span className="text-[10px] text-gray-400 block font-medium">Cosine Cutoff</span>
-                <span className="font-semibold text-emerald-700 text-[11px] block">≥ 0.73 Threshold</span>
-              </div>
-              <div className="rounded-lg border border-gray-200 bg-white p-2">
-                <span className="text-[10px] text-gray-400 block font-medium">Vector Store</span>
-                <span className="font-medium text-gray-800 text-[11px] block flex items-center gap-1">
-                  <Database className="h-3 w-3 text-blue-600" />
-                  PostgreSQL pgvector
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Sub-header Ribbon: Live Knowledge Guardrail Status */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 bg-gray-50/80 px-5 py-2 text-xs">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5 font-medium text-emerald-800">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-              <span><strong>{officialDocs.length}</strong> Opisyal na Gabay</span>
-            </span>
-            <span className="text-gray-300">•</span>
-            <span className="flex items-center gap-1.5 font-medium text-amber-800">
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-              <span><strong>{unapprovedDocs.length}</strong> Draft / Blocked</span>
+        {/* Sub-header Ribbon */}
+        <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/70 px-5 py-2 text-xs text-gray-600">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+            <span className="font-medium text-gray-700">
+              <strong>{officialDocs.length}</strong> Opisyal na Sanggunian
             </span>
           </div>
-
-          <span className="text-[10px] text-gray-400 font-medium">
-            Strict Grounding Active
-          </span>
         </div>
 
         {/* Chat Conversation & Content Body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 bg-slate-50/40">
           {chatHistory.length === 0 ? (
-            /* Redesigned Empty State / Prompt Starters */
-            <div className="my-auto py-6 flex flex-col items-center">
-              {/* Hero Banner */}
-              <div className="w-full max-w-md rounded-2xl border border-blue-100 bg-gradient-to-b from-blue-50/80 to-white p-5 text-center shadow-xs">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 text-white shadow-sm mb-3">
-                  <Bot className="h-6 w-6" />
-                </div>
-                <h4 className="font-bold text-gray-900 text-sm sm:text-base">
-                  I-test ang Pagsagot ng Barangay-Bot
+            /* Empty State / Suggested Questions */
+            <div className="py-2 space-y-3">
+              <div className="px-1">
+                <h4 className="text-xs font-semibold text-gray-700">
+                  Mga Mungkahing Pagsubok:
                 </h4>
-                <p className="mt-1 text-xs text-gray-600 leading-relaxed">
-                  Subukan kung paano sinasagot ng AI ang mga tanong ng residente gamit ang mga na-upload na opisyal na ordinansa.
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  Pumili ng katanungan sa ibaba upang masubukan ang pagsagot ng bot batay sa mga naaprubahang ordinansa.
                 </p>
               </div>
 
-              {/* Categorized Prompt Suggestions */}
-              <div className="mt-5 w-full max-w-lg space-y-2">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 px-1">
-                  Mga Mungkahing Pagsubok (Test Scenarios)
-                </p>
-
-                <div className="grid gap-2">
-                  {categorizedStarters.map((starter, idx) => {
-                    const Icon = starter.icon
-                    return (
-                      <button
-                        key={idx}
-                        onClick={() => handleTestQuery(starter.query)}
-                        className="group flex items-start gap-3 rounded-xl border border-gray-200/90 bg-white p-3 text-left shadow-2xs hover:border-bb-blue hover:shadow-xs hover:bg-blue-50/30 transition-all cursor-pointer"
-                      >
-                        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-50 border border-gray-100 text-gray-600 group-hover:bg-blue-100/60 group-hover:text-bb-blue transition-colors">
-                          <Icon className="h-3.5 w-3.5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className={`inline-block rounded px-1.5 py-0.2 text-[10px] font-semibold border ${starter.badgeColor}`}>
-                              {starter.category}
-                            </span>
-                          </div>
-                          <p className="text-xs font-medium text-gray-700 group-hover:text-bb-blue transition-colors line-clamp-2">
-                            "{starter.query}"
-                          </p>
-                        </div>
-                        <ArrowRight className="h-3.5 w-3.5 text-gray-300 group-hover:text-bb-blue group-hover:translate-x-0.5 transition-all shrink-0 mt-2" />
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {/* Additional Dynamic Document Queries if available */}
-                {dynamicDocQueries.length > 0 && (
-                  <div className="pt-2">
-                    <p className="text-[11px] font-medium text-gray-400 px-1 mb-1.5">
-                      Direkta mula sa mga na-index na seksyon:
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {dynamicDocQueries.slice(0, 3).map((dq, qIdx) => (
-                        <button
-                          key={qIdx}
-                          onClick={() => handleTestQuery(dq.query)}
-                          className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-left text-[11px] font-medium text-gray-600 hover:border-bb-blue hover:text-bb-blue hover:bg-blue-50/40 transition-colors cursor-pointer"
-                        >
-                          💬 {dq.query}
-                        </button>
-                      ))}
+              <div className="space-y-2">
+                {categorizedStarters.map((starter, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleTestQuery(starter.query)}
+                    className="group w-full flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3 text-left shadow-2xs hover:border-bb-blue hover:bg-blue-50/20 transition-all cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-bb-blue">
+                        <FileText className="h-3.5 w-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-semibold text-gray-400 block truncate">
+                          {starter.category}
+                        </span>
+                        <p className="text-xs font-medium text-gray-800 group-hover:text-bb-blue transition-colors line-clamp-1">
+                          "{starter.query}"
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                    <ArrowRight className="h-3.5 w-3.5 text-gray-300 group-hover:text-bb-blue group-hover:translate-x-0.5 transition-all shrink-0" />
+                  </button>
+                ))}
               </div>
+
+              {dynamicDocQueries.length > 0 && (
+                <div className="pt-2">
+                  <p className="text-[11px] font-medium text-gray-500 px-1 mb-1.5">
+                    Iba pang katanungan mula sa mga seksyon:
+                  </p>
+                  <div className="flex flex-col gap-1.5">
+                    {dynamicDocQueries.slice(0, 3).map((dq, qIdx) => (
+                      <button
+                        key={qIdx}
+                        onClick={() => handleTestQuery(dq.query)}
+                        className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-left text-xs font-medium text-gray-700 hover:border-bb-blue hover:text-bb-blue hover:bg-blue-50/40 transition-colors cursor-pointer"
+                      >
+                        {dq.query}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             /* Chat Stream */
@@ -821,7 +760,7 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
                           {msg.sources && msg.sources.length > 0 ? (
                             <>
                               <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                              Grounded on Official Document ({msg.sources.length} chunk{msg.sources.length > 1 ? 's' : ''})
+                              Batay sa opisyal na ordinansa
                             </>
                           ) : msg.isGreeting ? (
                             <>
@@ -831,7 +770,7 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
                           ) : (
                             <>
                               <AlertTriangle className="h-3 w-3 text-amber-500" />
-                              Walang Opisyal na Tala sa Database
+                              Walang nahanap na opisyal na tala
                             </>
                           )}
                         </span>
@@ -853,16 +792,13 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
                         </button>
                       </div>
 
-                      {/* Grounding Sources (RAG Citations) */}
+                      {/* Grounding Sources */}
                       {msg.sources && msg.sources.length > 0 && (
-                        <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3 text-xs space-y-2">
-                          <div className="flex items-center justify-between font-semibold text-emerald-900 text-[11px]">
+                        <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-3 text-xs space-y-2">
+                          <div className="flex items-center justify-between font-semibold text-gray-800 text-[11px]">
                             <span className="flex items-center gap-1.5">
-                              <BookOpen className="h-3.5 w-3.5 text-emerald-700" />
-                              Mga Siniping Opisyal na Seksyon ({msg.sources.length} Chunks)
-                            </span>
-                            <span className="text-[10px] text-emerald-700 font-mono">
-                              Similarity Cutoff: ≥ 0.73
+                              <BookOpen className="h-3.5 w-3.5 text-bb-blue" />
+                              Mga Pinagbatayang Seksyon ({msg.sources.length})
                             </span>
                           </div>
 
@@ -870,37 +806,25 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
                             {msg.sources.map((src, sIdx) => {
                               const expandKey = `${idx}_${sIdx}`
                               const isExpandedItem = !!expandedCitations[expandKey]
-                              const matchPercent = Math.round(src.score * 100)
 
                               return (
                                 <div
                                   key={sIdx}
-                                  className="rounded-lg border border-emerald-200/60 bg-white p-2.5 text-xs shadow-2xs"
+                                  className="rounded-lg border border-gray-200 bg-white p-2.5 text-xs shadow-2xs"
                                 >
                                   <div className="flex items-start justify-between gap-2">
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-1.5">
-                                        <FileText className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
+                                        <FileText className="h-3.5 w-3.5 text-bb-blue shrink-0" />
                                         <span className="font-semibold text-gray-800 text-[11px] truncate">
                                           {src.ordinanceNo ? `${src.ordinanceNo} • ` : ''}
                                           {src.sectionTitle}
                                         </span>
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5 truncate">
-                                        File: {src.docTitle}
+                                        Dokumento: {src.docTitle}
                                       </p>
                                     </div>
-
-                                    {/* Similarity Badge */}
-                                    <span
-                                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold font-mono ${
-                                        matchPercent >= 88
-                                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300/60'
-                                          : 'bg-blue-100 text-blue-800 border border-blue-300/60'
-                                      }`}
-                                    >
-                                      {matchPercent}% Match
-                                    </span>
                                   </div>
 
                                   {/* Excerpt Toggle */}
@@ -912,12 +836,12 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
                                       {isExpandedItem ? (
                                         <>
                                           <ChevronUp className="h-3 w-3" />
-                                          <span>Itago ang buong sipi</span>
+                                          <span>Itago ang sipi</span>
                                         </>
                                       ) : (
                                         <>
                                           <ChevronDown className="h-3 w-3" />
-                                          <span>Basahin ang sipi (Chunk Preview)</span>
+                                          <span>Tingnan ang teksto ng sipi</span>
                                         </>
                                       )}
                                     </button>
@@ -935,16 +859,16 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
                         </div>
                       )}
 
-                      {/* Blocked Documents Warning (Governance Gate) */}
+                      {/* Blocked Documents Warning */}
                       {msg.blocked && msg.blocked.length > 0 && (
                         <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs space-y-1.5">
                           <div className="flex items-center gap-1.5 font-bold text-amber-900 text-[11px]">
                             <ShieldCheck className="h-4 w-4 text-amber-700" />
-                            <span>Governance Guardrail Active: Na-block ang Draft File</span>
+                            <span>Hindi Ginamit ang Draft na Dokumento</span>
                           </div>
                           {msg.blocked.map((b, bIdx) => (
                             <p key={bIdx} className="text-[11px] text-amber-800 leading-relaxed">
-                              Na-detect ang <strong>"{b.docTitle}"</strong> ngunit <u>hindi ginamit sa pagsipi</u> dahil {b.reason}
+                              Hindi ginamit ang <strong>"{b.docTitle}"</strong> sa pagsagot dahil hindi pa ito opisyal na naaprubahan.
                             </p>
                           ))}
                         </div>
@@ -985,31 +909,6 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
 
         {/* Input Dock */}
         <div className="border-t border-gray-200 bg-white p-3.5 sm:p-4 shadow-lg">
-          {/* Quick chips when chat has started */}
-          {chatHistory.length > 0 && (
-            <div className="mb-2.5 flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] scrollbar-none">
-              <span className="text-gray-400 shrink-0">Subukan:</span>
-              <button
-                onClick={() => handleTestQuery('Magkano ang premyo sa Inter-Purok Basketball League?')}
-                className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-gray-600 hover:border-bb-blue hover:text-bb-blue transition-colors shrink-0 cursor-pointer"
-              >
-                Premyo sa Basketball?
-              </button>
-              <button
-                onClick={() => handleTestQuery('Kailan ang iskedyul ng inspeksyon sa Tapat Ko, Linis Ko?')}
-                className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-gray-600 hover:border-bb-blue hover:text-bb-blue transition-colors shrink-0 cursor-pointer"
-              >
-                Cleanliness Drive?
-              </button>
-              <button
-                onClick={() => handleTestQuery('Magkano mag pa register ng alagang aso?')}
-                className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-gray-600 hover:border-bb-blue hover:text-bb-blue transition-colors shrink-0 cursor-pointer"
-              >
-                Pet Registration?
-              </button>
-            </div>
-          )}
-
           <form
             onSubmit={(e) => {
               e.preventDefault()
@@ -1039,12 +938,13 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
           <div className="mt-2 flex items-center justify-between text-[10px] text-gray-400">
             <span className="flex items-center gap-1">
               <Info className="h-3 w-3 text-gray-400 shrink-0" />
-              <span>Naka-angkla sa opisyal na ordinansa at custody ng Punong Barangay.</span>
+              <span>Nakabatay sa mga opisyal na ordinansa at tala ng barangay.</span>
             </span>
             <span className="hidden sm:inline font-mono">Pindutin ang Enter</span>
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
