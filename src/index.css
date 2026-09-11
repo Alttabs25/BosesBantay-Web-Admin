@@ -193,4 +193,8 @@ body {
   animation: fadeOutBackdrop 0.22s ease-in forwards;
 }
 
-
+@media print {
+  .print\:hidden {
+    display: none !important;
+  }
+}

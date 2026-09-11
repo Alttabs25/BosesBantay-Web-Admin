@@ -106,11 +106,11 @@ export default function Reports() {
   }
 
   function handlePrint() {
-    showToast('Nai-export na ang PDF report summary (Gamitin ang print-to-PDF dialog ng browser).', 'success')
     addAuditEntry('Nag-export ng report bilang PDF (print)', { color: 'green' })
     setTimeout(() => {
       window.print()
-    }, 500)
+      showToast('Nai-export na ang PDF report summary.', 'success')
+    }, 150)
   }
 
   // Lupong Tagapamayapa: scoped to a fixed "assigned case summary" view only.
@@ -149,7 +149,7 @@ export default function Reports() {
       </p>
 
       <div className="mt-4 rounded-xl border border-gray-200 p-4 bg-white space-y-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 print:grid-cols-2">
           <label className="block">
             <span className="mb-1.5 block text-xs font-semibold text-gray-500">Saklaw ng Petsa</span>
             <select
@@ -174,10 +174,10 @@ export default function Reports() {
               ))}
             </select>
           </label>
-          <div className="flex items-end">
+          <div className="flex items-end print:hidden">
             <button
               onClick={handleGenerate}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-bb-blue to-bb-blue-dark border-t border-white/20 shadow-md shadow-bb-blue/20 hover:shadow-lg hover:shadow-bb-blue/40 py-2.5 text-sm font-semibold text-white transition-all active:scale-[0.98]"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-2.5 text-sm font-semibold text-white transition-all active:scale-[0.98] cursor-pointer"
             >
               <FileBarChart size={16} />
               Bumuo ng Report
@@ -237,14 +237,14 @@ export default function Reports() {
             <div className="flex flex-wrap gap-2 print:hidden">
               <button
                 onClick={handleExportCSV}
-                className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 border-t border-white/20 shadow-md shadow-emerald-500/15 hover:shadow-lg hover:shadow-emerald-500/30 px-5 py-2.5 text-sm font-semibold text-white transition-all active:scale-[0.98]"
+                className="flex items-center gap-2 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-5 py-2.5 text-sm font-semibold text-white transition-all active:scale-[0.98] cursor-pointer"
               >
                 <Download size={15} />
                 I-export bilang Spreadsheet (CSV)
               </button>
               <button
                 onClick={handlePrint}
-                className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-bb-navy to-bb-blue border-t border-white/20 shadow-md shadow-bb-navy/15 hover:shadow-lg hover:shadow-bb-navy/30 px-5 py-2.5 text-sm font-semibold text-white transition-all active:scale-[0.98]"
+                className="flex items-center gap-2 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-5 py-2.5 text-sm font-semibold text-white transition-all active:scale-[0.98] cursor-pointer"
               >
                 <Printer size={15} />
                 I-export bilang PDF (Print)
