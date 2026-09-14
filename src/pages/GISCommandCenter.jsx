@@ -393,8 +393,8 @@ export default function GISCommandCenter() {
             <div className="flex rounded-lg border border-gray-200 bg-gray-50/50 p-0.5 shadow-xs">
               <button
                 onClick={() => setView('pins')}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-150 ${
-                  view === 'pins' ? 'bg-bb-blue text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-150 cursor-pointer ${
+                  view === 'pins' ? 'bg-bb-blue text-white shadow-xs' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
               >
                 <MapIcon size={13} />
@@ -402,8 +402,8 @@ export default function GISCommandCenter() {
               </button>
               <button
                 onClick={() => setView('heatmap')}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-150 ${
-                  view === 'heatmap' ? 'bg-bb-blue text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-150 cursor-pointer ${
+                  view === 'heatmap' ? 'bg-bb-blue text-white shadow-xs' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
               >
                 <Flame size={13} />
@@ -412,8 +412,8 @@ export default function GISCommandCenter() {
               {canApprove && (
                 <button
                   onClick={() => setView('pending')}
-                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-150 ${
-                    view === 'pending' ? 'bg-bb-blue text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all duration-150 cursor-pointer ${
+                    view === 'pending' ? 'bg-bb-blue text-white shadow-xs' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                   }`}
                 >
                   <Inbox size={13} />
@@ -425,7 +425,7 @@ export default function GISCommandCenter() {
           {mode === 'view' && canCreate && (
             <button
               onClick={startCreate}
-              className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-4 py-2 text-sm font-semibold text-white transition-all active:scale-[0.98]"
+              className="flex items-center gap-1.5 rounded-lg bg-bb-blue hover:bg-bb-blue-dark px-4 py-2 text-sm font-semibold text-white shadow-sm hover:shadow transition-all active:scale-[0.98] cursor-pointer"
             >
               <Plus size={16} />
               Magdagdag ng Insidente
@@ -654,7 +654,7 @@ export default function GISCommandCenter() {
                                 e.stopPropagation()
                                 startEdit(incident)
                               }}
-                              className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-xs hover:shadow-sm hover:from-bb-blue-dark hover:to-bb-blue-dark px-3 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96]"
+                              className="flex items-center gap-1.5 rounded-lg bg-bb-blue hover:bg-bb-blue-dark px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:shadow transition-all active:scale-[0.96] cursor-pointer"
                             >
                               <Pencil size={12} />
                               I-edit
@@ -666,7 +666,7 @@ export default function GISCommandCenter() {
                                 e.stopPropagation()
                                 requestDelete(incident)
                               }}
-                              className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-red-600 to-red-700/90 border border-red-600/10 shadow-xs hover:shadow-sm px-3 py-1.5 text-xs font-semibold text-white hover:from-red-700 hover:to-red-800 transition-all active:scale-[0.96]"
+                              className="flex items-center gap-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:shadow transition-all active:scale-[0.96] cursor-pointer"
                             >
                               <Trash2 size={12} />
                               Burahin
@@ -732,7 +732,7 @@ export default function GISCommandCenter() {
                             e.stopPropagation()
                             requestApprove(incident)
                           }}
-                          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-green-600 to-green-700/90 border border-green-600/10 shadow-xs hover:shadow-sm px-3 py-1.5 text-xs font-semibold text-white hover:from-green-700 hover:to-green-800 transition-all active:scale-[0.96]"
+                          className="flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:shadow transition-all active:scale-[0.96] cursor-pointer"
                         >
                           <CheckCircle2 size={12} />
                           Aprubahan
@@ -742,7 +742,7 @@ export default function GISCommandCenter() {
                             e.stopPropagation()
                             requestReject(incident)
                           }}
-                          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-gray-500 to-gray-600/90 border border-gray-500/10 shadow-xs hover:shadow-sm px-3 py-1.5 text-xs font-semibold text-white hover:from-gray-600 hover:to-gray-700 transition-all active:scale-[0.96]"
+                          className="flex items-center gap-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:shadow transition-all active:scale-[0.96] cursor-pointer"
                         >
                           <XCircle size={12} />
                           Tanggihan
@@ -922,7 +922,7 @@ export default function GISCommandCenter() {
                 <button
                   type="submit"
                   disabled={draft.lat == null || isSaving}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-2 text-sm font-semibold text-white transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-bb-blue hover:bg-bb-blue-dark py-2 text-sm font-semibold text-white shadow-sm hover:shadow transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
                 >
                   {isSaving ? (
                     <>
@@ -937,7 +937,7 @@ export default function GISCommandCenter() {
                   type="button"
                   onClick={cancelForm}
                   disabled={isSaving}
-                  className="rounded-lg bg-gradient-to-b from-gray-200 to-gray-300/80 border border-gray-200/20 shadow-sm hover:shadow hover:from-gray-300 hover:to-gray-400 px-4 py-2 text-sm font-semibold text-gray-700 transition-all active:scale-[0.98] disabled:opacity-40"
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 shadow-xs transition-all active:scale-[0.98] disabled:opacity-40 cursor-pointer"
                 >
                   Kanselahin
                 </button>

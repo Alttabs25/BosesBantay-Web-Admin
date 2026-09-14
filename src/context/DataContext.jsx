@@ -1062,7 +1062,7 @@ export function DataProvider({ children }) {
 
         if (patch.officialStatus === 'Opisyal') {
           docPatch.approved_at = new Date().toISOString()
-          docPatch.approved_by = user?.id || null,
+          docPatch.approved_by = user?.id || null
           docPatch.is_active = true
         }
       }

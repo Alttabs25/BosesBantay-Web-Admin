@@ -18,7 +18,7 @@ export default function ConfirmDialog({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-xl bg-gray-100 hover:bg-gray-200 border border-gray-200/80 px-4 py-2 text-sm font-semibold text-gray-700 transition-all active:scale-[0.98] cursor-pointer"
+          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 shadow-xs transition-all active:scale-[0.98] cursor-pointer"
         >
           {cancelLabel}
         </button>
@@ -28,10 +28,10 @@ export default function ConfirmDialog({
             onConfirm()
             onClose()
           }}
-          className={`rounded-xl px-5 py-2 text-sm font-semibold text-white shadow-sm hover:shadow transition-all hover:brightness-105 active:scale-[0.98] cursor-pointer ${
+          className={`rounded-lg px-5 py-2 text-sm font-semibold text-white shadow-xs hover:shadow transition-all active:scale-[0.98] cursor-pointer ${
             danger
-              ? 'bg-gradient-to-b from-red-600 to-red-700/95 border border-red-700/20'
-              : 'bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/20'
+              ? 'bg-rose-600 hover:bg-rose-700'
+              : 'bg-bb-blue hover:bg-bb-blue-dark'
           }`}
         >
           {confirmLabel}
