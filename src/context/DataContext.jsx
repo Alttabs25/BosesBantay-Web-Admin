@@ -186,6 +186,7 @@ export function DataProvider({ children }) {
         // Map to Incidents for GIS
         const mappedIncidents = pbsData.map(b => ({
           ref: b.reference_no,
+          blotterId: b.blotter_id,
           title: b.ai_extractions?.incident_type || 'Kaso',
           classification: b.ai_extractions?.incident_type || 'Kaso',
           severity: 'Katamtaman',
@@ -194,7 +195,10 @@ export function DataProvider({ children }) {
           dateISO: b.submitted_at,
           lat: parseFloat(b.latitude) || 14.6760,
           lng: parseFloat(b.longitude) || 121.0450,
-          sector: b.barangay_sectors?.sector_name || 'Sector 1'
+          sector: b.barangay_sectors?.sector_name || 'Sector 1',
+          mapStatus: b.map_status || 'Pending',
+          mapReviewedBy: b.map_reviewed_by || null,
+          mapReviewedAt: b.map_reviewed_at || null,
         }))
         setIncidents(mappedIncidents)
 
@@ -234,7 +238,8 @@ export function DataProvider({ children }) {
             complainantAddress: userObj?.address || json.address || json.complainant_address || 'N/A',
             complainantGender: userObj?.gender || json.gender || json.complainant_gender || 'N/A',
             complainantAge: userObj?.birthdate ? calculateAge(userObj.birthdate) : (json.age || json.complainant_age || ''),
-            isMinor: userObj?.birthdate ? calculateAge(userObj.birthdate) < 18 : (json.is_minor || false)
+            isMinor: userObj?.birthdate ? calculateAge(userObj.birthdate) < 18 : (json.is_minor || false),
+            mapStatus: b.map_status || 'Pending'
           }
         })
       }
@@ -727,12 +732,64 @@ export function DataProvider({ children }) {
           latitude: incident.lat,
           longitude: incident.lng,
           status: 'Sinuri',
-          remarks: ''
+          remarks: '',
+          // Pins placed directly by staff through this form are an already-
+          // authorized action, so they go live immediately instead of
+          // sitting in the incoming-report approval queue.
+          map_status: 'Approved',
+          map_reviewed_by: user?.id || null,
+          map_reviewed_at: new Date().toISOString()
         }])
 
       fetchData()
     } catch (err) {
       console.error('Error adding incident:', err)
+    }
+  }
+
+  const setIncidentMapStatus = async (ref, status) => {
+    try {
+      const { data: pb } = await supabase
+        .from('pre_blotters')
+        .select('blotter_id')
+        .eq('reference_no', ref)
+        .single()
+
+      if (!pb) return
+
+      await supabase
+        .from('pre_blotters')
+        .update({
+          map_status: status,
+          map_reviewed_by: user?.id || null,
+          map_reviewed_at: new Date().toISOString()
+        })
+        .eq('blotter_id', pb.blotter_id)
+
+      fetchData()
+    } catch (err) {
+      console.error('Error updating incident map status:', err)
+    }
+  }
+
+  const deleteIncident = async (ref) => {
+    try {
+      const { data: pb } = await supabase
+        .from('pre_blotters')
+        .select('blotter_id, extraction_id')
+        .eq('reference_no', ref)
+        .single()
+
+      if (!pb) return
+
+      await supabase.from('pre_blotters').delete().eq('blotter_id', pb.blotter_id)
+      if (pb.extraction_id) {
+        await supabase.from('ai_extractions').delete().eq('extraction_id', pb.extraction_id)
+      }
+
+      fetchData()
+    } catch (err) {
+      console.error('Error deleting incident:', err)
     }
   }
 
@@ -1028,6 +1085,8 @@ export function DataProvider({ children }) {
         incidents,
         addIncident,
         replaceIncident,
+        setIncidentMapStatus,
+        deleteIncident,
         blotterReports,
         updateBlotterReport,
         documents,
