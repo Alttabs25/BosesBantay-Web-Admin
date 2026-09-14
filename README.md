@@ -45,7 +45,7 @@ VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 
 ---
 
-## 🗄️ Supabase Database & Auth Setup
+##  Supabase Database & Auth Setup
 To make the dashboard fully functional, you need to execute the schema and trigger updates in your Supabase project.
 
 ### Step 1: Run the Core Schema
@@ -71,7 +71,7 @@ To prevent getting rate-limited during sign-ups or getting the `"email rate limi
 
 ---
 
-## 💻 Running the App
+##  Running the App
 Start the local development server:
 ```bash
 npm run dev
@@ -80,7 +80,7 @@ Open your browser and navigate to the local URL (usually `http://localhost:5173`
 
 ---
 
-## 🌿 Branching & Team Collaboration
+##  Branching & Team Collaboration
 
 To keep the `main` branch working and clean, please do not push directly to `main`. Create your own branch for every task.
 
@@ -92,39 +92,34 @@ git pull origin main
 ```
 
 ### 2. Create and Switch to Your Branch
-Create a new branch with a clear name based on what you are working on:
-* **Features**: `feature/feature-name` (e.g., `feature/login-validation`)
-* **Bug Fixes**: `fix/bug-name` (e.g., `fix/blotter-export`)
-* **UI/Styles**: `ui/page-name` (e.g., `ui/dashboard-cards`)
-
-Run:
+Create and switch to your new branch:
 ```bash
-git checkout -b feature/your-feature-name
+git checkout -b <branch-name>
 ```
-*(Tip: Type `git branch` to confirm which branch you are on.)*
+*(Tip: Type `git branch` to check what branch you are on.)*
 
 ### 3. Save Your Changes
-Commit your work regularly with short, clear messages:
+Save your work with a short and clear message:
 ```bash
 git add .
-git commit -m "feat: add export button on blotter reports"
+git commit -m "add your commit message here"
 ```
 
 ### 4. Push Your Branch to GitHub
-Send your branch and commits up to GitHub:
+Upload your branch to GitHub:
 ```bash
-git push -u origin feature/your-feature-name
+git push -u origin <branch-name>
 ```
 
 ### 5. Create a Pull Request (PR)
 1. Open the [BosesBantay-Web-Admin GitHub repository](https://github.com/Alttabs25/BosesBantay-Web-Admin).
-2. Click the green **Compare & pull request** button next to your recently pushed branch.
-3. Write a brief note explaining what you added or changed.
-4. Set the base branch to `main` and submit the pull request so your team can review and merge it.
+2. Click the green **Compare & pull request** button next to your branch.
+3. Add a short note about what you changed.
+4. Set the base branch to `main` and click **Create pull request** so the team can review and merge it.
 
 ---
 
-## 📂 Key Folders & Files
+##  Key Folders & Files
 * `src/context/AuthContext.jsx`: Handles user authentication sessions, login/logout states, password resets, and admin registrations.
 * `src/context/DataContext.jsx`: Connects frontend data requests (incidents, users, blotters) to Supabase tables.
 * `src/pages/UserAccounts.jsx`: Contains the portal accounts management interface (verifications, suspensions, role upgrades).
