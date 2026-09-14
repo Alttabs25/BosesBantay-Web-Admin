@@ -185,23 +185,12 @@ export default function GISCommandCenter() {
     return grouped
   }, [filtered])
 
-  const orderedFiltered = useMemo(() => {
-    if (!selectedRef) return filtered
-    const index = filtered.findIndex((i) => i.ref === selectedRef)
-    if (index <= 0) return filtered
-    const copy = [...filtered]
-    const [selectedIncident] = copy.splice(index, 1)
-    copy.unshift(selectedIncident)
-    return copy
-  }, [filtered, selectedRef])
-
   function focusIncident(incident) {
     setSelectedRef(incident.ref)
     if (mapRef.current) {
       const zoom = Math.max(mapRef.current.getZoom(), 16)
       mapRef.current.flyTo([incident.lat, incident.lng], zoom)
     }
-    listRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   useEffect(() => {
@@ -613,7 +602,7 @@ export default function GISCommandCenter() {
                     Walang insidenteng tumutugma sa napiling filter.
                   </p>
                 )}
-                {orderedFiltered.map((incident) => {
+                {filtered.map((incident) => {
                   const isSelected = incident.ref === selectedRef
                   return (
                     <div
