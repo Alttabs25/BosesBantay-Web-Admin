@@ -10,6 +10,12 @@ import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { ROLES } from '../config/permissions'
 
+const MAP_STATUS_META = {
+  Pending: { color: 'orange', label: 'Naghihintay ng Pag-apruba sa Mapa' },
+  Approved: { color: 'green', label: 'Naka-mapa na' },
+  Rejected: { color: 'red', label: 'Tinanggihan sa Mapa' },
+}
+
 const FIVE_W_ONE_H = [
   ['What', 'what'],
   ['Who', 'who'],
@@ -278,6 +284,11 @@ export default function DigitalBlotter() {
                     <Pill color={meta.color} solid>
                       {report.status}
                     </Pill>
+                    {report.mapStatus && (
+                      <Pill color={MAP_STATUS_META[report.mapStatus].color}>
+                        {MAP_STATUS_META[report.mapStatus].label}
+                      </Pill>
+                    )}
                   </div>
                   <h3 className="mt-1 font-bold text-gray-900">{report.title}</h3>
                   <p className="text-sm text-gray-500">
@@ -304,6 +315,11 @@ export default function DigitalBlotter() {
                   <Pill color={meta.color} solid>
                     {report.status}
                   </Pill>
+                  {report.mapStatus && (
+                    <Pill color={MAP_STATUS_META[report.mapStatus].color}>
+                      {MAP_STATUS_META[report.mapStatus].label}
+                    </Pill>
+                  )}
                   <div className="ml-auto flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
                     {report.status === 'Sinuri' && canConfirm && (
                       <>

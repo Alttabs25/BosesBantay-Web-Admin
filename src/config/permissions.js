@@ -21,12 +21,12 @@ export const PERMISSIONS = {
     [ADMIN]: ['read'],
   },
   gis: {
-    [SECRETARY]: ['create', 'read', 'update'],
+    [SECRETARY]: ['create', 'read', 'update', 'approve'],
     [TANOD]: ['create', 'read'],
     [LUPON]: [],
     [KAGAWAD]: ['read'],
-    [CAPTAIN]: ['read', 'update'],
-    [ADMIN]: ['read'],
+    [CAPTAIN]: ['create', 'read', 'update', 'approve'],
+    [ADMIN]: ['create', 'read', 'update', 'delete', 'approve'],
   },
   blotter: {
     [SECRETARY]: ['read', 'update', 'confirm'],
