@@ -1,4 +1,4 @@
-#  BosesBantay - Web Admin Portal
+# BosesBantay - Web Admin Portal
 
 Welcome to the **BosesBantay Web Admin Portal**, the centralized administrative dashboard for managing incidents, emergency alerts, resident accounts, digital blotters, and GIS mapping visualizations. 
 
@@ -25,7 +25,7 @@ Ensure you have the following installed on your machine:
 
 ### 2. Clone the Repository
 ```bash
-git clone https://github.com/Alttabs25/BosesBantay-Web-Admin.git
+git clone [https://github.com/Alttabs25/BosesBantay-Web-Admin.git](https://github.com/Alttabs25/BosesBantay-Web-Admin.git)
 cd BosesBantay-Web-Admin
 ```
 
@@ -39,7 +39,7 @@ npm install
 2. Copy and paste the template below, replacing the values with your team's Supabase credentials:
 
 ```ini
-VITE_SUPABASE_URL=https://your-project-id.supabase.co
+VITE_SUPABASE_URL=[https://your-project-id.supabase.co](https://your-project-id.supabase.co)
 VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
@@ -77,6 +77,50 @@ Start the local development server:
 npm run dev
 ```
 Open your browser and navigate to the local URL (usually `http://localhost:5173`).
+
+---
+
+## 🌿 Branching & Team Collaboration
+
+To keep the `main` branch working and clean, please do not push directly to `main`. Create your own branch for every task.
+
+### 1. Get the Latest Code
+Before creating a new branch, make sure your local copy of `main` is up to date:
+```bash
+git checkout main
+git pull origin main
+```
+
+### 2. Create and Switch to Your Branch
+Create a new branch with a clear name based on what you are working on:
+* **Features**: `feature/feature-name` (e.g., `feature/login-validation`)
+* **Bug Fixes**: `fix/bug-name` (e.g., `fix/blotter-export`)
+* **UI/Styles**: `ui/page-name` (e.g., `ui/dashboard-cards`)
+
+Run:
+```bash
+git checkout -b feature/your-feature-name
+```
+*(Tip: Type `git branch` to confirm which branch you are on.)*
+
+### 3. Save Your Changes
+Commit your work regularly with short, clear messages:
+```bash
+git add .
+git commit -m "feat: add export button on blotter reports"
+```
+
+### 4. Push Your Branch to GitHub
+Send your branch and commits up to GitHub:
+```bash
+git push -u origin feature/your-feature-name
+```
+
+### 5. Create a Pull Request (PR)
+1. Open the [BosesBantay-Web-Admin GitHub repository](https://github.com/Alttabs25/BosesBantay-Web-Admin).
+2. Click the green **Compare & pull request** button next to your recently pushed branch.
+3. Write a brief note explaining what you added or changed.
+4. Set the base branch to `main` and submit the pull request so your team can review and merge it.
 
 ---
 
