@@ -184,22 +184,25 @@ export function DataProvider({ children }) {
       let mappedBlotter = []
       if (!pbsErr && pbsData) {
         // Map to Incidents for GIS
-        const mappedIncidents = pbsData.map(b => ({
-          ref: b.reference_no,
-          blotterId: b.blotter_id,
-          title: b.ai_extractions?.incident_type || 'Kaso',
-          classification: b.ai_extractions?.incident_type || 'Kaso',
-          severity: 'Katamtaman',
-          excerpt: b.ai_extractions?.narrative_summary || b.remarks || '',
-          location: b.ai_extractions?.incident_location || 'Quezon City',
-          dateISO: b.submitted_at,
-          lat: parseFloat(b.latitude) || 14.6760,
-          lng: parseFloat(b.longitude) || 121.0450,
-          sector: b.barangay_sectors?.sector_name || 'Sector 1',
-          mapStatus: b.map_status || 'Pending',
-          mapReviewedBy: b.map_reviewed_by || null,
-          mapReviewedAt: b.map_reviewed_at || null,
-        }))
+        const mappedIncidents = pbsData.map(b => {
+          const json = b.ai_extractions?.json_output || {}
+          return {
+            ref: b.reference_no,
+            blotterId: b.blotter_id,
+            title: json.what || b.ai_extractions?.incident_type || 'Kaso',
+            classification: json.classification || b.ai_extractions?.incident_type || 'Kaso',
+            severity: json.severity || 'Katamtaman',
+            excerpt: b.ai_extractions?.narrative_summary || b.remarks || '',
+            location: b.ai_extractions?.incident_location || 'Quezon City',
+            dateISO: b.ai_extractions?.incident_datetime || b.submitted_at,
+            lat: parseFloat(b.latitude) || 14.6760,
+            lng: parseFloat(b.longitude) || 121.0450,
+            sector: b.barangay_sectors?.sector_name || 'Sector 1',
+            mapStatus: b.map_status || 'Pending',
+            mapReviewedBy: b.map_reviewed_by || null,
+            mapReviewedAt: b.map_reviewed_at || null,
+          }
+        })
         setIncidents(mappedIncidents)
 
         // Map to Blotter reports
@@ -697,53 +700,107 @@ export function DataProvider({ children }) {
 
   const addIncident = async (incident) => {
     try {
-      const { data: sectorObj } = await supabase
-        .from('barangay_sectors')
-        .select('sector_id')
-        .eq('sector_name', incident.sector || 'Sector 1')
-        .single()
+      // 1. Fast in-memory user UUID check to prevent FK constraint failure (0ms)
+      let reviewerId = null
+      if (user?.id) {
+        if (users.some((u) => u.id === user.id)) {
+          reviewerId = user.id
+        }
+      }
 
-      const { data: ext, error: extErr } = await supabase
-        .from('ai_extractions')
-        .insert([{
-          incident_type: incident.title,
-          incident_datetime: incident.dateISO || new Date().toISOString(),
-          incident_location: incident.location,
-          narrative_summary: incident.excerpt,
-          json_output: {
-            what: incident.title,
-            who: 'Unknown',
-            where: incident.location,
-            when: incident.dateISO || new Date().toISOString(),
-            why: 'Community hazard requiring barangay inspection and action',
-            how: incident.excerpt
-          }
-        }])
-        .select()
+      const isoDate = incident.dateISO ? new Date(incident.dateISO).toISOString() : new Date().toISOString()
+      const classificationValue = incident.classification || incident.title || 'Insidente'
+      const titleValue = incident.title || classificationValue
 
-      if (extErr) return
+      // 2. Concurrently insert ai_extractions and lookup sector (halves network latency)
+      const [sectorRes, extRes] = await Promise.all([
+        supabase
+          .from('barangay_sectors')
+          .select('sector_id')
+          .eq('sector_name', incident.sector || 'Sector 1')
+          .maybeSingle(),
+        supabase
+          .from('ai_extractions')
+          .insert([{
+            incident_type: classificationValue,
+            incident_datetime: isoDate,
+            incident_location: incident.location,
+            narrative_summary: incident.excerpt,
+            json_output: {
+              what: titleValue,
+              who: 'Unknown',
+              where: incident.location,
+              when: isoDate,
+              why: 'Community hazard requiring barangay inspection and action',
+              how: incident.excerpt,
+              classification: classificationValue,
+              severity: incident.severity || 'Katamtaman',
+            }
+          }])
+          .select()
+      ])
 
-      await supabase
+      const { data: ext, error: extErr } = extRes
+      if (extErr) {
+        console.error('Error inserting ai_extractions for incident:', extErr)
+        throw new Error(extErr.message || 'Hindi maipasok ang AI extraction record.')
+      }
+
+      const sectorId = sectorRes.data?.sector_id || null
+      const refNo = incident.ref || `REF-${Date.now()}`
+
+      const mapStatus = incident.mapStatus || 'Pending'
+
+      // 3. Insert into pre_blotters
+      const { data: pbData, error: pbErr } = await supabase
         .from('pre_blotters')
         .insert([{
-          reference_no: incident.ref || `REF-${Date.now()}`,
+          reference_no: refNo,
           extraction_id: ext[0].extraction_id,
-          sector_id: sectorObj?.sector_id || null,
+          sector_id: sectorId,
           latitude: incident.lat,
           longitude: incident.lng,
           status: 'Sinuri',
           remarks: '',
-          // Pins placed directly by staff through this form are an already-
-          // authorized action, so they go live immediately instead of
-          // sitting in the incoming-report approval queue.
-          map_status: 'Approved',
-          map_reviewed_by: user?.id || null,
-          map_reviewed_at: new Date().toISOString()
+          map_status: mapStatus,
+          map_reviewed_by: mapStatus === 'Approved' ? reviewerId : null,
+          map_reviewed_at: mapStatus === 'Approved' ? new Date().toISOString() : null,
         }])
+        .select()
 
-      fetchData()
+      if (pbErr) {
+        console.error('Error inserting pre_blotters for incident:', pbErr)
+        await supabase.from('ai_extractions').delete().eq('extraction_id', ext[0].extraction_id)
+        throw new Error(pbErr.message || 'Hindi maipasok ang pre-blotter record.')
+      }
+
+      // 4. Immediate state update so UI and map update instantly
+      const createdIncident = {
+        ref: refNo,
+        blotterId: pbData?.[0]?.blotter_id,
+        title: titleValue,
+        classification: classificationValue,
+        severity: incident.severity || 'Katamtaman',
+        excerpt: incident.excerpt || '',
+        location: incident.location,
+        dateISO: isoDate,
+        lat: parseFloat(incident.lat),
+        lng: parseFloat(incident.lng),
+        sector: incident.sector || 'Sector 1',
+        mapStatus: mapStatus,
+        mapReviewedBy: mapStatus === 'Approved' ? reviewerId : null,
+        mapReviewedAt: mapStatus === 'Approved' ? new Date().toISOString() : null,
+      }
+
+      setIncidents((prev) => [createdIncident, ...prev.filter((i) => i.ref !== refNo)])
+
+      // Background data sync without blocking the user
+      fetchData().catch((e) => console.error('Background sync error:', e))
+
+      return { success: true, data: createdIncident }
     } catch (err) {
       console.error('Error adding incident:', err)
+      throw err
     }
   }
 
@@ -753,18 +810,34 @@ export function DataProvider({ children }) {
         .from('pre_blotters')
         .select('blotter_id')
         .eq('reference_no', ref)
-        .single()
+        .maybeSingle()
 
       if (!pb) return
+
+      let reviewerId = null
+      if (user?.id) {
+        const { data: userRow } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', user.id)
+          .maybeSingle()
+        if (userRow?.id) {
+          reviewerId = userRow.id
+        }
+      }
 
       await supabase
         .from('pre_blotters')
         .update({
           map_status: status,
-          map_reviewed_by: user?.id || null,
+          map_reviewed_by: reviewerId,
           map_reviewed_at: new Date().toISOString()
         })
         .eq('blotter_id', pb.blotter_id)
+
+      setIncidents((prev) =>
+        prev.map((i) => (i.ref === ref ? { ...i, mapStatus: status } : i))
+      )
 
       fetchData()
     } catch (err) {
@@ -778,7 +851,7 @@ export function DataProvider({ children }) {
         .from('pre_blotters')
         .select('blotter_id, extraction_id')
         .eq('reference_no', ref)
-        .single()
+        .maybeSingle()
 
       if (!pb) return
 
@@ -786,6 +859,8 @@ export function DataProvider({ children }) {
       if (pb.extraction_id) {
         await supabase.from('ai_extractions').delete().eq('extraction_id', pb.extraction_id)
       }
+
+      setIncidents((prev) => prev.filter((i) => i.ref !== ref))
 
       fetchData()
     } catch (err) {
@@ -797,18 +872,35 @@ export function DataProvider({ children }) {
     try {
       const { data: pb } = await supabase
         .from('pre_blotters')
-        .select('blotter_id, extraction_id')
+        .select('blotter_id, extraction_id, ai_extractions(json_output)')
         .eq('reference_no', ref)
-        .single()
+        .maybeSingle()
 
       if (!pb) return
+
+      const existingJson = pb.ai_extractions?.json_output || {}
+      const isoDate = record.dateISO ? new Date(record.dateISO).toISOString() : new Date().toISOString()
+      const classificationValue = record.classification || record.title || 'Insidente'
+      const titleValue = record.title || classificationValue
+
+      const updatedJson = {
+        ...existingJson,
+        what: titleValue,
+        where: record.location,
+        when: isoDate,
+        how: record.excerpt,
+        classification: classificationValue,
+        severity: record.severity || existingJson.severity || 'Katamtaman',
+      }
 
       await supabase
         .from('ai_extractions')
         .update({
-          incident_type: record.title,
+          incident_type: classificationValue,
           incident_location: record.location,
-          narrative_summary: record.excerpt
+          narrative_summary: record.excerpt,
+          incident_datetime: isoDate,
+          json_output: updatedJson,
         })
         .eq('extraction_id', pb.extraction_id)
 
@@ -820,9 +912,26 @@ export function DataProvider({ children }) {
         })
         .eq('blotter_id', pb.blotter_id)
 
-      fetchData()
+      setIncidents((prev) =>
+        prev.map((i) =>
+          i.ref === ref
+            ? {
+                ...i,
+                ...record,
+                title: titleValue,
+                classification: classificationValue,
+                severity: record.severity || i.severity,
+                dateISO: isoDate,
+              }
+            : i
+        )
+      )
+
+      fetchData().catch((e) => console.error('Background sync error:', e))
+      return { success: true }
     } catch (err) {
       console.error('Error replacing incident:', err)
+      throw err
     }
   }
 

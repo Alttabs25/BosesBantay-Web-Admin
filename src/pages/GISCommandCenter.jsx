@@ -150,6 +150,7 @@ export default function GISCommandCenter() {
   const [addressQuery, setAddressQuery] = useState('')
   const [addressResults, setAddressResults] = useState([])
   const [searching, setSearching] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [pendingAction, setPendingAction] = useState(null) // { type: 'approve' | 'reject' | 'delete', incident }
 
   const mapRef = useRef(null)
@@ -234,7 +235,11 @@ export default function GISCommandCenter() {
     setAddressSource('auto')
     setAddressQuery('')
     setAddressResults([])
-    setDraft({ ...BLANK_DRAFT, ref: generateRef(incidents.map((i) => i.ref)) })
+    setDraft({
+      ...BLANK_DRAFT,
+      ref: generateRef(incidents.map((i) => i.ref)),
+      dateISO: new Date().toISOString(),
+    })
   }
 
   function startEdit(incident) {
@@ -251,26 +256,50 @@ export default function GISCommandCenter() {
     setDraft(BLANK_DRAFT)
   }
 
-  function saveForm(e) {
+  async function saveForm(e) {
     e.preventDefault()
-    if (draft.lat == null || draft.lng == null) return
+    if (isSaving) return
+    if (draft.lat == null || draft.lng == null) {
+      showToast('Pumili muna ng lokasyon sa mapa sa pamamagitan ng pag-click.', 'error')
+      return
+    }
     const classificationValue = draft.classification.trim()
+    if (!classificationValue) {
+      showToast('Ilagay ang klasipikasyon ng insidente.', 'error')
+      return
+    }
     const record = {
       ...draft,
       classification: classificationValue,
       title: draft.title.trim() || classificationValue,
+      dateISO: draft.dateISO || new Date().toISOString(),
     }
     const wasCreate = mode === 'create'
-    if (wasCreate) addIncident(record)
-    else replaceIncident(record.ref, record)
-    setSelectedRef(record.ref)
-    setMode('view')
-    setDraft(BLANK_DRAFT)
-    addAuditEntry(
-      wasCreate ? `Nagdagdag ng insidente ${record.ref}` : `Nag-update ng insidente ${record.ref}`,
-      { color: 'blue' },
-    )
-    showToast(wasCreate ? 'Naidagdag ang bagong insidente.' : 'Na-update ang insidente.')
+    setIsSaving(true)
+    try {
+      if (wasCreate) {
+        await addIncident({ ...record, mapStatus: 'Pending' })
+        setView('pending')
+      } else {
+        await replaceIncident(record.ref, record)
+      }
+      setSelectedRef(record.ref)
+      setMode('view')
+      setDraft(BLANK_DRAFT)
+      addAuditEntry(
+        wasCreate ? `Nagdagdag ng insidente ${record.ref} (naghihintay ng pag-apruba)` : `Nag-update ng insidente ${record.ref}`,
+        { color: 'blue' },
+      )
+      showToast(wasCreate ? 'Naidagdag ang insidente — naghihintay ng pag-apruba.' : 'Na-update ang insidente.')
+      if (mapRef.current && record.lat != null && record.lng != null) {
+        mapRef.current.flyTo([record.lat, record.lng], Math.max(mapRef.current.getZoom(), 16))
+      }
+    } catch (err) {
+      console.error('Error saving incident form:', err)
+      showToast(err.message || 'Hindi na-save ang insidente. Pakisubukan muli.', 'error')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   function requestApprove(incident) {
@@ -735,7 +764,12 @@ export default function GISCommandCenter() {
                 <h3 className="font-semibold text-bb-blue">
                   {mode === 'create' ? 'Bagong Insidente' : `I-edit: ${draft.ref}`}
                 </h3>
-                <button type="button" onClick={cancelForm} className="text-gray-400 hover:text-gray-600">
+                <button
+                  type="button"
+                  onClick={cancelForm}
+                  disabled={isSaving}
+                  className="text-gray-400 hover:text-gray-600 disabled:opacity-40"
+                >
                   <X size={18} />
                 </button>
               </div>
@@ -887,15 +921,23 @@ export default function GISCommandCenter() {
               <div className="flex gap-2 pt-1">
                 <button
                   type="submit"
-                  disabled={draft.lat == null}
-                  className="flex-1 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-2 text-sm font-semibold text-white transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={draft.lat == null || isSaving}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-2 text-sm font-semibold text-white transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  I-save ang Insidente
+                  {isSaving ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Sine-save...</span>
+                    </>
+                  ) : (
+                    <span>I-save ang Insidente</span>
+                  )}
                 </button>
                 <button
                   type="button"
                   onClick={cancelForm}
-                  className="rounded-lg bg-gradient-to-b from-gray-200 to-gray-300/80 border border-gray-200/20 shadow-sm hover:shadow hover:from-gray-300 hover:to-gray-400 px-4 py-2 text-sm font-semibold text-gray-700 transition-all active:scale-[0.98]"
+                  disabled={isSaving}
+                  className="rounded-lg bg-gradient-to-b from-gray-200 to-gray-300/80 border border-gray-200/20 shadow-sm hover:shadow hover:from-gray-300 hover:to-gray-400 px-4 py-2 text-sm font-semibold text-gray-700 transition-all active:scale-[0.98] disabled:opacity-40"
                 >
                   Kanselahin
                 </button>
