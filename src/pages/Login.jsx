@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import LoginLoadingScreen from '../components/LoginLoadingScreen'
+import PasswordInput from '../components/PasswordInput'
 
 export default function Login() {
   const { login } = useAuth()
@@ -115,8 +116,7 @@ export default function Login() {
               <span className="mb-1.5 block text-sm font-semibold">
                 Password
               </span>
-              <input
-                type="password"
+              <PasswordInput
                 required
                 disabled={isSubmitting || !!loginTransition}
                 value={password}

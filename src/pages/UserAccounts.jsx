@@ -23,6 +23,7 @@ import Pill from '../components/Pill'
 import SearchInput from '../components/SearchInput'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
+import PasswordInput from '../components/PasswordInput'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
@@ -1350,8 +1351,7 @@ export default function UserAccounts() {
           </label>
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-gray-700">Password</span>
-            <input
-              type="password"
+            <PasswordInput
               required
               value={newAccount.password}
               onChange={(e) => setNewAccount((a) => ({ ...a, password: e.target.value }))}
