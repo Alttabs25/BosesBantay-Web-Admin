@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import LoginLoadingScreen from '../components/LoginLoadingScreen'
@@ -11,6 +11,7 @@ export default function Login() {
   const navigate = useNavigate()
   const [credential, setCredential] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [loginTransition, setLoginTransition] = useState(null)
@@ -111,20 +112,37 @@ export default function Login() {
               />
             </label>
 
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-semibold">
+            <div className="block">
+              <label htmlFor="login-password" className="mb-1.5 block text-sm font-semibold">
                 Password
-              </span>
-              <input
-                type="password"
-                required
-                disabled={isSubmitting || !!loginTransition}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••"
-                className="w-full rounded-lg border-0 bg-white px-4 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white disabled:opacity-60 transition-opacity"
-              />
-            </label>
+              </label>
+              <div className="relative">
+                <input
+                  id="login-password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  disabled={isSubmitting || !!loginTransition}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••••"
+                  className="w-full rounded-lg border-0 bg-white pl-4 pr-11 py-2.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white disabled:opacity-60 transition-opacity"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  disabled={isSubmitting || !!loginTransition}
+                  aria-label={showPassword ? 'Itago ang password' : 'Ipakita ang password'}
+                  title={showPassword ? 'Itago ang password' : 'Ipakita ang password'}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 hover:text-gray-600 focus:outline-none disabled:opacity-60 transition-colors"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" aria-hidden="true" />
+                  ) : (
+                    <Eye className="h-5 w-5" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
+            </div>
 
             {error && (
               <p className="rounded-lg bg-red-500/20 px-3 py-2 text-sm font-medium text-white border border-red-500/30">

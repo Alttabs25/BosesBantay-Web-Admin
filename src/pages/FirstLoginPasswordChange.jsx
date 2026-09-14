@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { KeyRound, LogOut } from 'lucide-react'
+import { Eye, EyeOff, KeyRound, LogOut } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
@@ -13,6 +13,8 @@ export default function FirstLoginPasswordChange() {
 
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -46,32 +48,64 @@ export default function FirstLoginPasswordChange() {
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">
+          <div className="block">
+            <label htmlFor="new-password" className="mb-1.5 block text-sm font-semibold text-gray-700">
               Bagong Password
-            </span>
-            <input
-              type="password"
-              required
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="••••••••••"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm placeholder:text-gray-400 focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">
+            </label>
+            <div className="relative">
+              <input
+                id="new-password"
+                type={showNewPassword ? 'text' : 'password'}
+                required
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="••••••••••"
+                className="w-full rounded-lg border border-gray-300 pl-3 pr-10 py-2.5 text-sm placeholder:text-gray-400 focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword((v) => !v)}
+                aria-label={showNewPassword ? 'Itago ang bagong password' : 'Ipakita ang bagong password'}
+                title={showNewPassword ? 'Itago ang bagong password' : 'Ipakita ang bagong password'}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 focus:outline-none transition-colors"
+              >
+                {showNewPassword ? (
+                  <EyeOff className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <Eye className="h-4 w-4" aria-hidden="true" />
+                )}
+              </button>
+            </div>
+          </div>
+          <div className="block">
+            <label htmlFor="confirm-password" className="mb-1.5 block text-sm font-semibold text-gray-700">
               Kumpirmahin ang Password
-            </span>
-            <input
-              type="password"
-              required
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="••••••••••"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm placeholder:text-gray-400 focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-            />
-          </label>
+            </label>
+            <div className="relative">
+              <input
+                id="confirm-password"
+                type={showConfirmPassword ? 'text' : 'password'}
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••••"
+                className="w-full rounded-lg border border-gray-300 pl-3 pr-10 py-2.5 text-sm placeholder:text-gray-400 focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((v) => !v)}
+                aria-label={showConfirmPassword ? 'Itago ang kumpirmasyon ng password' : 'Ipakita ang kumpirmasyon ng password'}
+                title={showConfirmPassword ? 'Itago ang kumpirmasyon ng password' : 'Ipakita ang kumpirmasyon ng password'}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 focus:outline-none transition-colors"
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <Eye className="h-4 w-4" aria-hidden="true" />
+                )}
+              </button>
+            </div>
+          </div>
           <p className="text-xs text-gray-400">Dapat hindi bababa sa 8 karakter.</p>
 
           <button
