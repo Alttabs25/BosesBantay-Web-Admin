@@ -202,8 +202,20 @@ export default function GISCommandCenter() {
 
   // Unmapped verified blotter reports available to be mapped via "Pumili ng Verified Blotter Report"
   const unmappedBlotterReports = useMemo(() => {
-    return blotterReports.filter((b) => isVerifiedReport(b.status) && !b.is_mapped && !b.isMapped)
-  }, [blotterReports])
+    return blotterReports.filter((b) => {
+      if (!isVerifiedReport(b.status)) return false
+      if (b.is_mapped === true || b.isMapped === true) return false
+      if (b.mapStatus === 'Approved' && b.lat != null && b.lng != null) return false
+      const alreadyMapped = mappedIncidents.some(
+        (m) =>
+          m.ref === b.id ||
+          m.id === b.id ||
+          m.ref === b.ref ||
+          (b.blotterId && String(m.blotterId) === String(b.blotterId)),
+      )
+      return !alreadyMapped
+    })
+  }, [blotterReports, mappedIncidents])
 
   const pendingIncidents = useMemo(() => incidents.filter((i) => i.mapStatus === 'Pending'), [incidents])
 

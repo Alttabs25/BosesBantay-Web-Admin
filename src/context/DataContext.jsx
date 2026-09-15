@@ -245,9 +245,11 @@ export function DataProvider({ children }) {
           const rawLng = b.longitude != null ? parseFloat(b.longitude) : null
           const hasValidCoords = rawLat != null && rawLng != null && !isNaN(rawLat) && !isNaN(rawLng) && rawLat >= -90 && rawLat <= 90 && rawLng >= -180 && rawLng <= 180
 
-          const isMapped = b.is_mapped !== undefined && b.is_mapped !== null
-            ? (Boolean(b.is_mapped) && hasValidCoords)
-            : (hasValidCoords && (b.map_status === 'Approved' || b.map_status === undefined))
+          const isMapped = hasValidCoords && (
+            b.is_mapped === true ||
+            b.map_status === 'Approved' ||
+            (b.is_mapped !== false && b.map_status !== 'Pending' && b.map_status !== 'Rejected')
+          )
 
           const lat = hasValidCoords ? rawLat : null
           const lng = hasValidCoords ? rawLng : null
@@ -354,7 +356,11 @@ export function DataProvider({ children }) {
           const rawRepLat = r.latitude != null ? parseFloat(r.latitude) : null
           const rawRepLng = r.longitude != null ? parseFloat(r.longitude) : null
           const repValid = rawRepLat != null && rawRepLng != null && !isNaN(rawRepLat) && !isNaN(rawRepLng) && rawRepLat >= -90 && rawRepLat <= 90 && rawRepLng >= -180 && rawRepLng <= 180
-          const repIsMapped = r.is_mapped !== undefined && r.is_mapped !== null ? (Boolean(r.is_mapped) && repValid) : repValid
+          const repIsMapped = repValid && (
+            r.is_mapped === true ||
+            r.map_status === 'Approved' ||
+            (r.is_mapped !== false && r.map_status !== 'Pending' && r.map_status !== 'Rejected')
+          )
 
           const reportItem = {
             id: r.reference_no || (r.id ? `REP-${String(r.id).substring(0, 8)}` : `REP-${Math.floor(100000 + Math.random() * 900000)}`),
@@ -409,8 +415,6 @@ export function DataProvider({ children }) {
         })
       }
 
-      setIncidents(mappedIncidents)
-
       // Combine and sort by newest date first
       const combinedBlotter = [...mappedBlotter, ...mappedReports].sort((a, b) => {
         const timeA = new Date(a.rawDate).getTime() || 0
@@ -418,6 +422,36 @@ export function DataProvider({ children }) {
         return timeB - timeA
       })
 
+      // Cross-sync mapped status between incidents and blotter reports so both modules always agree
+      const mappedIncidentsMap = new Map()
+      mappedIncidents
+        .filter((i) => (i.is_mapped || i.isMapped || i.mapStatus === 'Approved') && i.lat != null && i.lng != null)
+        .forEach((i) => {
+          if (i.ref) mappedIncidentsMap.set(i.ref, i)
+          if (i.id) mappedIncidentsMap.set(i.id, i)
+          if (i.blotterId) mappedIncidentsMap.set(String(i.blotterId), i)
+        })
+
+      combinedBlotter.forEach((b) => {
+        const matchingInc =
+          mappedIncidentsMap.get(b.id) ||
+          mappedIncidentsMap.get(b.ref) ||
+          (b.blotterId && mappedIncidentsMap.get(String(b.blotterId)))
+
+        if (matchingInc) {
+          b.is_mapped = true
+          b.isMapped = true
+          b.mapStatus = 'Approved'
+          if (b.lat == null || b.lng == null) {
+            b.lat = matchingInc.lat
+            b.lng = matchingInc.lng
+            b.latitude = matchingInc.lat
+            b.longitude = matchingInc.lng
+          }
+        }
+      })
+
+      setIncidents(mappedIncidents)
       setBlotterReports(combinedBlotter)
 
       // 4. Fetch Documents
@@ -832,6 +866,7 @@ export function DataProvider({ children }) {
       let isReportsTable = Boolean(existingReport?.isFormReport || String(refOrId).startsWith('REP-'))
       let pb = null
       let rep = null
+      let isNewlyCreated = false
 
       if (!isReportsTable) {
         // 1. Try finding by numeric blotter_id
@@ -924,7 +959,6 @@ export function DataProvider({ children }) {
               latitude: parsedLat,
               longitude: parsedLng,
               map_status: 'Approved',
-              map_reviewed_by: reviewerId,
               map_reviewed_at: new Date().toISOString(),
               incident_type: existingReport.title || 'Kaganapan',
               location_address: targetLocation,
@@ -933,6 +967,7 @@ export function DataProvider({ children }) {
 
           if (!newPbErr && newPb && newPb[0]) {
             pb = newPb[0]
+            isNewlyCreated = true
           }
         }
       }
@@ -941,44 +976,23 @@ export function DataProvider({ children }) {
         throw new Error('Hindi na-save ang lokasyon ng insidente. Pakisubukan muli.')
       }
 
-      if (pb) {
-        const pbUpdateWithIsMapped = {
+      if (pb && !isNewlyCreated) {
+        const pbUpdate = {
           latitude: parsedLat,
           longitude: parsedLng,
           location_address: targetLocation,
           map_status: 'Approved',
-          map_reviewed_by: reviewerId,
           map_reviewed_at: new Date().toISOString(),
-          is_mapped: true,
-          mapped_by: reviewerId,
-          mapped_at: new Date().toISOString(),
         }
 
         let { data: updatedRows, error: pbErr } = await supabase
           .from('pre_blotters')
-          .update(pbUpdateWithIsMapped)
+          .update(pbUpdate)
           .eq('blotter_id', pb.blotter_id)
           .select()
 
-        if (pbErr && pbErr.message?.includes('is_mapped')) {
-          const pbFallbackUpdate = {
-            latitude: parsedLat,
-            longitude: parsedLng,
-            location_address: targetLocation,
-            map_status: 'Approved',
-            map_reviewed_by: reviewerId,
-            map_reviewed_at: new Date().toISOString(),
-          }
-          const fbRes = await supabase
-            .from('pre_blotters')
-            .update(pbFallbackUpdate)
-            .eq('blotter_id', pb.blotter_id)
-            .select()
-          updatedRows = fbRes.data
-          pbErr = fbRes.error
-        }
-
         if (pbErr || !updatedRows || updatedRows.length === 0) {
+          console.error('Error updating pre_blotters:', pbErr)
           throw new Error('Hindi na-save ang lokasyon ng insidente. Pakisubukan muli.')
         }
 
@@ -993,9 +1007,6 @@ export function DataProvider({ children }) {
           latitude: parsedLat,
           longitude: parsedLng,
           location: targetLocation,
-          is_mapped: true,
-          mapped_at: new Date().toISOString(),
-          mapped_by: reviewerId,
         }
         let { data: updatedRepRows, error: repErr } = await supabase
           .from('reports')
@@ -1003,22 +1014,8 @@ export function DataProvider({ children }) {
           .eq('id', rep.id)
           .select()
 
-        if (repErr && repErr.message?.includes('is_mapped')) {
-          const fbRepUpdate = {
-            latitude: parsedLat,
-            longitude: parsedLng,
-            location: targetLocation,
-          }
-          const fbRes = await supabase
-            .from('reports')
-            .update(fbRepUpdate)
-            .eq('id', rep.id)
-            .select()
-          updatedRepRows = fbRes.data
-          repErr = fbRes.error
-        }
-
         if (repErr || !updatedRepRows || updatedRepRows.length === 0) {
+          console.error('Error updating reports:', repErr)
           throw new Error('Hindi na-save ang lokasyon ng insidente. Pakisubukan muli.')
         }
       }
@@ -1094,7 +1091,6 @@ export function DataProvider({ children }) {
           latitude: null,
           longitude: null,
           map_status: 'Pending',
-          is_mapped: false,
         }
         let { data: updatedRows, error: pbErr } = await supabase
           .from('pre_blotters')
@@ -1102,28 +1098,14 @@ export function DataProvider({ children }) {
           .eq('blotter_id', pb.blotter_id)
           .select()
 
-        if (pbErr && pbErr.message?.includes('is_mapped')) {
-          const fbRes = await supabase
-            .from('pre_blotters')
-            .update({
-              latitude: null,
-              longitude: null,
-              map_status: 'Pending',
-            })
-            .eq('blotter_id', pb.blotter_id)
-            .select()
-          updatedRows = fbRes.data
-          pbErr = fbRes.error
-        }
-
         if (pbErr || !updatedRows || updatedRows.length === 0) {
+          console.error('Error unmapping pre_blotters:', pbErr)
           throw new Error('Hindi na-save ang mapping ng insidente. Pakisubukan muli.')
         }
       } else if (rep) {
         const repUnmap = {
           latitude: null,
           longitude: null,
-          is_mapped: false,
         }
         let { data: updatedRepRows, error: repErr } = await supabase
           .from('reports')
@@ -1131,20 +1113,8 @@ export function DataProvider({ children }) {
           .eq('id', rep.id)
           .select()
 
-        if (repErr && repErr.message?.includes('is_mapped')) {
-          const fbRes = await supabase
-            .from('reports')
-            .update({
-              latitude: null,
-              longitude: null,
-            })
-            .eq('id', rep.id)
-            .select()
-          updatedRepRows = fbRes.data
-          repErr = fbRes.error
-        }
-
         if (repErr || !updatedRepRows || updatedRepRows.length === 0) {
+          console.error('Error unmapping reports:', repErr)
           throw new Error('Hindi na-save ang mapping ng insidente. Pakisubukan muli.')
         }
       } else {
@@ -1223,11 +1193,7 @@ export function DataProvider({ children }) {
         status: reportData.status || 'Sinuri',
         remarks: reportData.remarks || '',
         map_status: isMapped ? 'Approved' : 'Pending',
-        is_mapped: isMapped,
-        map_reviewed_by: isMapped ? reviewerId : null,
         map_reviewed_at: isMapped ? new Date().toISOString() : null,
-        mapped_by: isMapped ? reviewerId : null,
-        mapped_at: isMapped ? new Date().toISOString() : null,
       }
 
       const { data: pbData, error: pbErr } = await supabase
@@ -1236,16 +1202,8 @@ export function DataProvider({ children }) {
         .select()
 
       if (pbErr) {
-        if (pbErr.message?.includes('is_mapped')) {
-          const fallbackInsert = { ...pbInsert }
-          delete fallbackInsert.is_mapped
-          delete fallbackInsert.mapped_by
-          delete fallbackInsert.mapped_at
-          await supabase.from('pre_blotters').insert([fallbackInsert])
-        } else {
-          await supabase.from('ai_extractions').delete().eq('extraction_id', ext[0].extraction_id)
-          throw new Error(pbErr.message || 'Hindi maipasok ang pre-blotter record.')
-        }
+        await supabase.from('ai_extractions').delete().eq('extraction_id', ext[0].extraction_id)
+        throw new Error(pbErr.message || 'Hindi maipasok ang pre-blotter record.')
       }
 
       const newReportItem = {
@@ -1400,11 +1358,7 @@ export function DataProvider({ children }) {
         status: 'Sinuri',
         remarks: '',
         map_status: mapStatus,
-        is_mapped: isMapped,
-        map_reviewed_by: isMapped ? reviewerId : null,
         map_reviewed_at: isMapped ? new Date().toISOString() : null,
-        mapped_by: isMapped ? reviewerId : null,
-        mapped_at: isMapped ? new Date().toISOString() : null,
       }
 
       const { data: pbData, error: pbErr } = await supabase
@@ -1413,16 +1367,8 @@ export function DataProvider({ children }) {
         .select()
 
       if (pbErr) {
-        if (pbErr.message?.includes('is_mapped')) {
-          const fbPayload = { ...pbPayload }
-          delete fbPayload.is_mapped
-          delete fbPayload.mapped_by
-          delete fbPayload.mapped_at
-          await supabase.from('pre_blotters').insert([fbPayload])
-        } else {
-          await supabase.from('ai_extractions').delete().eq('extraction_id', ext[0].extraction_id)
-          throw new Error(pbErr.message || 'Hindi maipasok ang pre-blotter record.')
-        }
+        await supabase.from('ai_extractions').delete().eq('extraction_id', ext[0].extraction_id)
+        throw new Error(pbErr.message || 'Hindi maipasok ang pre-blotter record.')
       }
 
       const createdIncident = {
@@ -1601,18 +1547,10 @@ export function DataProvider({ children }) {
       const pbUpdate = {
         latitude: parsedLat,
         longitude: parsedLng,
-        is_mapped: isMapped,
         map_status: isMapped ? 'Approved' : 'Pending',
       }
 
-      const { error: pbErr } = await supabase.from('pre_blotters').update(pbUpdate).eq('blotter_id', pb.blotter_id)
-      if (pbErr && pbErr.message?.includes('is_mapped')) {
-        await supabase.from('pre_blotters').update({
-          latitude: parsedLat,
-          longitude: parsedLng,
-          map_status: isMapped ? 'Approved' : 'Pending',
-        }).eq('blotter_id', pb.blotter_id)
-      }
+      await supabase.from('pre_blotters').update(pbUpdate).eq('blotter_id', pb.blotter_id)
 
       setIncidents((prev) =>
         prev.map((i) =>

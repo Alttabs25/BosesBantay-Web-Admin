@@ -45,6 +45,7 @@ export default function DigitalBlotter() {
   const { user } = useAuth()
   const {
     blotterReports,
+    incidents,
     updateBlotterReport,
     addBlotterReport,
     mapIncidentLocation,
@@ -53,6 +54,62 @@ export default function DigitalBlotter() {
     addAuditEntry,
   } = useData()
   const { showToast } = useToast()
+
+  const checkIsMapped = (report) => {
+    if (!report) return false
+    if (report.is_mapped === true || report.isMapped === true) return true
+    if (
+      report.mapStatus === 'Approved' &&
+      report.lat != null &&
+      report.lng != null &&
+      !isNaN(report.lat) &&
+      !isNaN(report.lng)
+    ) {
+      return true
+    }
+    const matchingIncident = incidents?.find(
+      (i) =>
+        i.ref === report.id ||
+        i.id === report.id ||
+        i.ref === report.ref ||
+        i.id === report.ref ||
+        (report.blotterId && String(i.blotterId) === String(report.blotterId))
+    )
+    if (matchingIncident) {
+      const hasCoords =
+        matchingIncident.lat != null &&
+        matchingIncident.lng != null &&
+        !isNaN(matchingIncident.lat) &&
+        !isNaN(matchingIncident.lng)
+      if (
+        hasCoords &&
+        (matchingIncident.is_mapped === true ||
+          matchingIncident.isMapped === true ||
+          matchingIncident.mapStatus === 'Approved')
+      ) {
+        return true
+      }
+    }
+    return false
+  }
+
+  const handleOpenMapping = (report) => {
+    const matchingInc = incidents?.find(
+      (i) =>
+        i.ref === report.id ||
+        i.id === report.id ||
+        i.ref === report.ref ||
+        i.id === report.ref ||
+        (report.blotterId && String(i.blotterId) === String(report.blotterId))
+    )
+    const enrichedReport = {
+      ...report,
+      lat: report.lat ?? matchingInc?.lat ?? null,
+      lng: report.lng ?? matchingInc?.lng ?? null,
+      location: report.location || matchingInc?.location || '',
+    }
+    setMappingReport(enrichedReport)
+  }
 
   const [query, setQuery] = useState('')
   const [selectedStatus, setSelectedStatus] = useState(null)
@@ -370,7 +427,7 @@ export default function DigitalBlotter() {
                     <Pill color={meta.color} solid>
                       {report.status}
                     </Pill>
-                    {isVerified && <GisStatusPill isMapped={Boolean(report.is_mapped || report.isMapped)} />}
+                    {isVerified && <GisStatusPill isMapped={checkIsMapped(report)} />}
                   </div>
                   <h3 className="mt-1 font-bold text-gray-900">{report.title}</h3>
                   <p className="text-sm text-gray-500">
@@ -379,7 +436,7 @@ export default function DigitalBlotter() {
                 </div>
                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                   {isVerified ? (
-                    Boolean(report.is_mapped || report.isMapped) ? (
+                    checkIsMapped(report) ? (
                       <button
                         onClick={() => navigate(`/gis?id=${report.id}`)}
                         className="flex items-center gap-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3.5 py-1.5 text-xs font-semibold transition-all active:scale-[0.96] cursor-pointer shadow-2xs"
@@ -390,7 +447,7 @@ export default function DigitalBlotter() {
                       </button>
                     ) : (
                       <button
-                        onClick={() => setMappingReport(report)}
+                        onClick={() => handleOpenMapping(report)}
                         className="flex items-center gap-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-bb-blue border border-blue-200 px-3.5 py-1.5 text-xs font-semibold transition-all active:scale-[0.96] cursor-pointer shadow-2xs"
                         title="I-map ang insidenteng ito sa GIS map"
                       >
@@ -442,10 +499,10 @@ export default function DigitalBlotter() {
                   <Pill color={meta.color} solid>
                     {report.status}
                   </Pill>
-                  {isVerified && <GisStatusPill isMapped={Boolean(report.is_mapped || report.isMapped)} />}
+                  {isVerified && <GisStatusPill isMapped={checkIsMapped(report)} />}
                   <div className="ml-auto flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
                     {isVerified ? (
-                      Boolean(report.is_mapped || report.isMapped) ? (
+                      checkIsMapped(report) ? (
                         <>
                           <button
                             onClick={() => navigate(`/gis?id=${report.id}`)}
@@ -456,7 +513,7 @@ export default function DigitalBlotter() {
                             Tingnan sa Mapa
                           </button>
                           <button
-                            onClick={() => setMappingReport(report)}
+                            onClick={() => handleOpenMapping(report)}
                             className="flex items-center gap-1.5 rounded-lg bg-white/20 hover:bg-white/30 border border-white/20 px-3 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96] cursor-pointer"
                             title="Baguhin ang lokasyon sa mapa"
                           >
@@ -474,7 +531,7 @@ export default function DigitalBlotter() {
                         </>
                       ) : (
                         <button
-                          onClick={() => setMappingReport(report)}
+                          onClick={() => handleOpenMapping(report)}
                           className="flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 border border-emerald-600/10 shadow-xs px-3.5 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96] cursor-pointer"
                           title="I-map ang insidente sa mapa"
                         >
