@@ -226,7 +226,7 @@ export default function DigitalBlotter() {
     setPendingAction({ type: 'unmap', report })
   }
 
-  function confirmPendingAction() {
+  async function confirmPendingAction() {
     if (!pendingAction) return
     const { type, report } = pendingAction
     if (type === 'confirm') confirmReport(report)
@@ -234,8 +234,12 @@ export default function DigitalBlotter() {
     else if (type === 'markHearingHeld') markHearingHeld(report)
     else if (type === 'finalize') finalizeResolution(report)
     else if (type === 'unmap') {
-      unmapIncidentLocation(report.id)
-      showToast(`Inalis sa GIS map ang ${report.id}. Mananatili ang record sa Digital Blotter.`)
+      try {
+        await unmapIncidentLocation(report.id)
+        showToast(`Inalis sa GIS map ang ${report.id}. Mananatili ang record sa Digital Blotter.`)
+      } catch (err) {
+        showToast(err.message || 'Hindi na-save ang mapping ng insidente. Pakisubukan muli.', 'error')
+      }
     }
     setPendingAction(null)
   }
@@ -366,7 +370,7 @@ export default function DigitalBlotter() {
                     <Pill color={meta.color} solid>
                       {report.status}
                     </Pill>
-                    {isVerified && <GisStatusPill isMapped={report.is_mapped} />}
+                    {isVerified && <GisStatusPill isMapped={Boolean(report.is_mapped || report.isMapped)} />}
                   </div>
                   <h3 className="mt-1 font-bold text-gray-900">{report.title}</h3>
                   <p className="text-sm text-gray-500">
@@ -375,7 +379,7 @@ export default function DigitalBlotter() {
                 </div>
                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                   {isVerified ? (
-                    report.is_mapped ? (
+                    Boolean(report.is_mapped || report.isMapped) ? (
                       <button
                         onClick={() => navigate(`/gis?id=${report.id}`)}
                         className="flex items-center gap-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3.5 py-1.5 text-xs font-semibold transition-all active:scale-[0.96] cursor-pointer shadow-2xs"
@@ -438,10 +442,10 @@ export default function DigitalBlotter() {
                   <Pill color={meta.color} solid>
                     {report.status}
                   </Pill>
-                  {isVerified && <GisStatusPill isMapped={report.is_mapped} />}
+                  {isVerified && <GisStatusPill isMapped={Boolean(report.is_mapped || report.isMapped)} />}
                   <div className="ml-auto flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
                     {isVerified ? (
-                      report.is_mapped ? (
+                      Boolean(report.is_mapped || report.isMapped) ? (
                         <>
                           <button
                             onClick={() => navigate(`/gis?id=${report.id}`)}

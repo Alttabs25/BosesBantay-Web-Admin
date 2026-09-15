@@ -126,7 +126,7 @@ export default function BlotterMapModal({ open, onClose, report, onSave }) {
       showToast(`${report?.id}: Matagumpay na nai-map ang insidente.`)
       onClose()
     } catch (err) {
-      showToast(err.message || 'Hindi na-save ang lokasyon.', 'error')
+      showToast(err.message || 'Hindi na-save ang lokasyon ng insidente. Pakisubukan muli.', 'error')
     } finally {
       setIsSaving(false)
     }
