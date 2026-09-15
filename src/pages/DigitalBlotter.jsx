@@ -1,19 +1,33 @@
 import { useMemo, useState, useEffect } from 'react'
-import { ShieldAlert, CheckCircle2, CalendarClock, CalendarCheck2, User, Phone, MapPin, FileText, Clock } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { ShieldAlert, CheckCircle2, CalendarClock, CalendarCheck2, User, Phone, MapPin, FileText, Clock, Plus, X } from 'lucide-react'
 import { STATUS_META, OUTCOME_OPTIONS } from '../data/mockBlotter'
 import Pill from '../components/Pill'
 import SearchInput from '../components/SearchInput'
 import ConfirmDialog from '../components/ConfirmDialog'
 import StatTile from '../components/StatTile'
+import BlotterMapModal from '../components/BlotterMapModal'
+import BlotterCreateModal from '../components/BlotterCreateModal'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { ROLES } from '../config/permissions'
 
-const MAP_STATUS_META = {
-  Pending: { color: 'orange', label: 'Naghihintay ng Pag-apruba sa Mapa' },
-  Approved: { color: 'green', label: 'Naka-mapa na' },
-  Rejected: { color: 'red', label: 'Tinanggihan sa Mapa' },
+function GisStatusPill({ isMapped }) {
+  if (isMapped) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+        <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0"></span>
+        Naka-mapa na
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200 shadow-2xs">
+      <span className="h-2 w-2 rounded-full bg-gray-400 shrink-0"></span>
+      Hindi naka-mapa
+    </span>
+  )
 }
 
 const FIVE_W_ONE_H = [
@@ -26,8 +40,18 @@ const FIVE_W_ONE_H = [
 ]
 
 export default function DigitalBlotter() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user } = useAuth()
-  const { blotterReports, updateBlotterReport, suspendUserByName, addAuditEntry } = useData()
+  const {
+    blotterReports,
+    updateBlotterReport,
+    addBlotterReport,
+    mapIncidentLocation,
+    unmapIncidentLocation,
+    suspendUserByName,
+    addAuditEntry,
+  } = useData()
   const { showToast } = useToast()
 
   const [query, setQuery] = useState('')
@@ -38,8 +62,36 @@ export default function DigitalBlotter() {
   const [pendingSpamId, setPendingSpamId] = useState(null)
   const [pendingAction, setPendingAction] = useState(null) // { type, report }
 
+  // Modals for mapping and creating
+  const [mappingReport, setMappingReport] = useState(null)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+
   const canConfirm = user.role === ROLES.SECRETARY || user.role === ROLES.CAPTAIN || user.role === ROLES.ADMIN
   const canManageInvestigation = user.role === ROLES.LUPON || user.role === ROLES.ADMIN
+  const canCreateBlotter =
+    user.role === ROLES.SECRETARY ||
+    user.role === ROLES.CAPTAIN ||
+    user.role === ROLES.ADMIN ||
+    user.role === ROLES.LUPON ||
+    user.role === ROLES.TANOD
+
+  // Check URL query param ?id=... from GIS navigation and auto-expand that card
+  useEffect(() => {
+    const targetId = searchParams.get('id')
+    if (targetId) {
+      const found = blotterReports.find((r) => r.id === targetId || r.ref === targetId)
+      if (found) {
+        setExpandedId(found.id)
+        setHearingDraft({ hearingDate: found.hearingDate, hearingNote: found.hearingNote })
+        setTimeout(() => {
+          const el = document.getElementById(`report-card-${found.id}`)
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }
+        }, 120)
+      }
+    }
+  }, [searchParams, blotterReports])
 
   const filtered = useMemo(() => {
     let list = [...blotterReports]
@@ -170,6 +222,10 @@ export default function DigitalBlotter() {
     setPendingAction({ type: 'finalize', report })
   }
 
+  function requestUnmap(report) {
+    setPendingAction({ type: 'unmap', report })
+  }
+
   function confirmPendingAction() {
     if (!pendingAction) return
     const { type, report } = pendingAction
@@ -177,6 +233,10 @@ export default function DigitalBlotter() {
     else if (type === 'scheduleHearing') scheduleHearing(report)
     else if (type === 'markHearingHeld') markHearingHeld(report)
     else if (type === 'finalize') finalizeResolution(report)
+    else if (type === 'unmap') {
+      unmapIncidentLocation(report.id)
+      showToast(`Inalis sa GIS map ang ${report.id}. Mananatili ang record sa Digital Blotter.`)
+    }
     setPendingAction(null)
   }
 
@@ -209,14 +269,34 @@ export default function DigitalBlotter() {
       confirmLabel: 'Markahan bilang Nalutas',
       danger: false,
     },
+    unmap: {
+      title: 'Alisin sa Mapa',
+      message: (report) =>
+        `Alisin ang insidenteng ito (${report.id}) sa GIS map? Mananatili ang blotter report ngunit mawawala ang pin nito sa mapa.`,
+      confirmLabel: 'Alisin sa Mapa',
+      danger: true,
+    },
   }
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-900">Digital Blotter</h2>
-      <p className="mt-1 text-sm text-gray-500">
-        Review, validate, and update incident reports.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">Digital Blotter</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Suriin, kumpirmahin, at i-map ang mga blotter report at insidente.
+          </p>
+        </div>
+        {canCreateBlotter && (
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-bb-blue hover:bg-bb-blue-dark px-4 py-2 text-sm font-semibold text-white shadow-sm hover:shadow transition-all active:scale-[0.98] cursor-pointer"
+          >
+            <Plus size={16} />
+            Magdagdag ng Insidente
+          </button>
+        )}
+      </div>
 
       {/* Analytics Section */}
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -268,38 +348,57 @@ export default function DigitalBlotter() {
 
       <div className="mt-4 min-h-[300px] max-h-[calc(100vh-380px)] space-y-3 overflow-y-auto pr-2 sm:pr-3">
         {filtered.map((report) => {
-          const meta = STATUS_META[report.status]
+          const meta = STATUS_META[report.status] || { color: 'gray' }
           const isExpanded = expandedId === report.id
 
           if (!isExpanded) {
             return (
               <div
                 key={report.id}
+                id={`report-card-${report.id}`}
                 onClick={() => expand(report)}
                 className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 p-4 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
               >
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-semibold text-gray-400">{report.id}</span>
                     <Pill color={meta.color} solid>
                       {report.status}
                     </Pill>
-                    {report.mapStatus && (
-                      <Pill color={MAP_STATUS_META[report.mapStatus].color}>
-                        {MAP_STATUS_META[report.mapStatus].label}
-                      </Pill>
-                    )}
+                    <GisStatusPill isMapped={report.is_mapped} />
                   </div>
                   <h3 className="mt-1 font-bold text-gray-900">{report.title}</h3>
                   <p className="text-sm text-gray-500">
                     {report.datetime} - {report.filedBy}
                   </p>
                 </div>
-                <button
-                  className="pointer-events-none rounded-lg bg-gradient-to-b from-gray-500 to-gray-600/90 border border-gray-500/10 shadow-xs px-4 py-1.5 text-xs font-semibold text-white"
-                >
-                  Tingnan ang report
-                </button>
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  {report.is_mapped ? (
+                    <button
+                      onClick={() => navigate(`/gis?id=${report.id}`)}
+                      className="flex items-center gap-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3.5 py-1.5 text-xs font-semibold transition-all active:scale-[0.96] cursor-pointer shadow-2xs"
+                      title="Tingnan sa GIS Command Center map"
+                    >
+                      <MapPin size={13} />
+                      Tingnan sa Mapa
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setMappingReport(report)}
+                      className="flex items-center gap-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-bb-blue border border-blue-200 px-3.5 py-1.5 text-xs font-semibold transition-all active:scale-[0.96] cursor-pointer shadow-2xs"
+                      title="I-map ang insidenteng ito sa GIS map"
+                    >
+                      <MapPin size={13} />
+                      I-map ang insidente
+                    </button>
+                  )}
+                  <button
+                    onClick={() => expand(report)}
+                    className="rounded-lg bg-gradient-to-b from-gray-600 to-gray-700/90 border border-gray-500/10 shadow-xs px-4 py-1.5 text-xs font-semibold text-white hover:from-gray-700 hover:to-gray-800 transition-all cursor-pointer"
+                  >
+                    Tingnan ang report
+                  </button>
+                </div>
               </div>
             )
           }
@@ -315,24 +414,58 @@ export default function DigitalBlotter() {
                   <Pill color={meta.color} solid>
                     {report.status}
                   </Pill>
-                  {report.mapStatus && (
-                    <Pill color={MAP_STATUS_META[report.mapStatus].color}>
-                      {MAP_STATUS_META[report.mapStatus].label}
-                    </Pill>
-                  )}
-                  <div className="ml-auto flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+                  <GisStatusPill isMapped={report.is_mapped} />
+                  <div className="ml-auto flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    {report.is_mapped ? (
+                      <>
+                        <button
+                          onClick={() => navigate(`/gis?id=${report.id}`)}
+                          className="flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 border border-emerald-600/10 shadow-xs px-3 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96] cursor-pointer"
+                          title="Tingnan sa GIS Command Center map"
+                        >
+                          <MapPin size={13} />
+                          Tingnan sa Mapa
+                        </button>
+                        <button
+                          onClick={() => setMappingReport(report)}
+                          className="flex items-center gap-1.5 rounded-lg bg-white/20 hover:bg-white/30 border border-white/20 px-3 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96] cursor-pointer"
+                          title="Baguhin ang lokasyon sa mapa"
+                        >
+                          <MapPin size={13} />
+                          Baguhin ang Lokasyon
+                        </button>
+                        <button
+                          onClick={() => requestUnmap(report)}
+                          className="flex items-center gap-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 border border-rose-600/10 shadow-xs px-3 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96] cursor-pointer"
+                          title="Alisin sa GIS map"
+                        >
+                          <X size={13} />
+                          Alisin sa Mapa
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => setMappingReport(report)}
+                        className="flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 border border-emerald-600/10 shadow-xs px-3.5 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96] cursor-pointer"
+                        title="I-map ang insidente sa mapa"
+                      >
+                        <MapPin size={13} />
+                        I-map ang insidente
+                      </button>
+                    )}
+
                     {report.status === 'Sinuri' && canConfirm && (
                       <>
                         <button
                           onClick={() => requestConfirmReport(report)}
-                          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-white to-gray-100/90 border border-gray-200 shadow-xs hover:shadow-sm text-bb-blue px-4 py-1.5 text-xs font-semibold hover:from-gray-50 hover:to-gray-150 transition-all active:scale-[0.96]"
+                          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-white to-gray-100/90 border border-gray-200 shadow-xs hover:shadow-sm text-bb-blue px-3.5 py-1.5 text-xs font-semibold hover:from-gray-50 hover:to-gray-150 transition-all active:scale-[0.96] cursor-pointer"
                         >
                           <CheckCircle2 size={13} />
                           Kumpirmahin
                         </button>
                         <button
                           onClick={() => requestFlagSpam(report)}
-                          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-red-600 to-red-700/90 border border-red-600/10 shadow-xs hover:shadow-sm px-4 py-1.5 text-xs font-semibold text-white hover:from-red-700 hover:to-red-800 transition-all active:scale-[0.96]"
+                          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-red-600 to-red-700/90 border border-red-600/10 shadow-xs hover:shadow-sm px-3.5 py-1.5 text-xs font-semibold text-white hover:from-red-700 hover:to-red-800 transition-all active:scale-[0.96] cursor-pointer"
                         >
                           <ShieldAlert size={13} />
                           I-flag bilang Spam
@@ -546,6 +679,19 @@ export default function DigitalBlotter() {
         message={pendingAction ? PENDING_ACTION_META[pendingAction.type].message(pendingAction.report) : ''}
         confirmLabel={pendingAction ? PENDING_ACTION_META[pendingAction.type].confirmLabel : 'Kumpirmahin'}
         danger={pendingAction ? PENDING_ACTION_META[pendingAction.type].danger : false}
+      />
+
+      <BlotterMapModal
+        open={mappingReport != null}
+        onClose={() => setMappingReport(null)}
+        report={mappingReport}
+        onSave={(data) => mapIncidentLocation(mappingReport.id, data)}
+      />
+
+      <BlotterCreateModal
+        open={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onCreated={(newReport) => addBlotterReport(newReport)}
       />
     </div>
   )

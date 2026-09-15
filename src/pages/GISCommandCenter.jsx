@@ -1,8 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MapContainer, TileLayer, Marker, useMap, useMapEvent } from 'react-leaflet'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvent } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet.heat'
-import { MapPin, Clock, Plus, Pencil, Search, Loader2, X, Flame, MapIcon, CheckCircle2, XCircle, Trash2, Inbox } from 'lucide-react'
+import {
+  MapPin,
+  Clock,
+  Plus,
+  Pencil,
+  Search,
+  Loader2,
+  X,
+  Flame,
+  MapIcon,
+  CheckCircle2,
+  XCircle,
+  Trash2,
+  Inbox,
+  ExternalLink,
+  User,
+} from 'lucide-react'
 import {
   ALL_CLASSIFICATIONS,
   TIME_INTERVALS,
@@ -26,6 +43,7 @@ const DATE_RANGES = ['Lahat ng Petsa', 'Huling 7 Araw', 'Huling 30 Araw']
 
 const BLANK_DRAFT = {
   ref: '',
+  existingReportId: '',
   title: '',
   classification: '',
   severity: 'Katamtaman',
@@ -93,12 +111,6 @@ function hexToRgb(hex) {
   return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 }
 }
 
-// A single-hue gradient (transparent -> that severity's own color) so the
-// heatmap's color at any point means exactly what the pin color means:
-// red = Mataas, orange = Katamtaman, green = Mababa. Leaflet.heat only
-// supports one gradient per layer, so each severity gets its own layer
-// stacked on the map instead of everything sharing one generic
-// blue-to-red density gradient that would misrepresent severity as density.
 function severityGradient(hex) {
   const { r, g, b } = hexToRgb(hex)
   const rgba = (a) => `rgba(${r},${g},${b},${a})`
@@ -127,8 +139,19 @@ function HeatmapLayer({ pointsBySeverity }) {
 }
 
 export default function GISCommandCenter() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user } = useAuth()
-  const { incidents, addIncident, replaceIncident, setIncidentMapStatus, deleteIncident, addAuditEntry } = useData()
+  const {
+    incidents,
+    blotterReports,
+    addIncident,
+    replaceIncident,
+    unmapIncidentLocation,
+    setIncidentMapStatus,
+    deleteIncident,
+    addAuditEntry,
+  } = useData()
   const { showToast } = useToast()
 
   const canCreate = can(user.role, 'gis', 'create')
@@ -151,22 +174,38 @@ export default function GISCommandCenter() {
   const [addressResults, setAddressResults] = useState([])
   const [searching, setSearching] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [pendingAction, setPendingAction] = useState(null) // { type: 'approve' | 'reject' | 'delete', incident }
+  const [pendingAction, setPendingAction] = useState(null) // { type: 'approve' | 'reject' | 'delete' | 'unmap', incident }
 
   const mapRef = useRef(null)
   const listRef = useRef(null)
 
-  const approvedIncidents = useMemo(() => incidents.filter((i) => i.mapStatus === 'Approved'), [incidents])
+  // Retrieve strictly mapped incidents where is_mapped is true and lat/lng are valid
+  const mappedIncidents = useMemo(() => {
+    return incidents.filter(
+      (i) =>
+        (i.is_mapped === true || i.isMapped === true || i.mapStatus === 'Approved') &&
+        i.lat != null &&
+        i.lng != null &&
+        !isNaN(i.lat) &&
+        !isNaN(i.lng),
+    )
+  }, [incidents])
+
+  // Unmapped blotter reports available to be mapped via "Pumili ng Blotter Report"
+  const unmappedBlotterReports = useMemo(() => {
+    return blotterReports.filter((b) => !b.is_mapped && !b.isMapped)
+  }, [blotterReports])
+
   const pendingIncidents = useMemo(() => incidents.filter((i) => i.mapStatus === 'Pending'), [incidents])
 
   const reportedClassifications = useMemo(() => {
-    return [...new Set(approvedIncidents.map((i) => i.classification).filter(Boolean))].sort((a, b) =>
+    return [...new Set(mappedIncidents.map((i) => i.classification).filter(Boolean))].sort((a, b) =>
       a.localeCompare(b),
     )
-  }, [approvedIncidents])
+  }, [mappedIncidents])
 
   const filtered = useMemo(() => {
-    return approvedIncidents.filter((incident) => {
+    return mappedIncidents.filter((incident) => {
       if (classification !== ALL_CLASSIFICATIONS && incident.classification !== classification) {
         return false
       }
@@ -175,7 +214,7 @@ export default function GISCommandCenter() {
       if (!inDateRange(incident.dateISO, dateRange)) return false
       return true
     })
-  }, [approvedIncidents, classification, interval, severity, dateRange])
+  }, [mappedIncidents, classification, interval, severity, dateRange])
 
   const heatPointsBySeverity = useMemo(() => {
     const grouped = { Mataas: [], Katamtaman: [], Mababa: [] }
@@ -187,11 +226,31 @@ export default function GISCommandCenter() {
 
   function focusIncident(incident) {
     setSelectedRef(incident.ref)
-    if (mapRef.current) {
+    if (mapRef.current && incident.lat != null && incident.lng != null) {
       const zoom = Math.max(mapRef.current.getZoom(), 16)
       mapRef.current.flyTo([incident.lat, incident.lng], zoom)
     }
   }
+
+  // Handle URL navigation query parameters (e.g. from Digital Blotter "Tingnan sa Mapa")
+  useEffect(() => {
+    const targetId = searchParams.get('id')
+    if (targetId) {
+      const found = mappedIncidents.find((i) => i.ref === targetId || i.id === targetId)
+      if (found) {
+        focusIncident(found)
+      }
+    }
+
+    const mapReportId = searchParams.get('mapReport')
+    if (mapReportId) {
+      const blotter = blotterReports.find((b) => b.id === mapReportId || b.ref === mapReportId)
+      if (blotter) {
+        startCreateFromBlotter(blotter)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, mappedIncidents, blotterReports])
 
   useEffect(() => {
     if (classification !== ALL_CLASSIFICATIONS && !reportedClassifications.includes(classification)) {
@@ -231,6 +290,67 @@ export default function GISCommandCenter() {
     })
   }
 
+  function startCreateFromBlotter(blotter) {
+    if (!canCreate) return
+    setMode('create')
+    setSelectedRef(null)
+    setAddressSource('manual')
+    setAddressQuery('')
+    setAddressResults([])
+    setDraft({
+      ...BLANK_DRAFT,
+      existingReportId: blotter.id,
+      ref: blotter.ref || blotter.id,
+      title: blotter.narrative
+        ? (blotter.narrative.length > 50 ? blotter.narrative.slice(0, 50) + '...' : blotter.narrative)
+        : (blotter.incidentType || 'Blotter Report'),
+      classification: blotter.incidentType || 'Iba pa',
+      severity: blotter.severity || 'Katamtaman',
+      excerpt: blotter.narrative || '',
+      location: blotter.location || '',
+      dateISO: blotter.incidentDateTime || blotter.datetime || new Date().toISOString(),
+      lat: blotter.lat || null,
+      lng: blotter.lng || null,
+    })
+    if (blotter.lat && blotter.lng && mapRef.current) {
+      mapRef.current.flyTo([blotter.lat, blotter.lng], 16)
+    }
+  }
+
+  function handleSelectBlotterReport(reportId) {
+    if (!reportId) {
+      setDraft((d) => ({
+        ...d,
+        existingReportId: '',
+        title: '',
+        classification: '',
+        excerpt: '',
+        location: '',
+      }))
+      return
+    }
+    const report = blotterReports.find((b) => b.id === reportId || b.ref === reportId)
+    if (!report) return
+    setDraft((d) => ({
+      ...d,
+      existingReportId: report.id,
+      ref: report.ref || report.id,
+      title: report.narrative
+        ? (report.narrative.length > 50 ? report.narrative.slice(0, 50) + '...' : report.narrative)
+        : (report.incidentType || 'Blotter Report'),
+      classification: report.incidentType || d.classification || 'Iba pa',
+      severity: report.severity || d.severity,
+      excerpt: report.narrative || d.excerpt,
+      location: report.location || d.location,
+      dateISO: report.incidentDateTime || report.datetime || d.dateISO,
+      lat: report.lat ?? d.lat,
+      lng: report.lng ?? d.lng,
+    }))
+    if (report.lat && report.lng && mapRef.current) {
+      mapRef.current.flyTo([report.lat, report.lng], 16)
+    }
+  }
+
   function startEdit(incident) {
     if (!canUpdate) return
     setMode('edit')
@@ -262,13 +382,15 @@ export default function GISCommandCenter() {
       classification: classificationValue,
       title: draft.title.trim() || classificationValue,
       dateISO: draft.dateISO || new Date().toISOString(),
+      mapStatus: 'Approved',
+      is_mapped: true,
     }
     const wasCreate = mode === 'create'
     setIsSaving(true)
     try {
       if (wasCreate) {
-        await addIncident({ ...record, mapStatus: 'Pending' })
-        setView('pending')
+        await addIncident(record)
+        setView('pins')
       } else {
         await replaceIncident(record.ref, record)
       }
@@ -276,10 +398,16 @@ export default function GISCommandCenter() {
       setMode('view')
       setDraft(BLANK_DRAFT)
       addAuditEntry(
-        wasCreate ? `Nagdagdag ng insidente ${record.ref} (naghihintay ng pag-apruba)` : `Nag-update ng insidente ${record.ref}`,
+        wasCreate ? `Nagdagdag/Nag-mapa ng insidente ${record.ref}` : `Nag-update ng insidente ${record.ref}`,
         { color: 'blue' },
       )
-      showToast(wasCreate ? 'Naidagdag ang insidente — naghihintay ng pag-apruba.' : 'Na-update ang insidente.')
+      showToast(
+        draft.existingReportId
+          ? 'Na-mapa ang blotter report at naidagdag sa mapa.'
+          : wasCreate
+          ? 'Naidagdag ang insidente sa mapa.'
+          : 'Na-update ang insidente.',
+      )
       if (mapRef.current && record.lat != null && record.lng != null) {
         mapRef.current.flyTo([record.lat, record.lng], Math.max(mapRef.current.getZoom(), 16))
       }
@@ -303,21 +431,30 @@ export default function GISCommandCenter() {
     setPendingAction({ type: 'delete', incident })
   }
 
-  function confirmPendingAction() {
+  function requestUnmap(incident) {
+    setPendingAction({ type: 'unmap', incident })
+  }
+
+  async function confirmPendingAction() {
     if (!pendingAction) return
     const { type, incident } = pendingAction
     if (type === 'approve') {
-      setIncidentMapStatus(incident.ref, 'Approved')
+      await setIncidentMapStatus(incident.ref, 'Approved')
       addAuditEntry(`Na-apruba ang pin ${incident.ref} para sa pampublikong mapa`, { color: 'green' })
       showToast('Naaprubahan ang insidente — nakikita na ito sa mapa.')
     } else if (type === 'reject') {
-      setIncidentMapStatus(incident.ref, 'Rejected')
+      await setIncidentMapStatus(incident.ref, 'Rejected')
       addAuditEntry(`Tinanggihan ang pin ${incident.ref} para sa mapa`, { color: 'orange' })
       showToast('Tinanggihan ang insidente — mananatili itong hindi nakikita sa mapa.')
     } else if (type === 'delete') {
-      deleteIncident(incident.ref)
+      await deleteIncident(incident.ref)
       addAuditEntry(`Binura ang insidente ${incident.ref}`, { color: 'red' })
       showToast('Nabura ang insidente.')
+      if (selectedRef === incident.ref) setSelectedRef(null)
+    } else if (type === 'unmap') {
+      await unmapIncidentLocation(incident.ref)
+      addAuditEntry(`Inalis sa mapa ang insidente ${incident.ref}`, { color: 'orange' })
+      showToast(`Inalis sa mapa ang insidente ${incident.ref}. Mananatili ito sa blotter.`)
       if (selectedRef === incident.ref) setSelectedRef(null)
     }
     setPendingAction(null)
@@ -345,6 +482,13 @@ export default function GISCommandCenter() {
       confirmLabel: 'Burahin',
       danger: true,
     },
+    unmap: {
+      title: 'Alisin sa Mapa',
+      message: (incident) =>
+        `Tatanggalin ang lokasyon sa mapa para sa ${incident.ref}. Mananatili pa rin ang ulat sa Digital Blotter bilang "Hindi naka-mapa". Magpatuloy?`,
+      confirmLabel: 'Alisin sa Mapa',
+      danger: true,
+    },
   }
 
   function pickPosition(latlng) {
@@ -369,7 +513,7 @@ export default function GISCommandCenter() {
   }
 
   const isFormMode = mode === 'create' || mode === 'edit'
-  const otherIncidents = isFormMode ? approvedIncidents.filter((i) => i.ref !== draft.ref) : filtered
+  const otherIncidents = isFormMode ? mappedIncidents.filter((i) => i.ref !== draft.ref) : filtered
 
   return (
     <div>
@@ -555,7 +699,41 @@ export default function GISCommandCenter() {
                     position={[incident.lat, incident.lng]}
                     icon={severityIcon(incident.severity, { dimmed: isFormMode })}
                     eventHandlers={isFormMode ? {} : { click: () => focusIncident(incident) }}
-                  />
+                  >
+                    {!isFormMode && (
+                      <Popup className="bb-map-popup" minWidth={240}>
+                        <div className="p-1 text-xs">
+                          <div className="flex items-center justify-between gap-1 mb-1.5">
+                            <span className="font-bold text-gray-700">{incident.ref}</span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                              Naka-mapa na
+                            </span>
+                          </div>
+                          <h4 className="font-bold text-gray-900 text-sm mb-1">{incident.title || incident.classification}</h4>
+                          <p className="text-gray-600 mb-2 line-clamp-2 leading-relaxed">{incident.excerpt}</p>
+                          <div className="space-y-1 text-gray-500 mb-3 text-[11px]">
+                            <div className="flex items-center gap-1">
+                              <MapPin size={11} className="shrink-0" />
+                              <span className="truncate">{incident.location}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Clock size={11} className="shrink-0" />
+                              <span>{formatDisplayDateTime(incident.dateISO)}</span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/blotter?id=${incident.ref}`)}
+                            className="w-full flex items-center justify-center gap-1.5 rounded-md bg-bb-blue hover:bg-bb-blue-dark text-white font-medium py-1.5 px-2 transition-colors cursor-pointer"
+                          >
+                            <ExternalLink size={12} />
+                            Tingnan ang Blotter
+                          </button>
+                        </div>
+                      </Popup>
+                    )}
+                  </Marker>
                 ))}
 
               {view === 'pending' && !isFormMode &&
@@ -565,7 +743,28 @@ export default function GISCommandCenter() {
                     position={[incident.lat, incident.lng]}
                     icon={severityIcon(incident.severity)}
                     eventHandlers={{ click: () => focusIncident(incident) }}
-                  />
+                  >
+                    <Popup className="bb-map-popup" minWidth={240}>
+                      <div className="p-1 text-xs">
+                        <div className="flex items-center justify-between gap-1 mb-1.5">
+                          <span className="font-bold text-gray-700">{incident.ref}</span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 border border-amber-200">
+                            Naghihintay ng Pag-apruba
+                          </span>
+                        </div>
+                        <h4 className="font-bold text-gray-900 text-sm mb-1">{incident.title || incident.classification}</h4>
+                        <p className="text-gray-600 mb-2 line-clamp-2">{incident.excerpt}</p>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/blotter?id=${incident.ref}`)}
+                          className="w-full flex items-center justify-center gap-1.5 rounded-md bg-bb-blue hover:bg-bb-blue-dark text-white font-medium py-1.5 px-2 transition-colors cursor-pointer"
+                        >
+                          <ExternalLink size={12} />
+                          Tingnan ang Blotter
+                        </button>
+                      </div>
+                    </Popup>
+                  </Marker>
                 ))}
 
               {isFormMode && draft.lat != null && draft.lng != null && (
@@ -635,34 +834,57 @@ export default function GISCommandCenter() {
                           {formatDisplayDateTime(incident.dateISO)}
                         </div>
                       </div>
-                      {(canUpdate || canDelete) && (
-                        <div className="mt-3 flex gap-2">
-                          {canUpdate && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                startEdit(incident)
-                              }}
-                              className="flex items-center gap-1.5 rounded-lg bg-bb-blue hover:bg-bb-blue-dark px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:shadow transition-all active:scale-[0.96] cursor-pointer"
-                            >
-                              <Pencil size={12} />
-                              I-edit
-                            </button>
-                          )}
-                          {canDelete && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                requestDelete(incident)
-                              }}
-                              className="flex items-center gap-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:shadow transition-all active:scale-[0.96] cursor-pointer"
-                            >
-                              <Trash2 size={12} />
-                              Burahin
-                            </button>
-                          )}
-                        </div>
-                      )}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigate(`/blotter?id=${incident.ref}`)
+                          }}
+                          className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-xs hover:shadow transition-all active:scale-[0.96] cursor-pointer"
+                        >
+                          <ExternalLink size={12} />
+                          Tingnan ang Blotter
+                        </button>
+                        {canUpdate && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              startEdit(incident)
+                            }}
+                            className="flex items-center gap-1.5 rounded-lg bg-bb-blue hover:bg-bb-blue-dark px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:shadow transition-all active:scale-[0.96] cursor-pointer"
+                          >
+                            <Pencil size={12} />
+                            I-edit
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            requestUnmap(incident)
+                          }}
+                          className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-800 shadow-xs hover:shadow transition-all active:scale-[0.96] cursor-pointer"
+                          title="Alisin ang pin sa mapa nang hindi binubura ang ulat sa blotter"
+                        >
+                          <XCircle size={12} />
+                          Alisin sa Mapa
+                        </button>
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              requestDelete(incident)
+                            }}
+                            className="flex items-center gap-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:shadow transition-all active:scale-[0.96] cursor-pointer"
+                          >
+                            <Trash2 size={12} />
+                            Burahin
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )
                 })}
@@ -715,8 +937,20 @@ export default function GISCommandCenter() {
                           {formatDisplayDateTime(incident.dateISO)}
                         </div>
                       </div>
-                      <div className="mt-3 flex gap-2">
+                      <div className="mt-3 flex flex-wrap gap-2">
                         <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigate(`/blotter?id=${incident.ref}`)
+                          }}
+                          className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-xs hover:shadow transition-all active:scale-[0.96] cursor-pointer"
+                        >
+                          <ExternalLink size={12} />
+                          Tingnan ang Blotter
+                        </button>
+                        <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation()
                             requestApprove(incident)
@@ -727,6 +961,7 @@ export default function GISCommandCenter() {
                           Aprubahan
                         </button>
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation()
                             requestReject(incident)
@@ -762,6 +997,31 @@ export default function GISCommandCenter() {
                   <X size={18} />
                 </button>
               </div>
+
+              {mode === 'create' && unmappedBlotterReports.length > 0 && (
+                <div className="rounded-lg border border-bb-blue/20 bg-blue-50/50 p-3">
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-semibold text-bb-navy">
+                      Pumili ng Blotter Report na I-mapa (Opsyonal)
+                    </span>
+                    <select
+                      value={draft.existingReportId || ''}
+                      onChange={(e) => handleSelectBlotterReport(e.target.value)}
+                      className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs text-gray-800 focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+                    >
+                      <option value="">-- Bagong Insidente (Manu-mano) --</option>
+                      {unmappedBlotterReports.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.ref} - {b.incidentType || 'Blotter'} ({b.complainant || 'Walang nagsumbong'}) - {b.location || 'Walang address'}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="mt-1 block text-[11px] text-gray-500">
+                      Piliin ang isang umiiral na blotter report upang i-link ang lokasyon nang hindi gumagawa ng duplicate.
+                    </span>
+                  </label>
+                </div>
+              )}
 
               <label className="block">
                 <span className="mb-1.5 block text-xs font-semibold text-gray-500">

@@ -177,16 +177,35 @@ export function DataProvider({ children }) {
       }
 
       // 2. Fetch Pre Blotters & Incidents
+      // 2. Fetch Pre Blotters & Incidents
       const { data: pbsData, error: pbsErr } = await supabase
         .from('pre_blotters')
         .select('*, ai_extractions(*), barangay_sectors(*)')
       
       let mappedBlotter = []
+      let mappedIncidents = []
+
       if (!pbsErr && pbsData) {
-        // Map to Incidents for GIS
-        const mappedIncidents = pbsData.map(b => {
+        pbsData.forEach(b => {
           const json = b.ai_extractions?.json_output || {}
-          return {
+          const complainantName = json.complainant || b.ai_extractions?.complainant || 'Residente'
+          
+          const userObj = usersData?.find(u => u.id === b.user_id) ||
+                          usersData?.find(u => `${u.first_name} ${u.last_name}`.trim().toLowerCase() === complainantName.toLowerCase())
+
+          const rawLat = b.latitude != null ? parseFloat(b.latitude) : null
+          const rawLng = b.longitude != null ? parseFloat(b.longitude) : null
+          const hasValidCoords = rawLat != null && rawLng != null && !isNaN(rawLat) && !isNaN(rawLng) && rawLat >= -90 && rawLat <= 90 && rawLng >= -180 && rawLng <= 180
+
+          const isMapped = b.is_mapped !== undefined && b.is_mapped !== null
+            ? (Boolean(b.is_mapped) && hasValidCoords)
+            : (hasValidCoords && (b.map_status === 'Approved' || b.map_status === undefined))
+
+          const lat = hasValidCoords ? rawLat : null
+          const lng = hasValidCoords ? rawLng : null
+
+          const incidentItem = {
+            id: b.reference_no,
             ref: b.reference_no,
             blotterId: b.blotter_id,
             title: json.what || b.ai_extractions?.incident_type || 'Kaso',
@@ -194,27 +213,30 @@ export function DataProvider({ children }) {
             severity: json.severity || 'Katamtaman',
             excerpt: b.ai_extractions?.narrative_summary || b.remarks || '',
             location: b.ai_extractions?.incident_location || 'Quezon City',
+            address: b.ai_extractions?.incident_location || 'Quezon City',
             dateISO: b.ai_extractions?.incident_datetime || b.submitted_at,
-            lat: parseFloat(b.latitude) || 14.6760,
-            lng: parseFloat(b.longitude) || 121.0450,
+            lat,
+            lng,
+            latitude: lat,
+            longitude: lng,
             sector: b.barangay_sectors?.sector_name || 'Sector 1',
-            mapStatus: b.map_status || 'Pending',
-            mapReviewedBy: b.map_reviewed_by || null,
-            mapReviewedAt: b.map_reviewed_at || null,
+            mapStatus: isMapped ? 'Approved' : (b.map_status || 'Pending'),
+            is_mapped: isMapped,
+            isMapped,
+            mapReviewedBy: b.map_reviewed_by || b.mapped_by || null,
+            mapReviewedAt: b.map_reviewed_at || b.mapped_at || null,
+            filedBy: complainantName,
+            status: b.status || 'Sinuri',
           }
-        })
-        setIncidents(mappedIncidents)
 
-        // Map to Blotter reports
-        mappedBlotter = pbsData.map(b => {
-          const json = b.ai_extractions?.json_output || {}
-          const complainantName = json.complainant || b.ai_extractions?.complainant || 'Residente'
-          
-          const userObj = usersData?.find(u => u.id === b.user_id) ||
-                          usersData?.find(u => `${u.first_name} ${u.last_name}`.trim().toLowerCase() === complainantName.toLowerCase())
+          // Incidents collection contains all incidents; mapped ones have is_mapped = true and lat/lng
+          mappedIncidents.push(incidentItem)
 
-          return {
+          // Map to Blotter reports
+          mappedBlotter.push({
             id: b.reference_no,
+            ref: b.reference_no,
+            blotterId: b.blotter_id,
             rawDate: b.submitted_at || b.created_at,
             title: b.ai_extractions?.incident_type || 'Kaganapan',
             status: b.status || 'Sinuri',
@@ -230,9 +252,19 @@ export function DataProvider({ children }) {
             what: json.what || b.ai_extractions?.incident_type || 'Kaganapan',
             who: json.who || b.ai_extractions?.respondent || 'Hindi Alam',
             where: json.where || b.ai_extractions?.incident_location || 'N/A',
+            location: b.ai_extractions?.incident_location || 'N/A',
+            address: b.ai_extractions?.incident_location || 'N/A',
             when: json.when || 'N/A',
             why: json.why || 'N/A',
             how: json.how || b.ai_extractions?.narrative_summary || 'N/A',
+            severity: json.severity || 'Katamtaman',
+            sector: b.barangay_sectors?.sector_name || 'Sector 1',
+            lat,
+            lng,
+            latitude: lat,
+            longitude: lng,
+            is_mapped: isMapped,
+            isMapped,
             hearingDate: formatDateTimeLocal(b.hearing_date),
             hearingNote: b.hearing_note || b.remarks || '',
             hearingCompleted: b.hearing_completed !== undefined && b.hearing_completed !== null ? b.hearing_completed : (b.status === 'Nareselba' || b.status === 'Spam'),
@@ -242,8 +274,10 @@ export function DataProvider({ children }) {
             complainantGender: userObj?.gender || json.gender || json.complainant_gender || 'N/A',
             complainantAge: userObj?.birthdate ? calculateAge(userObj.birthdate) : (json.age || json.complainant_age || ''),
             isMinor: userObj?.birthdate ? calculateAge(userObj.birthdate) < 18 : (json.is_minor || false),
-            mapStatus: b.map_status || 'Pending'
-          }
+            mapStatus: isMapped ? 'Approved' : (b.map_status || 'Pending'),
+            mappedAt: b.mapped_at || b.map_reviewed_at || null,
+            mappedBy: b.mapped_by || b.map_reviewed_by || null,
+          })
         })
       }
 
@@ -269,12 +303,19 @@ export function DataProvider({ children }) {
           const finalAge = userObj?.birthdate ? calculateAge(userObj.birthdate) : (r.full_details?.age || '')
           const rawDateStr = r.created_at || r.submitted_at || new Date().toISOString()
 
-          return {
+          const rawRepLat = r.latitude != null ? parseFloat(r.latitude) : null
+          const rawRepLng = r.longitude != null ? parseFloat(r.longitude) : null
+          const repValid = rawRepLat != null && rawRepLng != null && !isNaN(rawRepLat) && !isNaN(rawRepLng) && rawRepLat >= -90 && rawRepLat <= 90 && rawRepLng >= -180 && rawRepLng <= 180
+          const repIsMapped = r.is_mapped !== undefined && r.is_mapped !== null ? (Boolean(r.is_mapped) && repValid) : repValid
+
+          const reportItem = {
             id: r.reference_no || (r.id ? `REP-${String(r.id).substring(0, 8)}` : `REP-${Math.floor(100000 + Math.random() * 900000)}`),
+            ref: r.reference_no || (r.id ? `REP-${String(r.id).substring(0, 8)}` : `REP-${Math.floor(100000 + Math.random() * 900000)}`),
             dbId: r.id,
             isFormReport: true,
             rawDate: rawDateStr,
             title: r.category || r.summary || 'Resident Form Report',
+            classification: r.category || r.summary || 'Resident Form Report',
             status: adminStatus,
             datetime: new Date(rawDateStr).toLocaleString('en-US', {
               month: 'short',
@@ -288,9 +329,12 @@ export function DataProvider({ children }) {
             what: r.full_details?.what || r.category || r.summary || 'Unspecified Incident',
             who: r.full_details?.who || r.other_party || r.respondent || r.full_details?.otherParties || 'Hindi Alam',
             where: r.location || r.full_details?.where || r.full_details?.location || 'N/A',
+            location: r.location || r.full_details?.where || r.full_details?.location || 'N/A',
+            address: r.location || r.full_details?.where || r.full_details?.location || 'N/A',
             when: r.full_details?.when || r.date_time || r.incident_date || r.full_details?.incidentAt || 'N/A',
             why: r.full_details?.why || 'N/A',
             how: r.description || r.full_details?.how || r.incident_details || r.full_details?.description || 'N/A',
+            excerpt: r.description || r.full_details?.how || r.incident_details || '',
             hearingDate: formatDateTimeLocal(r.hearing_date),
             hearingNote: r.hearing_note || ((r.witnesses || r.full_details?.witnesses) ? `Saksi: ${r.witnesses || r.full_details?.witnesses}` : ''),
             hearingCompleted: r.hearing_completed !== undefined && r.hearing_completed !== null ? r.hearing_completed : (adminStatus === 'Nareselba' || adminStatus === 'Spam'),
@@ -299,10 +343,25 @@ export function DataProvider({ children }) {
             complainantAddress: r.full_details?.complainant_address || userObj?.address || r.full_details?.address || 'N/A',
             complainantGender: r.full_details?.complainant_gender || userObj?.gender || r.full_details?.gender || 'N/A',
             complainantAge: finalAge,
-            isMinor: finalAge ? Number(finalAge) < 18 : false
+            isMinor: finalAge ? Number(finalAge) < 18 : false,
+            lat: repValid ? rawRepLat : null,
+            lng: repValid ? rawRepLng : null,
+            latitude: repValid ? rawRepLat : null,
+            longitude: repValid ? rawRepLng : null,
+            is_mapped: repIsMapped,
+            isMapped: repIsMapped,
+            mapStatus: repIsMapped ? 'Approved' : 'Pending',
           }
+
+          if (repIsMapped) {
+            mappedIncidents.push(reportItem)
+          }
+
+          return reportItem
         })
       }
+
+      setIncidents(mappedIncidents)
 
       // Combine and sort by newest date first
       const combinedBlotter = [...mappedBlotter, ...mappedReports].sort((a, b) => {
@@ -698,21 +757,431 @@ export function DataProvider({ children }) {
     }
   }
 
+  const mapIncidentLocation = async (refOrId, { lat, lng, location, address } = {}) => {
+    try {
+      if (lat == null || lng == null) {
+        throw new Error('Pumili muna ng lokasyon sa mapa bago i-map ang insidente.')
+      }
+      const parsedLat = parseFloat(lat)
+      const parsedLng = parseFloat(lng)
+      if (isNaN(parsedLat) || isNaN(parsedLng) || parsedLat < -90 || parsedLat > 90 || parsedLng < -180 || parsedLng > 180) {
+        throw new Error('Di-wastong coordinates ng lokasyon. Siguraduhing nasa wastong saklaw ang latitude at longitude.')
+      }
+
+      let reviewerId = null
+      if (user?.id && users.some((u) => u.id === user.id)) {
+        reviewerId = user.id
+      }
+
+      const existingReport = blotterReports.find(r => r.id === refOrId || r.ref === refOrId)
+      const targetLocation = location || address || existingReport?.location || existingReport?.where || 'Quezon City'
+
+      if (existingReport?.isFormReport || String(refOrId).startsWith('REP-')) {
+        const dbTarget = existingReport?.dbId || refOrId
+        const isUuid = typeof dbTarget === 'string' && dbTarget.includes('-') && dbTarget.length > 20
+        const updatePayload = {
+          latitude: parsedLat,
+          longitude: parsedLng,
+          is_mapped: true,
+          mapped_at: new Date().toISOString(),
+          mapped_by: reviewerId,
+          location: targetLocation,
+        }
+        const query = supabase.from('reports').update(updatePayload)
+        const { error: repErr } = isUuid ? await query.eq('id', dbTarget) : await query.eq('reference_no', refOrId)
+        if (repErr && repErr.message?.includes('is_mapped')) {
+          const fbPayload = { latitude: parsedLat, longitude: parsedLng, location: targetLocation }
+          const fbQuery = supabase.from('reports').update(fbPayload)
+          if (isUuid) await fbQuery.eq('id', dbTarget)
+          else await fbQuery.eq('reference_no', refOrId)
+        }
+      } else {
+        const { data: pb } = await supabase
+          .from('pre_blotters')
+          .select('blotter_id, extraction_id')
+          .eq('reference_no', refOrId)
+          .maybeSingle()
+
+        if (pb) {
+          const pbUpdate = {
+            latitude: parsedLat,
+            longitude: parsedLng,
+            is_mapped: true,
+            map_status: 'Approved',
+            map_reviewed_by: reviewerId,
+            map_reviewed_at: new Date().toISOString(),
+            mapped_by: reviewerId,
+            mapped_at: new Date().toISOString(),
+          }
+          const { error: pbErr } = await supabase.from('pre_blotters').update(pbUpdate).eq('blotter_id', pb.blotter_id)
+          if (pbErr && pbErr.message?.includes('is_mapped')) {
+            await supabase.from('pre_blotters').update({
+              latitude: parsedLat,
+              longitude: parsedLng,
+              map_status: 'Approved',
+              map_reviewed_by: reviewerId,
+              map_reviewed_at: new Date().toISOString(),
+            }).eq('blotter_id', pb.blotter_id)
+          }
+
+          if (pb.extraction_id && targetLocation) {
+            await supabase.from('ai_extractions').update({ incident_location: targetLocation }).eq('extraction_id', pb.extraction_id)
+          }
+        }
+      }
+
+      // Update state immediately for both views
+      setBlotterReports(prev => prev.map(r => {
+        if (r.id === refOrId || r.ref === refOrId) {
+          return {
+            ...r,
+            lat: parsedLat,
+            lng: parsedLng,
+            latitude: parsedLat,
+            longitude: parsedLng,
+            is_mapped: true,
+            isMapped: true,
+            mapStatus: 'Approved',
+            location: targetLocation,
+            address: targetLocation,
+            where: targetLocation,
+            mappedAt: new Date().toISOString(),
+            mappedBy: reviewerId,
+          }
+        }
+        return r
+      }))
+
+      setIncidents(prev => {
+        const existing = prev.find(i => i.ref === refOrId || i.id === refOrId)
+        if (existing) {
+          return prev.map(i => (i.ref === refOrId || i.id === refOrId) ? {
+            ...i,
+            lat: parsedLat,
+            lng: parsedLng,
+            latitude: parsedLat,
+            longitude: parsedLng,
+            is_mapped: true,
+            isMapped: true,
+            mapStatus: 'Approved',
+            location: targetLocation,
+            address: targetLocation,
+          } : i)
+        }
+        if (existingReport) {
+          return [{
+            ref: existingReport.id,
+            id: existingReport.id,
+            blotterId: existingReport.blotterId,
+            title: existingReport.title,
+            classification: existingReport.classification || existingReport.what || existingReport.title,
+            severity: existingReport.severity || 'Katamtaman',
+            excerpt: existingReport.how || existingReport.excerpt || existingReport.title,
+            location: targetLocation,
+            address: targetLocation,
+            dateISO: existingReport.rawDate || existingReport.dateISO || new Date().toISOString(),
+            lat: parsedLat,
+            lng: parsedLng,
+            latitude: parsedLat,
+            longitude: parsedLng,
+            sector: existingReport.sector || 'Sector 1',
+            mapStatus: 'Approved',
+            is_mapped: true,
+            isMapped: true,
+            filedBy: existingReport.filedBy,
+            status: existingReport.status || 'Sinuri',
+          }, ...prev]
+        }
+        return prev
+      })
+
+      addAuditEntry(`I-map ang insidente ${refOrId} sa GIS map`, { color: 'green' })
+      fetchData().catch(() => {})
+      return { success: true }
+    } catch (err) {
+      console.error('Error in mapIncidentLocation:', err)
+      throw err
+    }
+  }
+
+  const unmapIncidentLocation = async (refOrId) => {
+    try {
+      const existingReport = blotterReports.find(r => r.id === refOrId || r.ref === refOrId)
+
+      if (existingReport?.isFormReport || String(refOrId).startsWith('REP-')) {
+        const dbTarget = existingReport?.dbId || refOrId
+        const isUuid = typeof dbTarget === 'string' && dbTarget.includes('-') && dbTarget.length > 20
+        const updatePayload = {
+          latitude: null,
+          longitude: null,
+          is_mapped: false,
+        }
+        const query = supabase.from('reports').update(updatePayload)
+        const { error: repErr } = isUuid ? await query.eq('id', dbTarget) : await query.eq('reference_no', refOrId)
+        if (repErr && repErr.message?.includes('is_mapped')) {
+          const fbPayload = { latitude: null, longitude: null }
+          const fbQuery = supabase.from('reports').update(fbPayload)
+          if (isUuid) await fbQuery.eq('id', dbTarget)
+          else await fbQuery.eq('reference_no', refOrId)
+        }
+      } else {
+        const { data: pb } = await supabase
+          .from('pre_blotters')
+          .select('blotter_id')
+          .eq('reference_no', refOrId)
+          .maybeSingle()
+
+        if (pb) {
+          const { error: pbErr } = await supabase.from('pre_blotters').update({
+            latitude: null,
+            longitude: null,
+            is_mapped: false,
+            map_status: 'Pending',
+          }).eq('blotter_id', pb.blotter_id)
+
+          if (pbErr && pbErr.message?.includes('is_mapped')) {
+            await supabase.from('pre_blotters').update({
+              latitude: null,
+              longitude: null,
+              map_status: 'Pending',
+            }).eq('blotter_id', pb.blotter_id)
+          }
+        }
+      }
+
+      // Update state immediately
+      setBlotterReports(prev => prev.map(r => {
+        if (r.id === refOrId || r.ref === refOrId) {
+          return {
+            ...r,
+            lat: null,
+            lng: null,
+            latitude: null,
+            longitude: null,
+            is_mapped: false,
+            isMapped: false,
+            mapStatus: 'Pending',
+          }
+        }
+        return r
+      }))
+
+      setIncidents(prev => prev.map(i => {
+        if (i.ref === refOrId || i.id === refOrId) {
+          return {
+            ...i,
+            lat: null,
+            lng: null,
+            latitude: null,
+            longitude: null,
+            is_mapped: false,
+            isMapped: false,
+            mapStatus: 'Pending',
+          }
+        }
+        return i
+      }))
+
+      addAuditEntry(`Inalis sa GIS map ang insidente ${refOrId}`, { color: 'orange' })
+      fetchData().catch(() => {})
+      return { success: true }
+    } catch (err) {
+      console.error('Error in unmapIncidentLocation:', err)
+      throw err
+    }
+  }
+
+  const addBlotterReport = async (reportData) => {
+    try {
+      let reviewerId = null
+      if (user?.id && users.some((u) => u.id === user.id)) {
+        reviewerId = user.id
+      }
+
+      const isMapped = Boolean(reportData.isMapped) && reportData.lat != null && reportData.lng != null
+      const parsedLat = isMapped ? parseFloat(reportData.lat) : null
+      const parsedLng = isMapped ? parseFloat(reportData.lng) : null
+      const refNo = reportData.ref || `SC-${Math.floor(100000 + Math.random() * 900000)}`
+      const isoDate = reportData.dateISO ? new Date(reportData.dateISO).toISOString() : new Date().toISOString()
+      const titleValue = reportData.title || reportData.classification || 'Kaganapan'
+      const classificationValue = reportData.classification || titleValue
+      const locationValue = reportData.location || reportData.where || 'Quezon City'
+
+      const { data: ext, error: extErr } = await supabase
+        .from('ai_extractions')
+        .insert([{
+          incident_type: titleValue,
+          incident_datetime: isoDate,
+          incident_location: locationValue,
+          complainant: reportData.filedBy || 'Residente',
+          respondent: reportData.who || 'Hindi Alam',
+          narrative_summary: reportData.how || reportData.excerpt || reportData.what || '',
+          json_output: {
+            what: reportData.what || titleValue,
+            who: reportData.who || 'Hindi Alam',
+            where: locationValue,
+            when: reportData.when || isoDate,
+            why: reportData.why || 'N/A',
+            how: reportData.how || reportData.excerpt || '',
+            classification: classificationValue,
+            severity: reportData.severity || 'Katamtaman',
+            phone: reportData.complainantPhone || '',
+            address: reportData.complainantAddress || '',
+            gender: reportData.complainantGender || '',
+            age: reportData.complainantAge || null,
+            is_minor: reportData.isMinor || false,
+          }
+        }])
+        .select()
+
+      if (extErr) throw new Error(extErr.message || 'Hindi maipasok ang AI extraction record.')
+
+      const { data: sec } = await supabase
+        .from('barangay_sectors')
+        .select('sector_id')
+        .eq('sector_name', reportData.sector || 'Sector 1')
+        .maybeSingle()
+
+      const pbInsert = {
+        reference_no: refNo,
+        extraction_id: ext[0].extraction_id,
+        sector_id: sec?.sector_id || null,
+        latitude: parsedLat,
+        longitude: parsedLng,
+        status: reportData.status || 'Sinuri',
+        remarks: reportData.remarks || '',
+        map_status: isMapped ? 'Approved' : 'Pending',
+        is_mapped: isMapped,
+        map_reviewed_by: isMapped ? reviewerId : null,
+        map_reviewed_at: isMapped ? new Date().toISOString() : null,
+        mapped_by: isMapped ? reviewerId : null,
+        mapped_at: isMapped ? new Date().toISOString() : null,
+      }
+
+      const { data: pbData, error: pbErr } = await supabase
+        .from('pre_blotters')
+        .insert([pbInsert])
+        .select()
+
+      if (pbErr) {
+        if (pbErr.message?.includes('is_mapped')) {
+          const fallbackInsert = { ...pbInsert }
+          delete fallbackInsert.is_mapped
+          delete fallbackInsert.mapped_by
+          delete fallbackInsert.mapped_at
+          await supabase.from('pre_blotters').insert([fallbackInsert])
+        } else {
+          await supabase.from('ai_extractions').delete().eq('extraction_id', ext[0].extraction_id)
+          throw new Error(pbErr.message || 'Hindi maipasok ang pre-blotter record.')
+        }
+      }
+
+      const newReportItem = {
+        id: refNo,
+        ref: refNo,
+        blotterId: pbData?.[0]?.blotter_id,
+        rawDate: isoDate,
+        title: titleValue,
+        status: reportData.status || 'Sinuri',
+        datetime: new Date(isoDate).toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        }).toUpperCase(),
+        filedBy: reportData.filedBy || 'Residente',
+        what: reportData.what || titleValue,
+        who: reportData.who || 'Hindi Alam',
+        where: locationValue,
+        location: locationValue,
+        address: locationValue,
+        when: reportData.when || 'N/A',
+        why: reportData.why || 'N/A',
+        how: reportData.how || reportData.excerpt || 'N/A',
+        severity: reportData.severity || 'Katamtaman',
+        sector: reportData.sector || 'Sector 1',
+        lat: parsedLat,
+        lng: parsedLng,
+        latitude: parsedLat,
+        longitude: parsedLng,
+        is_mapped: isMapped,
+        isMapped,
+        hearingDate: '',
+        hearingNote: '',
+        hearingCompleted: false,
+        outcome: '',
+        complainantPhone: reportData.complainantPhone || 'N/A',
+        complainantAddress: reportData.complainantAddress || 'N/A',
+        complainantGender: reportData.complainantGender || 'N/A',
+        complainantAge: reportData.complainantAge || '',
+        isMinor: reportData.isMinor || false,
+        mapStatus: isMapped ? 'Approved' : 'Pending',
+        mappedAt: isMapped ? new Date().toISOString() : null,
+        mappedBy: reviewerId,
+      }
+
+      setBlotterReports(prev => [newReportItem, ...prev])
+
+      if (isMapped) {
+        setIncidents(prev => [{
+          ref: refNo,
+          id: refNo,
+          blotterId: pbData?.[0]?.blotter_id,
+          title: titleValue,
+          classification: classificationValue,
+          severity: reportData.severity || 'Katamtaman',
+          excerpt: reportData.how || reportData.excerpt || titleValue,
+          location: locationValue,
+          address: locationValue,
+          dateISO: isoDate,
+          lat: parsedLat,
+          lng: parsedLng,
+          latitude: parsedLat,
+          longitude: parsedLng,
+          sector: reportData.sector || 'Sector 1',
+          mapStatus: 'Approved',
+          is_mapped: true,
+          isMapped: true,
+          filedBy: reportData.filedBy || 'Residente',
+          status: reportData.status || 'Sinuri',
+        }, ...prev])
+      }
+
+      addAuditEntry(`Lumikha ng blotter report ${refNo} (${isMapped ? 'Naka-mapa na' : 'Hindi naka-mapa'})`, { color: 'green' })
+      fetchData().catch(() => {})
+      return { success: true, ref: refNo }
+    } catch (err) {
+      console.error('Error in addBlotterReport:', err)
+      throw err
+    }
+  }
+
   const addIncident = async (incident) => {
     try {
-      // 1. Fast in-memory user UUID check to prevent FK constraint failure (0ms)
+      // If administrator picked an existing blotter report from dropdown in GIS, map that existing report!
+      if (incident.existingReportId) {
+        return await mapIncidentLocation(incident.existingReportId, {
+          lat: incident.lat,
+          lng: incident.lng,
+          location: incident.location,
+          address: incident.location,
+        })
+      }
+
       let reviewerId = null
-      if (user?.id) {
-        if (users.some((u) => u.id === user.id)) {
-          reviewerId = user.id
-        }
+      if (user?.id && users.some((u) => u.id === user.id)) {
+        reviewerId = user.id
       }
 
       const isoDate = incident.dateISO ? new Date(incident.dateISO).toISOString() : new Date().toISOString()
       const classificationValue = incident.classification || incident.title || 'Insidente'
       const titleValue = incident.title || classificationValue
+      const isMapped = incident.lat != null && incident.lng != null
+      const parsedLat = isMapped ? parseFloat(incident.lat) : null
+      const parsedLng = isMapped ? parseFloat(incident.lng) : null
 
-      // 2. Concurrently insert ai_extractions and lookup sector (halves network latency)
       const [sectorRes, extRes] = await Promise.all([
         supabase
           .from('barangay_sectors')
@@ -747,54 +1216,117 @@ export function DataProvider({ children }) {
       }
 
       const sectorId = sectorRes.data?.sector_id || null
-      const refNo = incident.ref || `REF-${Date.now()}`
+      const refNo = incident.ref || `SC-${Math.floor(100000 + Math.random() * 900000)}`
+      const mapStatus = isMapped ? 'Approved' : 'Pending'
 
-      const mapStatus = incident.mapStatus || 'Pending'
+      const pbPayload = {
+        reference_no: refNo,
+        extraction_id: ext[0].extraction_id,
+        sector_id: sectorId,
+        latitude: parsedLat,
+        longitude: parsedLng,
+        status: 'Sinuri',
+        remarks: '',
+        map_status: mapStatus,
+        is_mapped: isMapped,
+        map_reviewed_by: isMapped ? reviewerId : null,
+        map_reviewed_at: isMapped ? new Date().toISOString() : null,
+        mapped_by: isMapped ? reviewerId : null,
+        mapped_at: isMapped ? new Date().toISOString() : null,
+      }
 
-      // 3. Insert into pre_blotters
       const { data: pbData, error: pbErr } = await supabase
         .from('pre_blotters')
-        .insert([{
-          reference_no: refNo,
-          extraction_id: ext[0].extraction_id,
-          sector_id: sectorId,
-          latitude: incident.lat,
-          longitude: incident.lng,
-          status: 'Sinuri',
-          remarks: '',
-          map_status: mapStatus,
-          map_reviewed_by: mapStatus === 'Approved' ? reviewerId : null,
-          map_reviewed_at: mapStatus === 'Approved' ? new Date().toISOString() : null,
-        }])
+        .insert([pbPayload])
         .select()
 
       if (pbErr) {
-        console.error('Error inserting pre_blotters for incident:', pbErr)
-        await supabase.from('ai_extractions').delete().eq('extraction_id', ext[0].extraction_id)
-        throw new Error(pbErr.message || 'Hindi maipasok ang pre-blotter record.')
+        if (pbErr.message?.includes('is_mapped')) {
+          const fbPayload = { ...pbPayload }
+          delete fbPayload.is_mapped
+          delete fbPayload.mapped_by
+          delete fbPayload.mapped_at
+          await supabase.from('pre_blotters').insert([fbPayload])
+        } else {
+          await supabase.from('ai_extractions').delete().eq('extraction_id', ext[0].extraction_id)
+          throw new Error(pbErr.message || 'Hindi maipasok ang pre-blotter record.')
+        }
       }
 
-      // 4. Immediate state update so UI and map update instantly
       const createdIncident = {
         ref: refNo,
+        id: refNo,
         blotterId: pbData?.[0]?.blotter_id,
         title: titleValue,
         classification: classificationValue,
         severity: incident.severity || 'Katamtaman',
         excerpt: incident.excerpt || '',
         location: incident.location,
+        address: incident.location,
         dateISO: isoDate,
-        lat: parseFloat(incident.lat),
-        lng: parseFloat(incident.lng),
+        lat: parsedLat,
+        lng: parsedLng,
+        latitude: parsedLat,
+        longitude: parsedLng,
         sector: incident.sector || 'Sector 1',
         mapStatus: mapStatus,
-        mapReviewedBy: mapStatus === 'Approved' ? reviewerId : null,
-        mapReviewedAt: mapStatus === 'Approved' ? new Date().toISOString() : null,
+        is_mapped: isMapped,
+        isMapped,
+        mapReviewedBy: isMapped ? reviewerId : null,
+        mapReviewedAt: isMapped ? new Date().toISOString() : null,
+        filedBy: 'Residente',
+        status: 'Sinuri',
       }
 
       setIncidents((prev) => [createdIncident, ...prev.filter((i) => i.ref !== refNo)])
 
-      // Background data sync without blocking the user
+      // Also add to blotterReports so Digital Blotter is in sync immediately
+      const newBlotterItem = {
+        id: refNo,
+        ref: refNo,
+        blotterId: pbData?.[0]?.blotter_id,
+        rawDate: isoDate,
+        title: titleValue,
+        status: 'Sinuri',
+        datetime: new Date(isoDate).toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        }).toUpperCase(),
+        filedBy: 'Residente',
+        what: titleValue,
+        who: 'Hindi Alam',
+        where: incident.location,
+        location: incident.location,
+        address: incident.location,
+        when: isoDate,
+        why: 'N/A',
+        how: incident.excerpt || '',
+        severity: incident.severity || 'Katamtaman',
+        sector: incident.sector || 'Sector 1',
+        lat: parsedLat,
+        lng: parsedLng,
+        latitude: parsedLat,
+        longitude: parsedLng,
+        is_mapped: isMapped,
+        isMapped,
+        mapStatus: mapStatus,
+        hearingDate: '',
+        hearingNote: '',
+        hearingCompleted: false,
+        outcome: '',
+        complainantPhone: 'N/A',
+        complainantAddress: incident.location || 'N/A',
+        complainantGender: 'N/A',
+        complainantAge: '',
+        isMinor: false,
+      }
+      setBlotterReports((prev) => [newBlotterItem, ...prev.filter((b) => b.id !== refNo)])
+
+      addAuditEntry(`Nagdagdag ng insidente ${refNo} (${isMapped ? 'Naka-mapa na' : 'Hindi naka-mapa'})`, { color: 'blue' })
       fetchData().catch((e) => console.error('Background sync error:', e))
 
       return { success: true, data: createdIncident }
@@ -806,40 +1338,19 @@ export function DataProvider({ children }) {
 
   const setIncidentMapStatus = async (ref, status) => {
     try {
-      const { data: pb } = await supabase
-        .from('pre_blotters')
-        .select('blotter_id')
-        .eq('reference_no', ref)
-        .maybeSingle()
-
-      if (!pb) return
-
-      let reviewerId = null
-      if (user?.id) {
-        const { data: userRow } = await supabase
-          .from('users')
-          .select('id')
-          .eq('id', user.id)
-          .maybeSingle()
-        if (userRow?.id) {
-          reviewerId = userRow.id
-        }
+      const isApproved = status === 'Approved'
+      if (!isApproved) {
+        return await unmapIncidentLocation(ref)
       }
 
-      await supabase
-        .from('pre_blotters')
-        .update({
-          map_status: status,
-          map_reviewed_by: reviewerId,
-          map_reviewed_at: new Date().toISOString()
+      const existingIncident = incidents.find(i => i.ref === ref || i.id === ref)
+      if (existingIncident?.lat != null && existingIncident?.lng != null) {
+        return await mapIncidentLocation(ref, {
+          lat: existingIncident.lat,
+          lng: existingIncident.lng,
+          location: existingIncident.location,
         })
-        .eq('blotter_id', pb.blotter_id)
-
-      setIncidents((prev) =>
-        prev.map((i) => (i.ref === ref ? { ...i, mapStatus: status } : i))
-      )
-
-      fetchData()
+      }
     } catch (err) {
       console.error('Error updating incident map status:', err)
     }
@@ -853,14 +1364,15 @@ export function DataProvider({ children }) {
         .eq('reference_no', ref)
         .maybeSingle()
 
-      if (!pb) return
-
-      await supabase.from('pre_blotters').delete().eq('blotter_id', pb.blotter_id)
-      if (pb.extraction_id) {
-        await supabase.from('ai_extractions').delete().eq('extraction_id', pb.extraction_id)
+      if (pb) {
+        await supabase.from('pre_blotters').delete().eq('blotter_id', pb.blotter_id)
+        if (pb.extraction_id) {
+          await supabase.from('ai_extractions').delete().eq('extraction_id', pb.extraction_id)
+        }
       }
 
       setIncidents((prev) => prev.filter((i) => i.ref !== ref))
+      setBlotterReports((prev) => prev.filter((b) => b.id !== ref && b.ref !== ref))
 
       fetchData()
     } catch (err) {
@@ -883,6 +1395,10 @@ export function DataProvider({ children }) {
       const classificationValue = record.classification || record.title || 'Insidente'
       const titleValue = record.title || classificationValue
 
+      const isMapped = record.lat != null && record.lng != null
+      const parsedLat = isMapped ? parseFloat(record.lat) : null
+      const parsedLng = isMapped ? parseFloat(record.lng) : null
+
       const updatedJson = {
         ...existingJson,
         what: titleValue,
@@ -904,13 +1420,21 @@ export function DataProvider({ children }) {
         })
         .eq('extraction_id', pb.extraction_id)
 
-      await supabase
-        .from('pre_blotters')
-        .update({
-          latitude: record.lat,
-          longitude: record.lng
-        })
-        .eq('blotter_id', pb.blotter_id)
+      const pbUpdate = {
+        latitude: parsedLat,
+        longitude: parsedLng,
+        is_mapped: isMapped,
+        map_status: isMapped ? 'Approved' : 'Pending',
+      }
+
+      const { error: pbErr } = await supabase.from('pre_blotters').update(pbUpdate).eq('blotter_id', pb.blotter_id)
+      if (pbErr && pbErr.message?.includes('is_mapped')) {
+        await supabase.from('pre_blotters').update({
+          latitude: parsedLat,
+          longitude: parsedLng,
+          map_status: isMapped ? 'Approved' : 'Pending',
+        }).eq('blotter_id', pb.blotter_id)
+      }
 
       setIncidents((prev) =>
         prev.map((i) =>
@@ -922,11 +1446,42 @@ export function DataProvider({ children }) {
                 classification: classificationValue,
                 severity: record.severity || i.severity,
                 dateISO: isoDate,
+                lat: parsedLat,
+                lng: parsedLng,
+                latitude: parsedLat,
+                longitude: parsedLng,
+                is_mapped: isMapped,
+                isMapped,
+                mapStatus: isMapped ? 'Approved' : 'Pending',
               }
             : i
         )
       )
 
+      setBlotterReports((prev) =>
+        prev.map((b) =>
+          b.id === ref || b.ref === ref
+            ? {
+                ...b,
+                title: titleValue,
+                what: titleValue,
+                where: record.location,
+                location: record.location,
+                address: record.location,
+                how: record.excerpt,
+                lat: parsedLat,
+                lng: parsedLng,
+                latitude: parsedLat,
+                longitude: parsedLng,
+                is_mapped: isMapped,
+                isMapped,
+                mapStatus: isMapped ? 'Approved' : 'Pending',
+              }
+            : b
+        )
+      )
+
+      addAuditEntry(`Na-update ang insidente ${ref}`, { color: 'blue' })
       fetchData().catch((e) => console.error('Background sync error:', e))
       return { success: true }
     } catch (err) {
@@ -1196,7 +1751,10 @@ export function DataProvider({ children }) {
         replaceIncident,
         setIncidentMapStatus,
         deleteIncident,
+        mapIncidentLocation,
+        unmapIncidentLocation,
         blotterReports,
+        addBlotterReport,
         updateBlotterReport,
         documents,
         addDocument,
