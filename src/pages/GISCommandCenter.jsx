@@ -26,7 +26,15 @@ import {
   SEVERITY_FILTERS,
   SEVERITY_META,
 } from '../data/mockIncidents'
-import { formatDisplayDateTime, toDatetimeLocalValue, generateRef } from '../lib/incidentUtils'
+import {
+  formatDisplayDateTime,
+  formatDisplayDate,
+  formatDisplayTime,
+  toDatetimeLocalValue,
+  generateRef,
+  isVerifiedReport,
+  getStatusLabel,
+} from '../lib/incidentUtils'
 import { reverseGeocode, searchAddress } from '../lib/geocode'
 import Pill from '../components/Pill'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -179,10 +187,11 @@ export default function GISCommandCenter() {
   const mapRef = useRef(null)
   const listRef = useRef(null)
 
-  // Retrieve strictly mapped incidents where is_mapped is true and lat/lng are valid
+  // Retrieve strictly verified and mapped incidents
   const mappedIncidents = useMemo(() => {
     return incidents.filter(
       (i) =>
+        isVerifiedReport(i.status) &&
         (i.is_mapped === true || i.isMapped === true || i.mapStatus === 'Approved') &&
         i.lat != null &&
         i.lng != null &&
@@ -191,9 +200,9 @@ export default function GISCommandCenter() {
     )
   }, [incidents])
 
-  // Unmapped blotter reports available to be mapped via "Pumili ng Blotter Report"
+  // Unmapped verified blotter reports available to be mapped via "Pumili ng Verified Blotter Report"
   const unmappedBlotterReports = useMemo(() => {
-    return blotterReports.filter((b) => !b.is_mapped && !b.isMapped)
+    return blotterReports.filter((b) => isVerifiedReport(b.status) && !b.is_mapped && !b.isMapped)
   }, [blotterReports])
 
   const pendingIncidents = useMemo(() => incidents.filter((i) => i.mapStatus === 'Pending'), [incidents])
@@ -701,25 +710,39 @@ export default function GISCommandCenter() {
                     eventHandlers={isFormMode ? {} : { click: () => focusIncident(incident) }}
                   >
                     {!isFormMode && (
-                      <Popup className="bb-map-popup" minWidth={240}>
+                      <Popup className="bb-map-popup" minWidth={250}>
                         <div className="p-1 text-xs">
                           <div className="flex items-center justify-between gap-1 mb-1.5">
-                            <span className="font-bold text-gray-700">{incident.ref}</span>
+                            <span className="font-bold text-gray-700">Incident No.: {incident.ref}</span>
                             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
                               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
                               Naka-mapa na
                             </span>
                           </div>
-                          <h4 className="font-bold text-gray-900 text-sm mb-1">{incident.title || incident.classification}</h4>
-                          <p className="text-gray-600 mb-2 line-clamp-2 leading-relaxed">{incident.excerpt}</p>
-                          <div className="space-y-1 text-gray-500 mb-3 text-[11px]">
-                            <div className="flex items-center gap-1">
-                              <MapPin size={11} className="shrink-0" />
-                              <span className="truncate">{incident.location}</span>
+                          <div className="mb-2">
+                            <div className="text-sm font-bold text-gray-900">{incident.classification || incident.title}</div>
+                            <div className="text-[11px] text-gray-500">{incident.location}</div>
+                          </div>
+                          <div className="space-y-1 text-gray-600 mb-3 text-[11px] border-t border-b border-gray-100 py-1.5">
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">Date:</span>
+                              <span className="font-medium text-gray-700">{formatDisplayDate(incident.dateISO)}</span>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <Clock size={11} className="shrink-0" />
-                              <span>{formatDisplayDateTime(incident.dateISO)}</span>
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">Time:</span>
+                              <span className="font-medium text-gray-700">{formatDisplayTime(incident.dateISO)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">Severity:</span>
+                              <span className="font-medium" style={{ color: SEVERITY_META[incident.severity]?.color || '#444' }}>
+                                {incident.severity}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">Status:</span>
+                              <span className="font-semibold text-bb-blue">
+                                {getStatusLabel(incident.status)}
+                              </span>
                             </div>
                           </div>
                           <button
@@ -817,6 +840,9 @@ export default function GISCommandCenter() {
                         <span className="text-xs font-semibold text-gray-400">{incident.ref}</span>
                         <div className="flex items-center gap-1.5">
                           <Pill color="gray">{incident.classification}</Pill>
+                          <Pill color={incident.status === 'Nareselba' ? 'green' : 'blue'}>
+                            {getStatusLabel(incident.status)}
+                          </Pill>
                           <Pill color={SEVERITY_PILL_COLOR[incident.severity]} solid>
                             {SEVERITY_META[incident.severity].label}
                           </Pill>
@@ -871,19 +897,6 @@ export default function GISCommandCenter() {
                           <XCircle size={12} />
                           Alisin sa Mapa
                         </button>
-                        {canDelete && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              requestDelete(incident)
-                            }}
-                            className="flex items-center gap-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:shadow transition-all active:scale-[0.96] cursor-pointer"
-                          >
-                            <Trash2 size={12} />
-                            Burahin
-                          </button>
-                        )}
                       </div>
                     </div>
                   )
@@ -1002,7 +1015,7 @@ export default function GISCommandCenter() {
                 <div className="rounded-lg border border-bb-blue/20 bg-blue-50/50 p-3">
                   <label className="block">
                     <span className="mb-1 block text-xs font-semibold text-bb-navy">
-                      Pumili ng Blotter Report na I-mapa (Opsyonal)
+                      Pumili ng Verified Blotter Report
                     </span>
                     <select
                       value={draft.existingReportId || ''}
@@ -1012,12 +1025,12 @@ export default function GISCommandCenter() {
                       <option value="">-- Bagong Insidente (Manu-mano) --</option>
                       {unmappedBlotterReports.map((b) => (
                         <option key={b.id} value={b.id}>
-                          {b.ref} - {b.incidentType || 'Blotter'} ({b.complainant || 'Walang nagsumbong'}) - {b.location || 'Walang address'}
+                          {b.ref} – {b.title || b.incidentType || 'Kaganapan'} – {getStatusLabel(b.status)}
                         </option>
                       ))}
                     </select>
                     <span className="mt-1 block text-[11px] text-gray-500">
-                      Piliin ang isang umiiral na blotter report upang i-link ang lokasyon nang hindi gumagawa ng duplicate.
+                      Piliin ang isang nakumpirmang blotter report upang i-link ang lokasyon nang hindi gumagawa ng duplicate.
                     </span>
                   </label>
                 </div>

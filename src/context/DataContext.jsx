@@ -774,6 +774,10 @@ export function DataProvider({ children }) {
       }
 
       const existingReport = blotterReports.find(r => r.id === refOrId || r.ref === refOrId)
+      const currentStatus = existingReport?.status || incidents.find(i => i.ref === refOrId || i.id === refOrId)?.status
+      if (currentStatus === 'Sinuri' || currentStatus === 'Under Review' || currentStatus === 'Pending' || currentStatus === 'Spam') {
+        throw new Error('Tanging mga nakumpirmang blotter incident (Investigating o Resolved) lamang ang maaaring i-map sa GIS Command Center.')
+      }
       const targetLocation = location || address || existingReport?.location || existingReport?.where || 'Quezon City'
 
       if (existingReport?.isFormReport || String(refOrId).startsWith('REP-')) {
@@ -1358,6 +1362,12 @@ export function DataProvider({ children }) {
 
   const deleteIncident = async (ref) => {
     try {
+      const existing = blotterReports.find(b => b.id === ref || b.ref === ref) || incidents.find(i => i.ref === ref || i.id === ref)
+      if (existing && existing.status !== 'Sinuri' && existing.status !== 'Under Review') {
+        console.warn(`Hindi maaaring burahin ang opisyal na blotter record ${ref}.`)
+        return
+      }
+
       const { data: pb } = await supabase
         .from('pre_blotters')
         .select('blotter_id, extraction_id')
@@ -1493,6 +1503,15 @@ export function DataProvider({ children }) {
   const updateBlotterReport = async (id, patch) => {
     try {
       const existingReport = blotterReports.find(r => r.id === id)
+
+      if (patch.status) {
+        setBlotterReports((prev) =>
+          prev.map((b) => (b.id === id || b.ref === id ? { ...b, ...patch } : b))
+        )
+        setIncidents((prev) =>
+          prev.map((i) => (i.ref === id || i.id === id ? { ...i, status: patch.status } : i))
+        )
+      }
 
       if (existingReport?.isFormReport || id.startsWith('REP-')) {
         const updateFields = {}

@@ -350,6 +350,7 @@ export default function DigitalBlotter() {
         {filtered.map((report) => {
           const meta = STATUS_META[report.status] || { color: 'gray' }
           const isExpanded = expandedId === report.id
+          const isVerified = report.status !== 'Sinuri' && report.status !== 'Under Review' && report.status !== 'Spam'
 
           if (!isExpanded) {
             return (
@@ -365,7 +366,7 @@ export default function DigitalBlotter() {
                     <Pill color={meta.color} solid>
                       {report.status}
                     </Pill>
-                    <GisStatusPill isMapped={report.is_mapped} />
+                    {isVerified && <GisStatusPill isMapped={report.is_mapped} />}
                   </div>
                   <h3 className="mt-1 font-bold text-gray-900">{report.title}</h3>
                   <p className="text-sm text-gray-500">
@@ -373,24 +374,47 @@ export default function DigitalBlotter() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                  {report.is_mapped ? (
-                    <button
-                      onClick={() => navigate(`/gis?id=${report.id}`)}
-                      className="flex items-center gap-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3.5 py-1.5 text-xs font-semibold transition-all active:scale-[0.96] cursor-pointer shadow-2xs"
-                      title="Tingnan sa GIS Command Center map"
-                    >
-                      <MapPin size={13} />
-                      Tingnan sa Mapa
-                    </button>
+                  {isVerified ? (
+                    report.is_mapped ? (
+                      <button
+                        onClick={() => navigate(`/gis?id=${report.id}`)}
+                        className="flex items-center gap-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3.5 py-1.5 text-xs font-semibold transition-all active:scale-[0.96] cursor-pointer shadow-2xs"
+                        title="Tingnan sa GIS Command Center map"
+                      >
+                        <MapPin size={13} />
+                        Tingnan sa Mapa
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setMappingReport(report)}
+                        className="flex items-center gap-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-bb-blue border border-blue-200 px-3.5 py-1.5 text-xs font-semibold transition-all active:scale-[0.96] cursor-pointer shadow-2xs"
+                        title="I-map ang insidenteng ito sa GIS map"
+                      >
+                        <MapPin size={13} />
+                        I-map ang insidente
+                      </button>
+                    )
                   ) : (
-                    <button
-                      onClick={() => setMappingReport(report)}
-                      className="flex items-center gap-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-bb-blue border border-blue-200 px-3.5 py-1.5 text-xs font-semibold transition-all active:scale-[0.96] cursor-pointer shadow-2xs"
-                      title="I-map ang insidenteng ito sa GIS map"
-                    >
-                      <MapPin size={13} />
-                      I-map ang insidente
-                    </button>
+                    canConfirm && report.status === 'Sinuri' && (
+                      <>
+                        <button
+                          onClick={() => requestConfirmReport(report)}
+                          className="flex items-center gap-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-bb-blue border border-blue-200 px-3.5 py-1.5 text-xs font-semibold transition-all active:scale-[0.96] cursor-pointer shadow-2xs"
+                          title="Kumpirmahin ang ulat at itala sa permanenteng ledger"
+                        >
+                          <CheckCircle2 size={13} />
+                          Kumpirmahin
+                        </button>
+                        <button
+                          onClick={() => requestFlagSpam(report)}
+                          className="flex items-center gap-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-3.5 py-1.5 text-xs font-semibold transition-all active:scale-[0.96] cursor-pointer shadow-2xs"
+                          title="I-flag bilang Spam"
+                        >
+                          <ShieldAlert size={13} />
+                          I-flag bilang Spam
+                        </button>
+                      </>
+                    )
                   )}
                   <button
                     onClick={() => expand(report)}
@@ -414,63 +438,65 @@ export default function DigitalBlotter() {
                   <Pill color={meta.color} solid>
                     {report.status}
                   </Pill>
-                  <GisStatusPill isMapped={report.is_mapped} />
+                  {isVerified && <GisStatusPill isMapped={report.is_mapped} />}
                   <div className="ml-auto flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    {report.is_mapped ? (
-                      <>
-                        <button
-                          onClick={() => navigate(`/gis?id=${report.id}`)}
-                          className="flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 border border-emerald-600/10 shadow-xs px-3 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96] cursor-pointer"
-                          title="Tingnan sa GIS Command Center map"
-                        >
-                          <MapPin size={13} />
-                          Tingnan sa Mapa
-                        </button>
+                    {isVerified ? (
+                      report.is_mapped ? (
+                        <>
+                          <button
+                            onClick={() => navigate(`/gis?id=${report.id}`)}
+                            className="flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 border border-emerald-600/10 shadow-xs px-3 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96] cursor-pointer"
+                            title="Tingnan sa GIS Command Center map"
+                          >
+                            <MapPin size={13} />
+                            Tingnan sa Mapa
+                          </button>
+                          <button
+                            onClick={() => setMappingReport(report)}
+                            className="flex items-center gap-1.5 rounded-lg bg-white/20 hover:bg-white/30 border border-white/20 px-3 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96] cursor-pointer"
+                            title="Baguhin ang lokasyon sa mapa"
+                          >
+                            <MapPin size={13} />
+                            Baguhin ang Lokasyon
+                          </button>
+                          <button
+                            onClick={() => requestUnmap(report)}
+                            className="flex items-center gap-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 border border-rose-600/10 shadow-xs px-3 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96] cursor-pointer"
+                            title="Alisin sa GIS map"
+                          >
+                            <X size={13} />
+                            Alisin sa Mapa
+                          </button>
+                        </>
+                      ) : (
                         <button
                           onClick={() => setMappingReport(report)}
-                          className="flex items-center gap-1.5 rounded-lg bg-white/20 hover:bg-white/30 border border-white/20 px-3 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96] cursor-pointer"
-                          title="Baguhin ang lokasyon sa mapa"
+                          className="flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 border border-emerald-600/10 shadow-xs px-3.5 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96] cursor-pointer"
+                          title="I-map ang insidente sa mapa"
                         >
                           <MapPin size={13} />
-                          Baguhin ang Lokasyon
+                          I-map ang insidente
                         </button>
-                        <button
-                          onClick={() => requestUnmap(report)}
-                          className="flex items-center gap-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 border border-rose-600/10 shadow-xs px-3 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96] cursor-pointer"
-                          title="Alisin sa GIS map"
-                        >
-                          <X size={13} />
-                          Alisin sa Mapa
-                        </button>
-                      </>
+                      )
                     ) : (
-                      <button
-                        onClick={() => setMappingReport(report)}
-                        className="flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 border border-emerald-600/10 shadow-xs px-3.5 py-1.5 text-xs font-semibold text-white transition-all active:scale-[0.96] cursor-pointer"
-                        title="I-map ang insidente sa mapa"
-                      >
-                        <MapPin size={13} />
-                        I-map ang insidente
-                      </button>
-                    )}
-
-                    {report.status === 'Sinuri' && canConfirm && (
-                      <>
-                        <button
-                          onClick={() => requestConfirmReport(report)}
-                          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-white to-gray-100/90 border border-gray-200 shadow-xs hover:shadow-sm text-bb-blue px-3.5 py-1.5 text-xs font-semibold hover:from-gray-50 hover:to-gray-150 transition-all active:scale-[0.96] cursor-pointer"
-                        >
-                          <CheckCircle2 size={13} />
-                          Kumpirmahin
-                        </button>
-                        <button
-                          onClick={() => requestFlagSpam(report)}
-                          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-red-600 to-red-700/90 border border-red-600/10 shadow-xs hover:shadow-sm px-3.5 py-1.5 text-xs font-semibold text-white hover:from-red-700 hover:to-red-800 transition-all active:scale-[0.96] cursor-pointer"
-                        >
-                          <ShieldAlert size={13} />
-                          I-flag bilang Spam
-                        </button>
-                      </>
+                      report.status === 'Sinuri' && canConfirm && (
+                        <>
+                          <button
+                            onClick={() => requestConfirmReport(report)}
+                            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-white to-gray-100/90 border border-gray-200 shadow-xs hover:shadow-sm text-bb-blue px-3.5 py-1.5 text-xs font-semibold hover:from-gray-50 hover:to-gray-150 transition-all active:scale-[0.96] cursor-pointer"
+                          >
+                            <CheckCircle2 size={13} />
+                            Kumpirmahin
+                          </button>
+                          <button
+                            onClick={() => requestFlagSpam(report)}
+                            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-red-600 to-red-700/90 border border-red-600/10 shadow-xs hover:shadow-sm px-3.5 py-1.5 text-xs font-semibold text-white hover:from-red-700 hover:to-red-800 transition-all active:scale-[0.96] cursor-pointer"
+                          >
+                            <ShieldAlert size={13} />
+                            I-flag bilang Spam
+                          </button>
+                        </>
+                      )
                     )}
                   </div>
                 </div>

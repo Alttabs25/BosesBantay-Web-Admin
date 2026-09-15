@@ -171,6 +171,7 @@ export default function BlotterCreateModal({ open, onClose, onCreated }) {
         classification,
         severity,
         sector,
+        status: gisOption === 'map' ? 'Inimbestigahan' : 'Sinuri',
         dateISO: new Date(dateLocal).toISOString(),
         filedBy: filedBy.trim() || 'Residente',
         complainantPhone: complainantPhone.trim() || 'N/A',
