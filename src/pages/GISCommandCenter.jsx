@@ -506,7 +506,7 @@ export default function GISCommandCenter() {
     unmap: {
       title: 'Alisin sa Mapa',
       message: (incident) =>
-        `Tatanggalin ang lokasyon sa mapa para sa ${incident.ref}. Mananatili pa rin ang ulat sa Digital Blotter bilang "Hindi naka-mapa". Magpatuloy?`,
+        `Tatanggalin ang lokasyon sa mapa para sa ${incident.ref}. Mananatili pa rin ang ulat sa Digital Reports bilang "Hindi naka-mapa". Magpatuloy?`,
       confirmLabel: 'Alisin sa Mapa',
       danger: true,
     },

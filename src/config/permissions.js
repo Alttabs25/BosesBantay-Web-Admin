@@ -112,7 +112,7 @@ export function hasModuleAccess(role, moduleKey) {
 // being locked out of the portal entirely.
 export const ASSIGNABLE_MODULES = [
   { key: 'gis', label: 'GIS Command Center' },
-  { key: 'blotter', label: 'Digital Blotter' },
+  { key: 'blotter', label: 'Digital Reports' },
   { key: 'userAccounts', label: 'User Accounts' },
   { key: 'knowledgeBase', label: 'Knowledge Base' },
   { key: 'alerts', label: 'In-App notification' },

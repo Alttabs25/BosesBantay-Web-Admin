@@ -293,7 +293,7 @@ export default function DigitalBlotter() {
     else if (type === 'unmap') {
       try {
         await unmapIncidentLocation(report.id)
-        showToast(`Inalis sa GIS map ang ${report.id}. Mananatili ang record sa Digital Blotter.`)
+        showToast(`Inalis sa GIS map ang ${report.id}. Mananatili ang record sa Digital Reports.`)
       } catch (err) {
         showToast(err.message || 'Hindi na-save ang mapping ng insidente. Pakisubukan muli.', 'error')
       }
@@ -343,7 +343,7 @@ export default function DigitalBlotter() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Digital Blotter</h2>
+          <h2 className="text-xl font-bold text-gray-900">Digital Reports</h2>
           <p className="mt-1 text-sm text-gray-500">
             Suriin, kumpirmahin, at i-map ang mga blotter report at insidente.
           </p>
