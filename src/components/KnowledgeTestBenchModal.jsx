@@ -215,344 +215,377 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
     if (!testText) setQuery('')
 
     setTimeout(() => {
-      const qLower = q.toLowerCase()
+      try {
+        const qLower = q.toLowerCase()
 
-      // 1. Natural Greeting Interceptor (Personalized & Courteous)
-      const isGreeting = [
-        'hi', 'hello', 'kumusta', 'kamusta', 'magandang araw',
-        'magandang umaga', 'magandang hapon', 'magandang gabi',
-        'good morning', 'good afternoon', 'good evening', 'hey', 'yo',
-      ].some((g) => qLower === g || qLower.startsWith(`${g} `) || qLower.endsWith(` ${g}`))
+        // 1. Natural Greeting Interceptor (Personalized & Courteous)
+        const isGreeting = [
+          'hi', 'hello', 'kumusta', 'kamusta', 'magandang araw',
+          'magandang umaga', 'magandang hapon', 'magandang gabi',
+          'good morning', 'good afternoon', 'good evening', 'hey', 'yo',
+        ].some((g) => qLower === g || qLower.startsWith(`${g} `) || qLower.endsWith(` ${g}`))
 
-      if (isGreeting) {
-        const botResponse = isEnglish
-          ? 'Hello! How can I assist you today regarding our official barangay ordinances or guidelines?'
-          : 'Magandang araw po! Kumusta po kayo? Ako ang inyong Barangay-Bot assistant. Ano po ang maitutulong ko sa inyo ukol sa ating mga opisyal na ordinansa at alituntunin?'
-        setChatHistory((prev) => [
-          ...prev,
-          {
-            sender: 'bot',
-            text: botResponse,
-            sources: [],
-            blocked: [],
-            isGreeting: true,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          },
+        if (isGreeting) {
+          const botResponse = isEnglish
+            ? 'Hello! How can I assist you today regarding our official barangay ordinances or guidelines?'
+            : 'Magandang araw po! Kumusta po kayo? Ako ang inyong Barangay-Bot assistant. Ano po ang maitutulong ko sa inyo ukol sa ating mga opisyal na ordinansa at alituntunin?'
+          setChatHistory((prev) => [
+            ...prev,
+            {
+              sender: 'bot',
+              text: botResponse,
+              sources: [],
+              blocked: [],
+              isGreeting: true,
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            },
+          ])
+          return
+        }
+
+        // 2. Comprehensive Stopwords (Never treat structural/generic barangay words or verbal prefixes as topic keywords)
+        const grammaticalStopWords = new Set([
+          'po', 'ba', 'ng', 'sa', 'at', 'ang', 'na', 'ay', 'ito', 'kung', 'kayo', 'kami',
+          'namin', 'inyo', 'sila', 'kanila', 'mo', 'ko', 'ni', 'din', 'rin', 'nga', 'naman',
+          'the', 'a', 'an', 'and', 'or', 'of', 'in', 'on', 'at', 'to', 'for', 'with', 'from',
+          'by', 'is', 'are', 'was', 'were', 'am', 'it', 'its', 'be', 'do', 'does', 'did',
+          'barangay', 'hall', 'bosesbantay', 'opisyal', 'tala', 'mga', 'may', 'meron', 'wala',
+          'lahat', 'bawat', 'anong', 'ano', 'kailan', 'saan', 'paano', 'bakit', 'sino', 'alin',
+          'dito', 'doon', 'nito', 'para', 'ukol', 'hinggil', 'bukas', 'oras', 'araw', 'petsa',
+          'mag', 'nag', 'pag', 'makapag',
         ])
-        setLoading(false)
-        return
-      }
 
-      // 2. Comprehensive Stopwords (Never treat structural/generic barangay words or verbal prefixes as topic keywords)
-      const grammaticalStopWords = new Set([
-        'po', 'ba', 'ng', 'sa', 'at', 'ang', 'na', 'ay', 'ito', 'kung', 'kayo', 'kami',
-        'namin', 'inyo', 'sila', 'kanila', 'mo', 'ko', 'ni', 'din', 'rin', 'nga', 'naman',
-        'the', 'a', 'an', 'and', 'or', 'of', 'in', 'on', 'at', 'to', 'for', 'with', 'from',
-        'by', 'is', 'are', 'was', 'were', 'am', 'it', 'its', 'be', 'do', 'does', 'did',
-        'barangay', 'hall', 'bosesbantay', 'opisyal', 'tala', 'mga', 'may', 'meron', 'wala',
-        'lahat', 'bawat', 'anong', 'ano', 'kailan', 'saan', 'paano', 'bakit', 'sino', 'alin',
-        'dito', 'doon', 'nito', 'para', 'ukol', 'hinggil', 'bukas', 'oras', 'araw', 'petsa',
-        'mag', 'nag', 'pag', 'makapag',
-      ])
+        // Normalize colloquial contractions
+        const normalizedQuery = qLower
+          .replace(/\bpano\b/g, 'paano')
+          .replace(/\bsan\b/g, 'saan')
+          .replace(/\bkelan\b/g, 'kailan')
 
-      // Normalize colloquial contractions
-      const normalizedQuery = qLower
-        .replace(/\bpano\b/g, 'paano')
-        .replace(/\bsan\b/g, 'saan')
-        .replace(/\bkelan\b/g, 'kailan')
+        // 3. 100% DYNAMIC SENTENCE-LEVEL TOPIC & DOCUMENT QUALIFICATION
+        const queryTokens = normalizedQuery
+          .replace(/[^\w\s\u00C0-\u017F]/g, ' ')
+          .split(/\s+/)
+          .filter((w) => w.length >= 3 && !grammaticalStopWords.has(w))
 
-      // 3. 100% DYNAMIC SENTENCE-LEVEL TOPIC & DOCUMENT QUALIFICATION
-      const queryTokens = normalizedQuery
-        .replace(/[^\w\s\u00C0-\u017F]/g, ' ')
-        .split(/\s+/)
-        .filter((w) => w.length >= 3 && !grammaticalStopWords.has(w))
-
-      // Generate query bigrams (adjacent token pairs) for phrase relevance
-      const queryBigrams = []
-      for (let i = 0; i < queryTokens.length - 1; i++) {
-        queryBigrams.push(`${queryTokens[i]} ${queryTokens[i + 1]}`)
-      }
-
-      // Robust morphological, stem, and bilingual cognate matcher
-      const tokenMatchesText = (token, text) => {
-        const t = token.toLowerCase()
-        const txt = text.toLowerCase()
-        if (new RegExp('(?:^|[^a-zA-Z0-9])' + t + '(?:$|[^a-zA-Z0-9])', 'i').test(txt)) return true
-        if (t.length >= 4 && txt.includes(t) && t !== 'pet') return true
-
-        // Universal bilingual cognates and root stems (supports any ordinance)
-        if (t.startsWith('regist') || t.startsWith('rehistr')) return txt.includes('regist') || txt.includes('rehistr')
-        if (t === 'liga' || t === 'league' || t.includes('liga')) return txt.includes('liga') || txt.includes('league')
-        if (t.includes('linis') || t.startsWith('clean')) return txt.includes('linis') || txt.includes('clean')
-        if (t.startsWith('inspek') || t.startsWith('inspect')) return txt.includes('inspek') || txt.includes('inspect')
-        if (t.startsWith('bakun') || t.startsWith('vaccin')) return txt.includes('bakun') || txt.includes('vaccin')
-        if (t === 'aso' || t === 'pusa' || t === 'pet' || t === 'pets') return /\b(pet|pets|aso|asong|pusa|pusang)\b/i.test(txt)
-        return false
-      }
-
-      // Dynamically score every official document based on topic relevance to query
-      const scoredOfficialDocs = officialDocs.map((doc) => {
-        const cleanTitle = (doc.title || '')
-          .replace(/\.[^/.]+$/, '')
-          .replace(/[_\W]+/g, ' ')
-          .toLowerCase()
-        const summaryLower = (doc.summary || '').toLowerCase()
-
-        let docTopicScore = 0
-
-        // Title matches (high weight)
-        for (const token of queryTokens) {
-          if (tokenMatchesText(token, cleanTitle)) docTopicScore += 8
-          if (tokenMatchesText(token, summaryLower)) docTopicScore += 4
+        // Generate query bigrams (adjacent token pairs) for phrase relevance
+        const queryBigrams = []
+        for (let i = 0; i < queryTokens.length - 1; i++) {
+          queryBigrams.push(`${queryTokens[i]} ${queryTokens[i + 1]}`)
         }
 
-        // Phrase / bigram matches in title/summary
-        for (const bigram of queryBigrams) {
-          if (cleanTitle.includes(bigram)) docTopicScore += 10
-          if (summaryLower.includes(bigram)) docTopicScore += 5
+        // Robust morphological, stem, and bilingual cognate matcher
+        const tokenMatchesText = (token, text) => {
+          const t = token.toLowerCase()
+          const txt = text.toLowerCase()
+          if (new RegExp('(?:^|[^a-zA-Z0-9])' + t + '(?:$|[^a-zA-Z0-9])', 'i').test(txt)) return true
+          if (t.length >= 4 && txt.includes(t) && t !== 'pet') return true
+
+          // Universal bilingual cognates and root stems (supports any ordinance)
+          if (t.startsWith('regist') || t.startsWith('rehistr')) return txt.includes('regist') || txt.includes('rehistr')
+          if (t === 'liga' || t === 'league' || t.includes('liga')) return txt.includes('liga') || txt.includes('league')
+          if (t.includes('linis') || t.startsWith('clean')) return txt.includes('linis') || txt.includes('clean')
+          if (t.startsWith('inspek') || t.startsWith('inspect')) return txt.includes('inspek') || txt.includes('inspect')
+          if (t.startsWith('bakun') || t.startsWith('vaccin')) return txt.includes('bakun') || txt.includes('vaccin')
+          if (t === 'aso' || t === 'pusa' || t === 'pet' || t === 'pets') return /\b(pet|pets|aso|asong|pusa|pusang)\b/i.test(txt)
+          return false
         }
 
-        // Content density across sections
-        if (Array.isArray(doc.sections)) {
-          let matchingSecs = 0
-          for (const sec of doc.sections) {
-            const secFull = `${sec.title || ''} ${sec.content || ''}`.toLowerCase()
-            const hasMatch = queryTokens.some((tok) => tokenMatchesText(tok, secFull))
-            if (hasMatch) matchingSecs++
+        // Dynamically score every official document based on topic relevance to query
+        const scoredOfficialDocs = officialDocs.map((doc) => {
+          const cleanTitle = (doc.title || '')
+            .replace(/\.[^/.]+$/, '')
+            .replace(/[_\W]+/g, ' ')
+            .toLowerCase()
+          const summaryLower = (doc.summary || '').toLowerCase()
+
+          let docTopicScore = 0
+
+          // Title matches (high weight)
+          for (const token of queryTokens) {
+            if (tokenMatchesText(token, cleanTitle)) docTopicScore += 8
+            if (tokenMatchesText(token, summaryLower)) docTopicScore += 4
           }
-          docTopicScore += Math.min(8, matchingSecs * 2.5)
-        }
 
-        // Sentence-Level Topic Completeness: Count how many DISTINCT query tokens this document addresses
-        const fullDocText = (cleanTitle + ' ' + summaryLower + ' ' + (doc.sections || []).map((s) => `${s.title || ''} ${s.content || ''}`).join(' ')).toLowerCase()
-        const matchedTokensCount = queryTokens.filter((tok) => tokenMatchesText(tok, fullDocText)).length
-
-        return { doc, docTopicScore, matchedTokensCount }
-      })
-
-      // Sort by distinct topic tokens matched descending, then by overall topic score descending
-      scoredOfficialDocs.sort(
-        (a, b) => b.matchedTokensCount - a.matchedTokensCount || b.docTopicScore - a.docTopicScore
-      )
-      const topDocCandidate = scoredOfficialDocs.length > 0 ? scoredOfficialDocs[0] : null
-      const maxMatchedTokens = topDocCandidate ? topDocCandidate.matchedTokensCount : 0
-      const topDocScore = topDocCandidate ? topDocCandidate.docTopicScore : 0
-
-      // If no document addresses the sentence topic:
-      if (!topDocCandidate || maxMatchedTokens === 0 || topDocScore < 3.0) {
-        const fallbackText = isEnglish
-          ? 'I apologize, but there is no official record or active document in our database regarding this inquiry. Please coordinate with or visit the Barangay Hall for further assistance.'
-          : 'Paumanhin po, wala pa po akong tala o opisyal na dokumento ukol sa katanungang ito sa ating database. Mangyaring makipag-ugnayan o magsadya sa Barangay Hall para sa inyong karagdagang katanungan at tulong.'
-
-        setChatHistory((prev) => [
-          ...prev,
-          {
-            sender: 'bot',
-            text: fallbackText,
-            sources: [],
-            blocked: [],
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          },
-        ])
-        setLoading(false)
-        return
-      }
-
-      // Sentence-Level Topic Locking: ONLY qualify documents that match the sentence's maximum distinct tokens!
-      // This prevents a generic word (e.g. "register") from pulling sections from an unrelated document (e.g. Pets when asking about Liga)
-      const candidateDocs = scoredOfficialDocs
-        .filter((d) => d.matchedTokensCount === maxMatchedTokens && d.docTopicScore >= Math.max(3.0, topDocScore * 0.70))
-        .map((d) => d.doc)
-
-      // Step 4: Universal, Document-Agnostic Intent Detection
-      const isFeeQuery = ['magkano', 'bayad', 'libre', 'singil', 'halaga', 'premyo', 'pabuya', 'cost', 'fee', 'price', 'prize', 'free'].some((w) => tokenMatchesText(w, normalizedQuery))
-      const isPenaltyQuery = ['multa', 'parusa', 'penalty', 'huli', 'violation', 'paglabag', 'bawal', 'pananagutan', 'saklaw'].some((w) => tokenMatchesText(w, normalizedQuery))
-      const isScheduleQuery = ['oras', 'kailan', 'iskedyul', 'araw', 'petsa', 'panahon', 'when', 'schedule', 'time', 'date', 'inspeksyon'].some((w) => tokenMatchesText(w, normalizedQuery))
-      const isRequirementsQuery = ['paano', 'rehistro', 'register', 'kuha', 'sumali', 'kwalipikasyon', 'edad', 'requisitos', 'requirement', 'qualify', 'how', 'who'].some((w) => tokenMatchesText(w, normalizedQuery))
-
-      // Step 5: Dynamic Section-level Chunk Matching within Qualified Candidate Documents
-      const matchedSources = []
-
-      for (const doc of candidateDocs) {
-        if (doc.sections && doc.sections.length > 0) {
-          for (const sec of doc.sections) {
-            const secTitleLower = (sec.title || '').toLowerCase()
-            const secContentLower = (sec.content || '').toLowerCase()
-
-            let chunkScore = 0
-
-            // Dynamic Token Matching
-            for (const token of queryTokens) {
-              if (tokenMatchesText(token, secTitleLower)) {
-                chunkScore += 5.0
-              } else if (tokenMatchesText(token, secContentLower)) {
-                chunkScore += 2.0
-              }
-            }
-
-            // Dynamic Bigram/Phrase Matching
-            for (const bigram of queryBigrams) {
-              if (secTitleLower.includes(bigram)) chunkScore += 5.0
-              else if (secContentLower.includes(bigram)) chunkScore += 2.5
-            }
-
-            // Universal Interrogative Intent Boosts:
-            if (isFeeQuery) {
-              if (['bayad', 'libre', 'singil', 'halaga', 'premyo', 'pabuya', 'pagpaparehistro', 'fee', 'cost', 'price'].some((w) => secTitleLower.includes(w))) {
-                chunkScore += 5.0
-              }
-              if (/[₱$]|php|pesos?|\b\d+([.,]\d{2})?\b|\blibre\b|\bfree\b/i.test(secContentLower)) {
-                chunkScore += 3.5
-              }
-            }
-
-            if (isPenaltyQuery) {
-              if (['multa', 'parusa', 'paglabag', 'penalty', 'sanction', 'pananagutan', 'kagat'].some((w) => secTitleLower.includes(w))) {
-                chunkScore += 6.0
-              }
-              if (['multa', 'parusa', 'unang paglabag', 'penalty', 'pananagutan'].some((w) => secContentLower.includes(w))) {
-                chunkScore += 3.0
-              }
-            }
-
-            if (isScheduleQuery) {
-              if (['oras', 'iskedyul', 'araw', 'petsa', 'panahon', 'inspeksyon', 'schedule', 'time'].some((w) => secTitleLower.includes(w))) {
-                chunkScore += 5.0
-              }
-              if (['lunes', 'martes', 'miyerkules', 'huwebes', 'biyernes', 'sabado', 'linggo', 'am', 'pm', 'umaga', 'hapon', 'gabi'].some((w) => secContentLower.includes(w))) {
-                chunkScore += 3.0
-              }
-            }
-
-            if (isRequirementsQuery) {
-              if (['requisitos', 'kwalipikasyon', 'pamantayan', 'requirements', 'edad', 'pagpaparehistro', 'registration'].some((w) => secTitleLower.includes(w))) {
-                chunkScore += 6.0
-              }
-            }
-
-            // Substantive Section Priority: Demote Seksyon 1 (Pamagat at Saklaw) when asking specific questions
-            if (
-              (secTitleLower.includes('pamagat') || secTitleLower.includes('saklaw')) &&
-              (isFeeQuery || isPenaltyQuery || isScheduleQuery || isRequirementsQuery)
-            ) {
-              chunkScore -= 10
-            }
-
-            // Calculate cosine similarity approximation
-            let calculatedSimilarity = 0.50
-            if (chunkScore >= 8) {
-              calculatedSimilarity = Math.min(0.96, 0.86 + (chunkScore - 8) * 0.015)
-            } else if (chunkScore >= 4) {
-              calculatedSimilarity = Math.min(0.85, 0.74 + (chunkScore - 4) * 0.025)
-            } else if (chunkScore >= 2) {
-              calculatedSimilarity = Math.min(0.72, 0.62 + chunkScore * 0.04)
-            }
-
-            // Strictly enforce minimum cosine similarity threshold of 0.73
-            if (calculatedSimilarity >= 0.73) {
-              matchedSources.push({
-                docTitle: doc.title,
-                ordinanceNo: doc.ordinanceNo && doc.ordinanceNo !== '—' ? doc.ordinanceNo : '',
-                category: doc.category,
-                sectionTitle: sec.title,
-                content: sec.content,
-                score: calculatedSimilarity,
-                rawScore: chunkScore,
-              })
-            }
+          // Phrase / bigram matches in title/summary
+          for (const bigram of queryBigrams) {
+            if (cleanTitle.includes(bigram)) docTopicScore += 10
+            if (summaryLower.includes(bigram)) docTopicScore += 5
           }
-        }
-      }
 
-      // Rank by relevance descending and retrieve up to top 5 chunks
-      matchedSources.sort((a, b) => b.score - a.score || b.rawScore - a.rawScore)
-      const top5Chunks = matchedSources.slice(0, 5)
-
-      // Check if unapproved documents matched keywords (Governance Gate)
-      const blockedMatches = []
-      for (const unappDoc of unapprovedDocs) {
-        if (unappDoc.sections && unappDoc.sections.length > 0) {
-          for (const sec of unappDoc.sections) {
-            const secText = (sec.title + ' ' + sec.content).toLowerCase()
-            const unappDocText = `${unappDoc.title} ${unappDoc.summary || ''} ${secText}`.toLowerCase()
-            const matchedKeywords = Array.from(expandedKeywords).filter((qw) => unappDocText.includes(qw)).length
-
-            if (
-              expandedKeywords.size > 0 &&
-              matchedKeywords >= 2 &&
-              (qLower.includes('eo') || qLower.includes('health') || qLower.includes('protocol') || unappDoc.officialStatus !== 'Opisyal')
-            ) {
-              blockedMatches.push({
-                docTitle: unappDoc.title,
-                status: unappDoc.officialStatus,
-                reason: isEnglish
-                  ? 'Not yet officially signed or approved by the Punong Barangay (Pending Sign-off).'
-                  : 'Hindi pa opisyal na naaprubahan o nalalagdaan ng Punong Barangay (Pending Sign-off).',
-              })
-              break
+          // Content density across sections
+          if (Array.isArray(doc.sections)) {
+            let matchingSecs = 0
+            for (const sec of doc.sections) {
+              const secFull = `${sec.title || ''} ${sec.content || ''}`.toLowerCase()
+              const hasMatch = queryTokens.some((tok) => tokenMatchesText(tok, secFull))
+              if (hasMatch) matchingSecs++
             }
+            docTopicScore += Math.min(8, matchingSecs * 2.5)
           }
-        }
-      }
 
-      let botResponse = ''
+          // Sentence-Level Topic Completeness: Count how many DISTINCT query tokens this document addresses
+          const fullDocText = (cleanTitle + ' ' + summaryLower + ' ' + (doc.sections || []).map((s) => `${s.title || ''} ${s.content || ''}`).join(' ')).toLowerCase()
+          const matchedTokensCount = queryTokens.filter((tok) => tokenMatchesText(tok, fullDocText)).length
 
-      if (top5Chunks.length > 0) {
-        const primary = top5Chunks[0]
-        const ordLabel = primary.ordinanceNo ? `${primary.ordinanceNo} - ` : ''
+          return { doc, docTopicScore, matchedTokensCount }
+        })
 
-        // Secondary chunk MUST strictly belong to the SAME document as primary
-        const secondary = top5Chunks.find(
-          (c, idx) => idx > 0 && c.docTitle === primary.docTitle
+        // Sort by distinct topic tokens matched descending, then by overall topic score descending
+        scoredOfficialDocs.sort(
+          (a, b) => b.matchedTokensCount - a.matchedTokensCount || b.docTopicScore - a.docTopicScore
         )
+        const topDocCandidate = scoredOfficialDocs.length > 0 ? scoredOfficialDocs[0] : null
+        const maxMatchedTokens = topDocCandidate ? topDocCandidate.matchedTokensCount : 0
+        const topDocScore = topDocCandidate ? topDocCandidate.docTopicScore : 0
 
-        if (isEnglish) {
-          // Professional Philippine English Generation (Llama 3.1 8B Instruct Grounded)
-          botResponse = `Good day! Based on our official records in **${ordLabel}${primary.docTitle}**, specifically under **${primary.sectionTitle}**:\n\n`
-          botResponse += `> "${primary.content}"\n\n`
+        // If no document addresses the sentence topic:
+        if (!topDocCandidate || maxMatchedTokens === 0 || topDocScore < 3.0) {
+          const fallbackText = isEnglish
+            ? 'I apologize, but there is no official record or active document in our database regarding this inquiry. Please coordinate with or visit the Barangay Hall for further assistance.'
+            : 'Paumanhin po, wala pa po akong tala o opisyal na dokumento ukol sa katanungang ito sa ating database. Mangyaring makipag-ugnayan o magsadya sa Barangay Hall para sa inyong karagdagang katanungan at tulong.'
 
-          if (secondary) {
-            const secOrdLabel = secondary.ordinanceNo ? `${secondary.ordinanceNo} - ` : ''
-            botResponse += `Additionally, under **${secOrdLabel}${secondary.sectionTitle}**:\n> "${secondary.content}"\n\n`
+          setChatHistory((prev) => [
+            ...prev,
+            {
+              sender: 'bot',
+              text: fallbackText,
+              sources: [],
+              blocked: [],
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            },
+          ])
+          return
+        }
+
+        // Sentence-Level Topic Locking: ONLY qualify documents that match the sentence's maximum distinct tokens!
+        const candidateDocs = scoredOfficialDocs
+          .filter((d) => d.matchedTokensCount === maxMatchedTokens && d.docTopicScore >= Math.max(3.0, topDocScore * 0.70))
+          .map((d) => d.doc)
+
+        // Step 4: Universal, Document-Agnostic Intent Detection
+        const isFeeQuery = ['magkano', 'bayad', 'libre', 'singil', 'halaga', 'premyo', 'pabuya', 'cost', 'fee', 'price', 'prize', 'free'].some((w) => tokenMatchesText(w, normalizedQuery))
+        const isPenaltyQuery = ['multa', 'parusa', 'penalty', 'huli', 'violation', 'paglabag', 'bawal', 'pananagutan', 'saklaw'].some((w) => tokenMatchesText(w, normalizedQuery))
+        const isScheduleQuery = ['oras', 'kailan', 'iskedyul', 'araw', 'petsa', 'panahon', 'when', 'schedule', 'time', 'date', 'inspeksyon'].some((w) => tokenMatchesText(w, normalizedQuery))
+        const isRequirementsQuery = ['paano', 'rehistro', 'register', 'kuha', 'sumali', 'kwalipikasyon', 'edad', 'requisitos', 'requirement', 'qualify', 'how', 'who'].some((w) => tokenMatchesText(w, normalizedQuery))
+
+        // Step 5: Dynamic Section-level Chunk Matching within Qualified Candidate Documents
+        const matchedSources = []
+
+        for (const doc of candidateDocs) {
+          if (doc.sections && doc.sections.length > 0) {
+            for (const sec of doc.sections) {
+              const secTitleLower = (sec.title || '').toLowerCase()
+              const secContentLower = (sec.content || '').toLowerCase()
+
+              let chunkScore = 0
+
+              // Dynamic Token Matching
+              for (const token of queryTokens) {
+                if (tokenMatchesText(token, secTitleLower)) {
+                  chunkScore += 5.0
+                } else if (tokenMatchesText(token, secContentLower)) {
+                  chunkScore += 2.0
+                }
+              }
+
+              // Dynamic Bigram/Phrase Matching
+              for (const bigram of queryBigrams) {
+                if (secTitleLower.includes(bigram)) chunkScore += 5.0
+                else if (secContentLower.includes(bigram)) chunkScore += 2.5
+              }
+
+              // Universal Interrogative Intent Boosts:
+              if (isFeeQuery) {
+                if (['bayad', 'libre', 'singil', 'halaga', 'premyo', 'pabuya', 'pagpaparehistro', 'fee', 'cost', 'price'].some((w) => secTitleLower.includes(w))) {
+                  chunkScore += 5.0
+                }
+                if (/[₱$]|php|pesos?|\b\d+([.,]\d{2})?\b|\blibre\b|\bfree\b/i.test(secContentLower)) {
+                  chunkScore += 3.5
+                }
+              }
+
+              if (isPenaltyQuery) {
+                if (['multa', 'parusa', 'paglabag', 'penalty', 'sanction', 'pananagutan', 'kagat'].some((w) => secTitleLower.includes(w))) {
+                  chunkScore += 6.0
+                }
+                if (['multa', 'parusa', 'unang paglabag', 'penalty', 'pananagutan'].some((w) => secContentLower.includes(w))) {
+                  chunkScore += 3.0
+                }
+              }
+
+              if (isScheduleQuery) {
+                if (['oras', 'iskedyul', 'araw', 'petsa', 'panahon', 'inspeksyon', 'schedule', 'time'].some((w) => secTitleLower.includes(w))) {
+                  chunkScore += 5.0
+                }
+                if (['lunes', 'martes', 'miyerkules', 'huwebes', 'biyernes', 'sabado', 'linggo', 'am', 'pm', 'umaga', 'hapon', 'gabi'].some((w) => secContentLower.includes(w))) {
+                  chunkScore += 3.0
+                }
+              }
+
+              if (isRequirementsQuery) {
+                if (['requisitos', 'kwalipikasyon', 'pamantayan', 'requirements', 'edad', 'pagpaparehistro', 'registration'].some((w) => secTitleLower.includes(w))) {
+                  chunkScore += 6.0
+                }
+              }
+
+              // Substantive Section Priority: Demote Seksyon 1 (Pamagat at Saklaw) when asking specific questions
+              if (
+                (secTitleLower.includes('pamagat') || secTitleLower.includes('saklaw')) &&
+                (isFeeQuery || isPenaltyQuery || isScheduleQuery || isRequirementsQuery)
+              ) {
+                chunkScore -= 10
+              }
+
+              // Calculate cosine similarity approximation
+              let calculatedSimilarity = 0.50
+              if (chunkScore >= 8) {
+                calculatedSimilarity = Math.min(0.96, 0.86 + (chunkScore - 8) * 0.015)
+              } else if (chunkScore >= 4) {
+                calculatedSimilarity = Math.min(0.85, 0.74 + (chunkScore - 4) * 0.025)
+              } else if (chunkScore >= 2) {
+                calculatedSimilarity = Math.min(0.72, 0.62 + chunkScore * 0.04)
+              }
+
+              // Strictly enforce minimum cosine similarity threshold of 0.73
+              if (calculatedSimilarity >= 0.73) {
+                matchedSources.push({
+                  docTitle: doc.title,
+                  ordinanceNo: doc.ordinanceNo && doc.ordinanceNo !== '—' ? doc.ordinanceNo : '',
+                  category: doc.category,
+                  sectionTitle: sec.title,
+                  content: sec.content,
+                  score: calculatedSimilarity,
+                  rawScore: chunkScore,
+                })
+              }
+            }
           }
+        }
 
-          botResponse += `If you have further questions or need official assistance, please feel free to visit the Barangay Hall or coordinate with our Desk Officer.`
-        } else {
-          // Courteous Filipino Generation (Llama 3.1 8B Instruct Grounded)
-          botResponse = `Magandang araw po! Batay sa opisyal na tala ng **${ordLabel}${primary.docTitle}**, partikular sa **${primary.sectionTitle}**:\n\n`
-          botResponse += `> "${primary.content}"\n\n`
+        // Rank by relevance descending and retrieve up to top 5 chunks
+        matchedSources.sort((a, b) => b.score - a.score || b.rawScore - a.rawScore)
+        const top5Chunks = matchedSources.slice(0, 5)
 
-          if (secondary) {
-            const secOrdLabel = secondary.ordinanceNo ? `${secondary.ordinanceNo} - ` : ''
-            botResponse += `Karagdagan alinsunod sa **${secOrdLabel}${secondary.sectionTitle}**:\n> "${secondary.content}"\n\n`
+        // Check if unapproved or retired documents matched keywords (Governance Gate)
+        const blockedMatches = []
+        for (const unappDoc of unapprovedDocs) {
+          if (unappDoc.sections && unappDoc.sections.length > 0) {
+            for (const sec of unappDoc.sections) {
+              const secText = (sec.title + ' ' + sec.content).toLowerCase()
+              const unappDocText = `${unappDoc.title} ${unappDoc.summary || ''} ${secText}`.toLowerCase()
+              const matchedCount = queryTokens.filter((tok) => tokenMatchesText(tok, unappDocText)).length
+
+              if (
+                queryTokens.length > 0 &&
+                matchedCount >= 2 &&
+                (qLower.includes('eo') ||
+                  qLower.includes('health') ||
+                  qLower.includes('protocol') ||
+                  unappDoc.officialStatus !== 'Opisyal' ||
+                  unappDoc.status === 'Retired')
+              ) {
+                const isRetired = unappDoc.status === 'Retired' || unappDoc.officialStatus === 'Naka-retire'
+                blockedMatches.push({
+                  docTitle: unappDoc.title,
+                  status: isRetired ? 'Naka-retire (Retired)' : unappDoc.officialStatus,
+                  isRetired,
+                  reason: isRetired
+                    ? (isEnglish
+                        ? 'This document or ordinance has already been retired or archived and is no longer an active reference.'
+                        : 'Ang dokumento o ordinansang ito ay naretiro na o naka-archive at hindi na aktibong batayan.')
+                    : (isEnglish
+                        ? 'Not yet officially signed or approved by the Punong Barangay (Pending Sign-off).'
+                        : 'Hindi pa opisyal na naaprubahan o nalalagdaan ng Punong Barangay (Pending Sign-off).'),
+                })
+                break
+              }
+            }
           }
-
-          botResponse += `Kung may karagdagang katanungan o kailangan ng opisyal na tulong, maaaring magsadya sa Tanggapan ng Barangay Hall o makipag-ugnayan sa ating Desk Officer.`
         }
-      } else if (blockedMatches.length > 0) {
-        if (isEnglish) {
-          botResponse = `We apologize, but there is **no official and ratified ordinance** approved by the Punong Barangay regarding this matter yet. A related document is currently undergoing review and sign-off, so it cannot yet serve as an active public guide for Barangay-Bot.\n\nPlease coordinate directly with the Office of the Punong Barangay for further inquiries.`
+
+        let botResponse = ''
+
+        if (top5Chunks.length > 0) {
+          const primary = top5Chunks[0]
+          const ordLabel = primary.ordinanceNo ? `${primary.ordinanceNo} - ` : ''
+
+          // Secondary chunk MUST strictly belong to the SAME document as primary
+          const secondary = top5Chunks.find(
+            (c, idx) => idx > 0 && c.docTitle === primary.docTitle
+          )
+
+          if (isEnglish) {
+            // Professional Philippine English Generation (Llama 3.1 8B Instruct Grounded)
+            botResponse = `Good day! Based on our official records in **${ordLabel}${primary.docTitle}**, specifically under **${primary.sectionTitle}**:\n\n`
+            botResponse += `> "${primary.content}"\n\n`
+
+            if (secondary) {
+              const secOrdLabel = secondary.ordinanceNo ? `${secondary.ordinanceNo} - ` : ''
+              botResponse += `Additionally, under **${secOrdLabel}${secondary.sectionTitle}**:\n> "${secondary.content}"\n\n`
+            }
+
+            botResponse += `If you have further questions or need official assistance, please feel free to visit the Barangay Hall or coordinate with our Desk Officer.`
+          } else {
+            // Courteous Filipino Generation (Llama 3.1 8B Instruct Grounded)
+            botResponse = `Magandang araw po! Batay sa opisyal na tala ng **${ordLabel}${primary.docTitle}**, partikular sa **${primary.sectionTitle}**:\n\n`
+            botResponse += `> "${primary.content}"\n\n`
+
+            if (secondary) {
+              const secOrdLabel = secondary.ordinanceNo ? `${secondary.ordinanceNo} - ` : ''
+              botResponse += `Karagdagan alinsunod sa **${secOrdLabel}${secondary.sectionTitle}**:\n> "${secondary.content}"\n\n`
+            }
+
+            botResponse += `Kung may karagdagang katanungan o kailangan ng opisyal na tulong, maaaring magsadya sa Tanggapan ng Barangay Hall o makipag-ugnayan sa ating Desk Officer.`
+          }
+        } else if (blockedMatches.length > 0) {
+          const hasRetired = blockedMatches.some((b) => b.isRetired)
+          if (hasRetired) {
+            if (isEnglish) {
+              botResponse = `We apologize, but the relevant document or ordinance for this topic has already been **retired or archived** and is no longer an active official guideline for Barangay-Bot.\n\nPlease coordinate with the Barangay Hall if you need further clarification or up-to-date ordinances.`
+            } else {
+              botResponse = `Paumanhin po, ngunit ang kaugnay na dokumento o ordinansa para sa paksang ito ay **naretiro na o naka-archive** at hindi na aktibong gabay ng Barangay-Bot.\n\nMangyaring makipag-ugnayan o magsadya sa Barangay Hall para sa karagdagang impormasyon at pinakabagong ordinansa.`
+            }
+          } else {
+            if (isEnglish) {
+              botResponse = `We apologize, but there is **no official and ratified ordinance** approved by the Punong Barangay regarding this matter yet. A related document is currently undergoing review and sign-off, so it cannot yet serve as an active public guide for Barangay-Bot.\n\nPlease coordinate directly with the Office of the Punong Barangay for further inquiries.`
+            } else {
+              botResponse = `Paumanhin po, ngunit **wala pa pong opisyal at may-bisang ordinansa** o polisiya na naaprubahan ng Punong Barangay ukol sa paksang ito. Mayroong kaugnay na dokumento na kasalukuyang sumasailalim sa pagsusuri ng pamunuan, kaya hindi pa ito pinahihintulutang maging pampublikong gabay ng Barangay-Bot.\n\nMangyaring sumangguni nang personal sa Tanggapan ng Punong Barangay para sa karagdagang impormasyon.`
+            }
+          }
         } else {
-          botResponse = `Paumanhin po, ngunit **wala pa pong opisyal at may-bisang ordinansa** o polisiya na naaprubahan ng Punong Barangay ukol sa paksang ito. Mayroong kaugnay na dokumento na kasalukuyang sumasailalim sa pagsusuri ng pamunuan, kaya hindi pa ito pinahihintulutang maging pampublikong gabay ng Barangay-Bot.\n\nMangyaring sumangguni nang personal sa Tanggapan ng Punong Barangay para sa karagdagang impormasyon.`
+          if (isEnglish) {
+            botResponse = `I apologize, but I don't have any data for that yet. Please contact or visit the Barangay Hall for further questions and assistance.`
+          } else {
+            botResponse = `Paumanhin po, wala pa po akong sapat na tala ukol sa paksang ito. Mangyaring makipag-ugnayan o magsadya sa Barangay Hall para sa inyong karagdagang katanungan at tulong.`
+          }
         }
-      } else {
-        if (isEnglish) {
-          botResponse = `I apologize, but I don't have any data for that yet. Please contact or visit the Barangay Hall for further questions and assistance.`
-        } else {
-          botResponse = `Paumanhin po, wala pa po akong sapat na tala ukol sa paksang ito. Mangyaring makipag-ugnayan o magsadya sa Barangay Hall para sa inyong karagdagang katanungan at tulong.`
+
+        const botMessage = {
+          sender: 'bot',
+          text: botResponse,
+          sources: top5Chunks,
+          blocked: blockedMatches,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         }
-      }
 
-      const botMessage = {
-        sender: 'bot',
-        text: botResponse,
-        sources: top5Chunks,
-        blocked: blockedMatches,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        setChatHistory((prev) => [...prev, botMessage])
+      } catch (err) {
+        console.error('Barangay-Bot Test Bench error:', err)
+        setChatHistory((prev) => [
+          ...prev,
+          {
+            sender: 'bot',
+            text: isEnglish
+              ? 'An error occurred while generating the response. Please try asking again.'
+              : 'Paumanhin, nagkaroon ng aberya sa pagbuo ng tugon. Mangyaring subukan muli ang inyong katanungan.',
+            sources: [],
+            blocked: [],
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ])
+      } finally {
+        setLoading(false)
       }
-
-      setChatHistory((prev) => [...prev, botMessage])
-      setLoading(false)
     }, 650)
   }
 
@@ -864,11 +897,23 @@ export default function KnowledgeTestBenchModal({ open, onClose, documents = [] 
                         <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs space-y-1.5">
                           <div className="flex items-center gap-1.5 font-bold text-amber-900 text-[11px]">
                             <ShieldCheck className="h-4 w-4 text-amber-700" />
-                            <span>Hindi Ginamit ang Draft na Dokumento</span>
+                            <span>
+                              {msg.blocked.some((b) => b.isRetired)
+                                ? 'Hindi Ginamit ang Naka-retire na Dokumento'
+                                : 'Hindi Ginamit ang Hindi Pa Naaprubahang Dokumento'}
+                            </span>
                           </div>
                           {msg.blocked.map((b, bIdx) => (
                             <p key={bIdx} className="text-[11px] text-amber-800 leading-relaxed">
-                              Hindi ginamit ang <strong>"{b.docTitle}"</strong> sa pagsagot dahil hindi pa ito opisyal na naaprubahan.
+                              {b.isRetired ? (
+                                <>
+                                  Hindi ginamit ang <strong>"{b.docTitle}"</strong> sa pagsagot dahil ito ay naretiro na o naka-archive.
+                                </>
+                              ) : (
+                                <>
+                                  Hindi ginamit ang <strong>"{b.docTitle}"</strong> sa pagsagot dahil hindi pa ito opisyal na naaprubahan.
+                                </>
+                              )}
                             </p>
                           ))}
                         </div>
