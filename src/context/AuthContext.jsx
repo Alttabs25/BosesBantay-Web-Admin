@@ -239,35 +239,30 @@ export function AuthProvider({ children }) {
       return { success: false, error: error.message }
     }
 
-    // Backup manual profile creation in case DB trigger is missing or disabled
-    try {
-      const { data: profile } = await authAdminClient
-        .from('users')
-        .select('id')
-        .eq('id', data.user.id)
-        .maybeSingle()
-
-      if (!profile) {
+    // Ensure profile is correctly created/updated and mobile_number is null (not empty string) to satisfy unique constraint
+    if (data?.user?.id) {
+      try {
         const { data: roleObj } = await authAdminClient
           .from('roles')
           .select('role_id')
           .eq('role_name', role)
           .maybeSingle()
 
-        await authAdminClient.from('users').insert({
+        await authAdminClient.from('users').upsert({
           id: data.user.id,
           role_id: roleObj?.role_id || null,
           first_name,
           last_name,
           email: email.trim(),
+          mobile_number: null,
           address: 'N/A',
           barangay_id_image: 'N/A',
-          verification_status: 'Pending',
-          approval_status: 'Pending'
-        })
+          verification_status: 'pb_authorized',
+          approval_status: 'Active'
+        }, { onConflict: 'id' })
+      } catch (e) {
+        console.error('Admin profile update/creation failed:', e)
       }
-    } catch (e) {
-      console.error('Manual admin profile backup insertion failed:', e)
     }
 
     const newAccount = {
@@ -278,7 +273,8 @@ export function AuthProvider({ children }) {
       mustChangePassword: true,
     }
 
-    setAccounts((prev) => [...prev, newAccount])
+    setAccounts((prev) => [...prev.filter((a) => a.id !== newAccount.id), newAccount])
+    fetchAccounts()
     return { success: true, account: newAccount }
   }
 
@@ -322,11 +318,18 @@ export function AuthProvider({ children }) {
           first_name: first_name.trim(),
           last_name: last_name.trim(),
           email: email.trim(),
+          mobile_number: null,
           address: address.trim() || 'N/A',
           barangay_id_image: 'N/A',
           verification_status: 'Pending',
           approval_status: 'Pending'
         })
+      } else {
+        await authAdminClient
+          .from('users')
+          .update({ mobile_number: null })
+          .eq('id', data.user.id)
+          .eq('mobile_number', '')
       }
     } catch (e) {
       console.error('Manual resident profile backup insertion failed:', e)
@@ -438,6 +441,7 @@ export function AuthProvider({ children }) {
         updateAdminAccountRole,
         requestPasswordReset,
         resetPasswordWithCode,
+        fetchAccounts,
         loading,
       }}
     >

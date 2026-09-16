@@ -39,6 +39,51 @@ const FIVE_W_ONE_H = [
   ['How', 'how'],
 ]
 
+const REPORT_TYPE_FILTERS = [
+  { value: 'All', label: 'Lahat', activeClass: 'bg-bb-blue text-white shadow-sm' },
+  { value: 'hazard', label: 'General Hazard Report', activeClass: 'bg-amber-600 text-white shadow-sm' },
+  { value: 'digital', label: 'Digital Report', activeClass: 'bg-blue-600 text-white shadow-sm' },
+]
+
+export function isHazardReport(report) {
+  if (!report) return false
+  if (report.reportType === 'hazard' || report.reportType === 'general_hazard' || report.reportCategory === 'hazard') return true
+  if (report.isFormReport || String(report.id).startsWith('REP-') || String(report.id).startsWith('HAZ-') || String(report.id).startsWith('GH-')) return true
+  const title = (report.title || '').toLowerCase()
+  const classification = (report.classification || '').toLowerCase()
+  const what = (report.what || '').toLowerCase()
+  const text = `${title} ${classification} ${what}`
+  const hazardKeywords = [
+    'hazard',
+    'flooding',
+    'drainage',
+    'baha',
+    'damaged facility',
+    'facility',
+    'sirang',
+    'kalsada',
+    'debris',
+    'sunog',
+    'fire',
+    'kuryente',
+    'electrical',
+    'puno',
+    'tree',
+    'waste',
+    'basura',
+    'landslide',
+    'obstruction',
+    'harang',
+    'street light',
+    'ilaw',
+  ]
+  return hazardKeywords.some((keyword) => text.includes(keyword))
+}
+
+export function isDigitalReport(report) {
+  return !isHazardReport(report)
+}
+
 export default function DigitalBlotter() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -113,6 +158,7 @@ export default function DigitalBlotter() {
 
   const [query, setQuery] = useState('')
   const [selectedStatus, setSelectedStatus] = useState(null)
+  const [reportTypeFilter, setReportTypeFilter] = useState('All')
   const [expandedId, setExpandedId] = useState(null)
   const [hearingDraft, setHearingDraft] = useState({ hearingDate: '', hearingNote: '' })
   const [outcomeDraft, setOutcomeDraft] = useState('')
@@ -153,6 +199,13 @@ export default function DigitalBlotter() {
   const filtered = useMemo(() => {
     let list = [...blotterReports]
 
+    // Filter by report type (General Hazard vs Digital Report)
+    if (reportTypeFilter === 'hazard') {
+      list = list.filter(isHazardReport)
+    } else if (reportTypeFilter === 'digital') {
+      list = list.filter(isDigitalReport)
+    }
+
     // Sort by oldest first so newest reports appear at the bottom
     list.sort((a, b) => {
       const timeA = new Date(a.rawDate).getTime() || 0
@@ -171,7 +224,7 @@ export default function DigitalBlotter() {
         r.title.toLowerCase().includes(q) ||
         r.filedBy.toLowerCase().includes(q),
     )
-  }, [blotterReports, query, selectedStatus])
+  }, [blotterReports, query, selectedStatus, reportTypeFilter])
 
   function expand(report) {
     setExpandedId(report.id)
@@ -399,12 +452,49 @@ export default function DigitalBlotter() {
         />
       </div>
 
-      <div className="mt-6 max-w-md">
-        <SearchInput
-          value={query}
-          onChange={setQuery}
-          placeholder="Hanapin ang blotter report..."
-        />
+      <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="w-full max-w-md">
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="Hanapin ang report..."
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5 bg-gray-50/50 rounded-xl p-1.5">
+          {REPORT_TYPE_FILTERS.map((pill) => {
+            const count =
+              pill.value === 'All'
+                ? blotterReports.length
+                : pill.value === 'hazard'
+                ? blotterReports.filter(isHazardReport).length
+                : blotterReports.filter(isDigitalReport).length
+            const isActive = reportTypeFilter === pill.value
+
+            return (
+              <button
+                key={pill.value}
+                onClick={() => setReportTypeFilter(pill.value)}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
+                  isActive
+                    ? `${pill.activeClass} scale-102`
+                    : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                <span>{pill.label}</span>
+                <span
+                  className={`rounded-full px-1.5 py-0.2 text-[10px] ${
+                    isActive
+                      ? 'bg-white/20 text-white'
+                      : 'bg-gray-100 text-gray-500 border border-gray-200/50'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       <div className="mt-4 min-h-[300px] max-h-[calc(100vh-380px)] space-y-3 overflow-y-auto pr-2 sm:pr-3">
@@ -412,6 +502,7 @@ export default function DigitalBlotter() {
           const meta = STATUS_META[report.status] || { color: 'gray' }
           const isExpanded = expandedId === report.id
           const isVerified = report.status !== 'Sinuri' && report.status !== 'Under Review' && report.status !== 'Spam'
+          const isHazard = isHazardReport(report)
 
           if (!isExpanded) {
             return (
@@ -424,6 +515,15 @@ export default function DigitalBlotter() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-semibold text-gray-400">{report.id}</span>
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold border ${
+                        isHazard
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : 'bg-blue-50 text-blue-700 border-blue-200'
+                      }`}
+                    >
+                      {isHazard ? 'General Hazard' : 'Digital Report'}
+                    </span>
                     <Pill color={meta.color} solid>
                       {report.status}
                     </Pill>
@@ -496,6 +596,15 @@ export default function DigitalBlotter() {
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-semibold">{report.id}</span>
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
+                      isHazard
+                        ? 'bg-amber-500/20 text-amber-200 border-amber-400/30'
+                        : 'bg-white/20 text-white border-white/20'
+                    }`}
+                  >
+                    {isHazard ? 'General Hazard' : 'Digital Report'}
+                  </span>
                   <Pill color={meta.color} solid>
                     {report.status}
                   </Pill>
@@ -744,7 +853,7 @@ export default function DigitalBlotter() {
 
         {filtered.length === 0 && (
           <p className="py-8 text-center text-sm text-gray-400">
-            Walang nahanap na blotter report.
+            Walang nahanap na report.
           </p>
         )}
       </div>

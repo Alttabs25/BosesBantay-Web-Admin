@@ -37,6 +37,7 @@ BEGIN
         first_name,
         last_name,
         email,
+        mobile_number,
         address,
         barangay_id_image,
         verification_status,
@@ -47,6 +48,7 @@ BEGIN
         COALESCE(new.raw_user_meta_data->>'first_name', 'Bago'),
         COALESCE(new.raw_user_meta_data->>'last_name', 'User'),
         new.email,
+        NULLIF(TRIM(COALESCE(new.phone, new.raw_user_meta_data->>'phone', '')), ''),
         COALESCE(new.raw_user_meta_data->>'address', 'N/A'),
         COALESCE(new.raw_user_meta_data->>'barangay_id_image', 'N/A'), -- Defaults to 'N/A' if none provided
         'Pending',
