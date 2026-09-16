@@ -41,6 +41,34 @@ function formatDateTimeLocal(dateString) {
   }
 }
 
+function sanitizeText(val, fallback = 'N/A') {
+  if (val === null || val === undefined || val === '') return fallback
+  if (typeof val === 'string') return val.trim() || fallback
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val)
+  if (Array.isArray(val)) {
+    if (val.length === 0) return fallback
+    return val
+      .map((v) =>
+        typeof v === 'object' && v !== null
+          ? v?.name || v?.fullName || v?.title || JSON.stringify(v)
+          : String(v)
+      )
+      .join(', ')
+  }
+  if (typeof val === 'object') {
+    return (
+      val.name ||
+      val.fullName ||
+      val.title ||
+      val.summary ||
+      val.description ||
+      val.address ||
+      JSON.stringify(val)
+    )
+  }
+  return String(val)
+}
+
 export function DataProvider({ children }) {
   const { user } = useAuth()
   const [users, setUsers] = useState([])
@@ -287,6 +315,8 @@ export function DataProvider({ children }) {
             id: b.reference_no,
             ref: b.reference_no,
             blotterId: b.blotter_id,
+            reportType: 'blotter',
+            isFormReport: false,
             rawDate: b.submitted_at || b.created_at,
             title: b.incident_type || b.ai_extractions?.incident_type || 'Kaganapan',
             status: b.status || 'Sinuri',
@@ -298,16 +328,16 @@ export function DataProvider({ children }) {
               minute: '2-digit',
               hour12: true
             }).toUpperCase(),
-            filedBy: complainantName,
-            what: json.what || b.incident_type || b.ai_extractions?.incident_type || 'Kaganapan',
-            who: json.who || b.ai_extractions?.respondent || 'Hindi Alam',
-            where: json.where || b.location_address || b.ai_extractions?.incident_location || 'N/A',
-            location: b.location_address || b.ai_extractions?.incident_location || 'N/A',
-            address: b.location_address || b.ai_extractions?.incident_location || 'N/A',
-            when: json.when || 'N/A',
-            why: json.why || 'N/A',
-            how: json.how || b.ai_extractions?.narrative_summary || 'N/A',
-            severity: json.severity || 'Katamtaman',
+            filedBy: sanitizeText(complainantName, 'Residente'),
+            what: sanitizeText(json.what || b.incident_type || b.ai_extractions?.incident_type, 'Kaganapan'),
+            who: sanitizeText(json.who || b.ai_extractions?.respondent, 'Hindi Alam'),
+            where: sanitizeText(json.where || b.location_address || b.ai_extractions?.incident_location, 'N/A'),
+            location: sanitizeText(b.location_address || b.ai_extractions?.incident_location || json.where, 'N/A'),
+            address: sanitizeText(b.location_address || b.ai_extractions?.incident_location || json.where, 'N/A'),
+            when: sanitizeText(json.when, 'N/A'),
+            why: sanitizeText(json.why, 'N/A'),
+            how: sanitizeText(json.how || b.ai_extractions?.narrative_summary, 'N/A'),
+            severity: sanitizeText(json.severity, 'Katamtaman'),
             sector: b.barangay_sectors?.sector_name || 'Sector 1',
             lat,
             lng,
@@ -316,13 +346,13 @@ export function DataProvider({ children }) {
             is_mapped: isMapped,
             isMapped,
             hearingDate: formatDateTimeLocal(b.hearing_date),
-            hearingNote: b.hearing_note || b.remarks || '',
+            hearingNote: sanitizeText(b.hearing_note || b.remarks, ''),
             hearingCompleted: b.hearing_completed !== undefined && b.hearing_completed !== null ? b.hearing_completed : (b.status === 'Nareselba' || b.status === 'Spam'),
-            outcome: b.outcome || (b.status === 'Nareselba' ? (b.remarks || 'Resolbado na.') : ''),
-            complainantPhone: userObj?.mobile_number || json.phone || json.complainant_phone || userObj?.phone || 'N/A',
-            complainantAddress: userObj?.address || json.address || json.complainant_address || 'N/A',
-            complainantGender: userObj?.gender || json.gender || json.complainant_gender || 'N/A',
-            complainantAge: userObj?.birthdate ? calculateAge(userObj.birthdate) : (json.age || json.complainant_age || ''),
+            outcome: sanitizeText(b.outcome || (b.status === 'Nareselba' ? (b.remarks || 'Resolbado na.') : ''), ''),
+            complainantPhone: sanitizeText(userObj?.mobile_number || json.phone || json.complainant_phone || userObj?.phone, 'N/A'),
+            complainantAddress: sanitizeText(userObj?.address || json.address || json.complainant_address, 'N/A'),
+            complainantGender: sanitizeText(userObj?.gender || json.gender || json.complainant_gender, 'N/A'),
+            complainantAge: userObj?.birthdate ? calculateAge(userObj.birthdate) : sanitizeText(json.age || json.complainant_age, ''),
             isMinor: userObj?.birthdate ? calculateAge(userObj.birthdate) < 18 : (json.is_minor || false),
             mapStatus: isMapped ? 'Approved' : (b.map_status || 'Pending'),
             mappedAt: b.mapped_at || b.map_reviewed_at || null,
@@ -341,7 +371,7 @@ export function DataProvider({ children }) {
       if (!reportsErr && reportsData) {
         mappedReports = reportsData.map(r => {
           const userObj = usersData?.find(u => u.id === r.user_id)
-          const filedBy = r.full_details?.complainant_name || (userObj ? `${userObj.first_name} ${userObj.last_name}`.trim() : 'Residente')
+          const filedBy = sanitizeText(r.full_details?.complainant_name || (userObj ? `${userObj.first_name} ${userObj.last_name}`.trim() : 'Residente'), 'Residente')
           
           let adminStatus = 'Sinuri'
           if (r.status === 'Under Review' || r.status === 'Pending') adminStatus = 'Sinuri'
@@ -350,7 +380,7 @@ export function DataProvider({ children }) {
           else if (r.status === 'Spam') adminStatus = 'Spam'
           else if (r.status) adminStatus = r.status
 
-          const finalAge = userObj?.birthdate ? calculateAge(userObj.birthdate) : (r.full_details?.age || '')
+          const finalAge = userObj?.birthdate ? calculateAge(userObj.birthdate) : sanitizeText(r.full_details?.age, '')
           const rawDateStr = r.created_at || r.submitted_at || new Date().toISOString()
 
           const rawRepLat = r.latitude != null ? parseFloat(r.latitude) : null
@@ -367,9 +397,10 @@ export function DataProvider({ children }) {
             ref: r.reference_no || (r.id ? `REP-${String(r.id).substring(0, 8)}` : `REP-${Math.floor(100000 + Math.random() * 900000)}`),
             dbId: r.id,
             isFormReport: true,
+            reportType: 'hazard',
             rawDate: rawDateStr,
-            title: r.category || r.summary || 'Resident Form Report',
-            classification: r.category || r.summary || 'Resident Form Report',
+            title: sanitizeText(r.category || r.summary, 'Resident Form Report'),
+            classification: sanitizeText(r.category || r.summary, 'Resident Form Report'),
             status: adminStatus,
             datetime: new Date(rawDateStr).toLocaleString('en-US', {
               month: 'short',
@@ -380,22 +411,22 @@ export function DataProvider({ children }) {
               hour12: true
             }).toUpperCase(),
             filedBy,
-            what: r.full_details?.what || r.category || r.summary || 'Unspecified Incident',
-            who: r.full_details?.who || r.other_party || r.respondent || r.full_details?.otherParties || 'Hindi Alam',
-            where: r.location || r.full_details?.where || r.full_details?.location || 'N/A',
-            location: r.location || r.full_details?.where || r.full_details?.location || 'N/A',
-            address: r.location || r.full_details?.where || r.full_details?.location || 'N/A',
-            when: r.full_details?.when || r.date_time || r.incident_date || r.full_details?.incidentAt || 'N/A',
-            why: r.full_details?.why || 'N/A',
-            how: r.description || r.full_details?.how || r.incident_details || r.full_details?.description || 'N/A',
-            excerpt: r.description || r.full_details?.how || r.incident_details || '',
+            what: sanitizeText(r.full_details?.what || r.category || r.summary, 'Unspecified Incident'),
+            who: sanitizeText(r.full_details?.who || r.other_party || r.respondent || r.full_details?.otherParties, 'Hindi Alam'),
+            where: sanitizeText(r.location || r.full_details?.where || r.full_details?.location, 'N/A'),
+            location: sanitizeText(r.location || r.full_details?.where || r.full_details?.location, 'N/A'),
+            address: sanitizeText(r.location || r.full_details?.where || r.full_details?.location, 'N/A'),
+            when: sanitizeText(r.full_details?.when || r.date_time || r.incident_date || r.full_details?.incidentAt, 'N/A'),
+            why: sanitizeText(r.full_details?.why, 'N/A'),
+            how: sanitizeText(r.description || r.full_details?.how || r.incident_details || r.full_details?.description, 'N/A'),
+            excerpt: sanitizeText(r.description || r.full_details?.how || r.incident_details, ''),
             hearingDate: formatDateTimeLocal(r.hearing_date),
-            hearingNote: r.hearing_note || ((r.witnesses || r.full_details?.witnesses) ? `Saksi: ${r.witnesses || r.full_details?.witnesses}` : ''),
+            hearingNote: sanitizeText(r.hearing_note || ((r.witnesses || r.full_details?.witnesses) ? `Saksi: ${r.witnesses || r.full_details?.witnesses}` : ''), ''),
             hearingCompleted: r.hearing_completed !== undefined && r.hearing_completed !== null ? r.hearing_completed : (adminStatus === 'Nareselba' || adminStatus === 'Spam'),
-            outcome: r.outcome || (adminStatus === 'Nareselba' ? 'Resolbado na.' : ''),
-            complainantPhone: r.full_details?.complainant_phone || userObj?.mobile_number || r.full_details?.phone || userObj?.phone || 'N/A',
-            complainantAddress: r.full_details?.complainant_address || userObj?.address || r.full_details?.address || 'N/A',
-            complainantGender: r.full_details?.complainant_gender || userObj?.gender || r.full_details?.gender || 'N/A',
+            outcome: sanitizeText(r.outcome || (adminStatus === 'Nareselba' ? 'Resolbado na.' : ''), ''),
+            complainantPhone: sanitizeText(r.full_details?.complainant_phone || userObj?.mobile_number || r.full_details?.phone || userObj?.phone, 'N/A'),
+            complainantAddress: sanitizeText(r.full_details?.complainant_address || userObj?.address || r.full_details?.address, 'N/A'),
+            complainantGender: sanitizeText(r.full_details?.complainant_gender || userObj?.gender || r.full_details?.gender, 'N/A'),
             complainantAge: finalAge,
             isMinor: finalAge ? Number(finalAge) < 18 : false,
             lat: repValid ? rawRepLat : null,
@@ -415,8 +446,52 @@ export function DataProvider({ children }) {
         })
       }
 
+      // Deduplicate blotter reports by unique ID / reference_no
+      const blotterReportsMap = new Map()
+
+      mappedBlotter.forEach((item) => {
+        const key = item.id || item.ref
+        if (key) {
+          if (!blotterReportsMap.has(key)) {
+            blotterReportsMap.set(key, item)
+          } else {
+            const existing = blotterReportsMap.get(key)
+            blotterReportsMap.set(key, {
+              ...existing,
+              ...item,
+              isMapped: existing.isMapped || item.isMapped,
+              is_mapped: existing.is_mapped || item.is_mapped,
+              lat: existing.lat ?? item.lat,
+              lng: existing.lng ?? item.lng,
+              latitude: existing.latitude ?? item.latitude,
+              longitude: existing.longitude ?? item.longitude,
+            })
+          }
+        }
+      })
+
+      mappedReports.forEach((item) => {
+        const key = item.id || item.ref
+        if (key) {
+          if (!blotterReportsMap.has(key)) {
+            blotterReportsMap.set(key, item)
+          } else {
+            const existing = blotterReportsMap.get(key)
+            blotterReportsMap.set(key, {
+              ...item,
+              ...existing,
+              dbId: item.dbId || existing.dbId,
+              isMapped: existing.isMapped || item.isMapped,
+              is_mapped: existing.is_mapped || item.is_mapped,
+              lat: existing.lat ?? item.lat,
+              lng: existing.lng ?? item.lng,
+            })
+          }
+        }
+      })
+
       // Combine and sort by newest date first
-      const combinedBlotter = [...mappedBlotter, ...mappedReports].sort((a, b) => {
+      const combinedBlotter = Array.from(blotterReportsMap.values()).sort((a, b) => {
         const timeA = new Date(a.rawDate).getTime() || 0
         const timeB = new Date(b.rawDate).getTime() || 0
         return timeB - timeA
@@ -451,7 +526,28 @@ export function DataProvider({ children }) {
         }
       })
 
-      setIncidents(mappedIncidents)
+      // Deduplicate incidents by unique ref / id
+      const uniqueIncidentsMap = new Map()
+      mappedIncidents.forEach((item) => {
+        const key = item.ref || item.id
+        if (key) {
+          if (!uniqueIncidentsMap.has(key)) {
+            uniqueIncidentsMap.set(key, item)
+          } else {
+            const existing = uniqueIncidentsMap.get(key)
+            uniqueIncidentsMap.set(key, {
+              ...existing,
+              ...item,
+              is_mapped: existing.is_mapped || item.is_mapped,
+              isMapped: existing.isMapped || item.isMapped,
+              lat: existing.lat ?? item.lat,
+              lng: existing.lng ?? item.lng,
+            })
+          }
+        }
+      })
+
+      setIncidents(Array.from(uniqueIncidentsMap.values()))
       setBlotterReports(combinedBlotter)
 
       // 4. Fetch Documents
@@ -1210,6 +1306,8 @@ export function DataProvider({ children }) {
         id: refNo,
         ref: refNo,
         blotterId: pbData?.[0]?.blotter_id,
+        reportType: 'blotter',
+        isFormReport: false,
         rawDate: isoDate,
         title: titleValue,
         status: reportData.status || 'Sinuri',
@@ -1403,6 +1501,8 @@ export function DataProvider({ children }) {
         id: refNo,
         ref: refNo,
         blotterId: pbData?.[0]?.blotter_id,
+        reportType: 'blotter',
+        isFormReport: false,
         rawDate: isoDate,
         title: titleValue,
         status: 'Sinuri',

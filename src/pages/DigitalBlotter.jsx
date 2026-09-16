@@ -45,43 +45,132 @@ const REPORT_TYPE_FILTERS = [
   { value: 'digital', label: 'Digital Report', activeClass: 'bg-blue-600 text-white shadow-sm' },
 ]
 
+const HAZARD_CATEGORIES = new Set([
+  'flooding / drainage',
+  'flooding',
+  'drainage',
+  'baha',
+  'damaged facility',
+  'other hazard',
+  'hazard',
+  'general hazard',
+  'general hazard report',
+  'fire hazard',
+  'sunog',
+  'garbage / waste',
+  'waste',
+  'basura',
+  'debris',
+  'electrical hazard',
+  'kuryente',
+  'fallen tree',
+  'broken streetlight',
+  'sirang kalsada',
+  'road obstruction',
+  'infrastructure',
+])
+
 export function isHazardReport(report) {
   if (!report) return false
-  if (report.reportType === 'hazard' || report.reportType === 'general_hazard' || report.reportCategory === 'hazard') return true
-  if (report.isFormReport || String(report.id).startsWith('REP-') || String(report.id).startsWith('HAZ-') || String(report.id).startsWith('GH-')) return true
-  const title = (report.title || '').toLowerCase()
-  const classification = (report.classification || '').toLowerCase()
-  const what = (report.what || '').toLowerCase()
-  const text = `${title} ${classification} ${what}`
+  if (report.isHazard === true) return true
+  if (report.isHazard === false) return false
+
+  const type = String(report.reportType || '').trim().toLowerCase()
+  if (type === 'hazard' || type === 'general_hazard' || type === 'general hazard' || type === 'hazard_report') {
+    return true
+  }
+
+  if (report.isFormReport === true) {
+    return true
+  }
+
+  const title = String(report.title || '').trim().toLowerCase()
+  const classification = String(report.classification || '').trim().toLowerCase()
+  const category = String(report.category || '').trim().toLowerCase()
+  const what = String(report.what || '').trim().toLowerCase()
+
+  if (
+    HAZARD_CATEGORIES.has(title) ||
+    HAZARD_CATEGORIES.has(classification) ||
+    HAZARD_CATEGORIES.has(category) ||
+    HAZARD_CATEGORIES.has(what)
+  ) {
+    return true
+  }
+
   const hazardKeywords = [
     'hazard',
-    'flooding',
+    'flood',
     'drainage',
     'baha',
     'damaged facility',
-    'facility',
-    'sirang',
-    'kalsada',
-    'debris',
-    'sunog',
     'fire',
-    'kuryente',
-    'electrical',
-    'puno',
-    'tree',
+    'sunog',
+    'garbage',
     'waste',
     'basura',
-    'landslide',
-    'obstruction',
-    'harang',
-    'street light',
-    'ilaw',
+    'debris',
+    'electrical',
+    'kuryente',
+    'fallen tree',
+    'broken streetlight',
+    'sirang kalsada',
+    'road obstruction',
+    'infrastructure',
   ]
-  return hazardKeywords.some((keyword) => text.includes(keyword))
+
+  if (hazardKeywords.some((kw) => title.includes(kw) || classification.includes(kw) || category.includes(kw))) {
+    return true
+  }
+
+  if (
+    String(report.id || '').startsWith('REP-') ||
+    String(report.id || '').startsWith('HAZ-') ||
+    String(report.id || '').startsWith('GH-')
+  ) {
+    return true
+  }
+
+  return false
 }
 
 export function isDigitalReport(report) {
+  if (!report) return false
   return !isHazardReport(report)
+}
+
+export function getReportDomId(reportId) {
+  if (!reportId) return ''
+  return `report-${String(reportId).replace(/[^a-zA-Z0-9_-]/g, '-')}`
+}
+
+export function formatReportValue(val) {
+  if (val === null || val === undefined || val === '') return 'N/A'
+  if (typeof val === 'string') return val.trim() || 'N/A'
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val)
+  if (Array.isArray(val)) {
+    if (val.length === 0) return 'Hindi Alam'
+    return val
+      .map((item) =>
+        typeof item === 'object' && item !== null
+          ? item?.name || item?.fullName || item?.title || JSON.stringify(item)
+          : String(item)
+      )
+      .join(', ')
+  }
+  if (typeof val === 'object') {
+    return (
+      val?.name ||
+      val?.fullName ||
+      val?.title ||
+      val?.summary ||
+      val?.description ||
+      val?.address ||
+      val?.label ||
+      JSON.stringify(val)
+    )
+  }
+  return String(val)
 }
 
 export default function DigitalBlotter() {
@@ -99,6 +188,19 @@ export default function DigitalBlotter() {
     addAuditEntry,
   } = useData()
   const { showToast } = useToast()
+
+  // Safely deduplicate reports by unique report ID so only one instance of each report exists
+  const uniqueReports = useMemo(() => {
+    if (!blotterReports || !Array.isArray(blotterReports)) return []
+    const map = new Map()
+    blotterReports.forEach((report) => {
+      const idKey = report.id || report.ref
+      if (idKey && !map.has(idKey)) {
+        map.set(idKey, report)
+      }
+    })
+    return Array.from(map.values())
+  }, [blotterReports])
 
   const checkIsMapped = (report) => {
     if (!report) return false
@@ -160,6 +262,7 @@ export default function DigitalBlotter() {
   const [selectedStatus, setSelectedStatus] = useState(null)
   const [reportTypeFilter, setReportTypeFilter] = useState('All')
   const [expandedId, setExpandedId] = useState(null)
+  const [highlightedId, setHighlightedId] = useState(null)
   const [hearingDraft, setHearingDraft] = useState({ hearingDate: '', hearingNote: '' })
   const [outcomeDraft, setOutcomeDraft] = useState('')
   const [pendingSpamId, setPendingSpamId] = useState(null)
@@ -169,35 +272,68 @@ export default function DigitalBlotter() {
   const [mappingReport, setMappingReport] = useState(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
 
-  const canConfirm = user.role === ROLES.SECRETARY || user.role === ROLES.CAPTAIN || user.role === ROLES.ADMIN
-  const canManageInvestigation = user.role === ROLES.LUPON || user.role === ROLES.ADMIN
+  const userRole = user?.role || ''
+  const isAdmin = userRole === ROLES.ADMIN || userRole === 'System Administrator' || userRole.toLowerCase().includes('admin')
+  const canConfirm = userRole === ROLES.SECRETARY || userRole === ROLES.CAPTAIN || isAdmin
+  const canManageInvestigation = userRole === ROLES.LUPON || isAdmin
   const canCreateBlotter =
-    user.role === ROLES.SECRETARY ||
-    user.role === ROLES.CAPTAIN ||
-    user.role === ROLES.ADMIN ||
-    user.role === ROLES.LUPON ||
-    user.role === ROLES.TANOD
+    userRole === ROLES.SECRETARY ||
+    userRole === ROLES.CAPTAIN ||
+    userRole === ROLES.LUPON ||
+    userRole === ROLES.TANOD ||
+    isAdmin
+
+  const scrollToReportCard = (reportId) => {
+    let attempts = 0
+    const maxAttempts = 25
+    const domId = getReportDomId(reportId)
+    const checkAndScroll = () => {
+      const el =
+        document.getElementById(domId) ||
+        document.getElementById(`report-${reportId}`) ||
+        document.getElementById(`report-card-${reportId}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        setHighlightedId(reportId)
+        setTimeout(() => {
+          setHighlightedId((curr) => (curr === reportId ? null : curr))
+        }, 2200)
+      } else if (attempts < maxAttempts) {
+        attempts++
+        setTimeout(checkAndScroll, 35)
+      }
+    }
+    setTimeout(checkAndScroll, 40)
+  }
 
   // Check URL query param ?id=... from GIS navigation and auto-expand that card
   useEffect(() => {
     const targetId = searchParams.get('id')
-    if (targetId) {
-      const found = blotterReports.find((r) => r.id === targetId || r.ref === targetId)
+    if (targetId && uniqueReports && uniqueReports.length > 0) {
+      const found = uniqueReports.find(
+        (r) => r.id === targetId || r.ref === targetId || String(r.blotterId) === String(targetId)
+      )
       if (found) {
+        if (reportTypeFilter === 'hazard' && !isHazardReport(found)) {
+          setReportTypeFilter('All')
+        } else if (reportTypeFilter === 'digital' && !isDigitalReport(found)) {
+          setReportTypeFilter('All')
+        }
+        if (selectedStatus && found.status !== selectedStatus) {
+          setSelectedStatus(null)
+        }
         setExpandedId(found.id)
-        setHearingDraft({ hearingDate: found.hearingDate, hearingNote: found.hearingNote })
-        setTimeout(() => {
-          const el = document.getElementById(`report-card-${found.id}`)
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-          }
-        }, 120)
+        setHearingDraft({
+          hearingDate: found.hearingDate || '',
+          hearingNote: found.hearingNote || '',
+        })
+        scrollToReportCard(found.id)
       }
     }
-  }, [searchParams, blotterReports])
+  }, [searchParams, uniqueReports])
 
   const filtered = useMemo(() => {
-    let list = [...blotterReports]
+    let list = [...uniqueReports]
 
     // Filter by report type (General Hazard vs Digital Report)
     if (reportTypeFilter === 'hazard') {
@@ -220,39 +356,85 @@ export default function DigitalBlotter() {
     if (!q) return list
     return list.filter(
       (r) =>
-        r.id.toLowerCase().includes(q) ||
-        r.title.toLowerCase().includes(q) ||
-        r.filedBy.toLowerCase().includes(q),
+        (r.id && r.id.toLowerCase().includes(q)) ||
+        (r.title && r.title.toLowerCase().includes(q)) ||
+        (r.filedBy && r.filedBy.toLowerCase().includes(q)) ||
+        (r.classification && r.classification.toLowerCase().includes(q)) ||
+        (r.what && r.what.toLowerCase().includes(q)),
     )
-  }, [blotterReports, query, selectedStatus, reportTypeFilter])
+  }, [uniqueReports, query, selectedStatus, reportTypeFilter])
+
+  function handleViewReport(reportOrId) {
+    if (!reportOrId) {
+      showToast('Hindi natagpuan ang report. Pakisubukang muli.', 'error')
+      return
+    }
+
+    const targetId =
+      typeof reportOrId === 'object'
+        ? reportOrId.id || reportOrId.ref
+        : reportOrId
+
+    const foundReport =
+      uniqueReports.find(
+        (r) =>
+          r.id === targetId ||
+          r.ref === targetId ||
+          (r.blotterId && String(r.blotterId) === String(targetId))
+      ) || (typeof reportOrId === 'object' ? reportOrId : null)
+
+    if (!foundReport || !foundReport.id) {
+      showToast('Hindi natagpuan ang report. Pakisubukang muli.', 'error')
+      return
+    }
+
+    // If report would be hidden by current filter, switch appropriately
+    if (reportTypeFilter === 'hazard' && !isHazardReport(foundReport)) {
+      setReportTypeFilter('All')
+    } else if (reportTypeFilter === 'digital' && !isDigitalReport(foundReport)) {
+      setReportTypeFilter('All')
+    }
+
+    if (selectedStatus && foundReport.status !== selectedStatus) {
+      setSelectedStatus(null)
+    }
+
+    const q = query.trim().toLowerCase()
+    if (
+      q &&
+      !foundReport.id?.toLowerCase().includes(q) &&
+      !foundReport.title?.toLowerCase().includes(q) &&
+      !foundReport.filedBy?.toLowerCase().includes(q)
+    ) {
+      setQuery('')
+    }
+
+    setExpandedId(foundReport.id)
+    setHearingDraft({
+      hearingDate: foundReport.hearingDate || '',
+      hearingNote: foundReport.hearingNote || '',
+    })
+    setOutcomeDraft('')
+
+    scrollToReportCard(foundReport.id)
+  }
 
   function expand(report) {
-    setExpandedId(report.id)
-    setHearingDraft({ hearingDate: report.hearingDate, hearingNote: report.hearingNote })
-    setOutcomeDraft('')
-  }
-
-  function collapseReport(reportId) {
-    setExpandedId(null)
-    setTimeout(() => {
-      const el = document.getElementById(`report-card-${reportId}`)
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-      }
-    }, 80)
-  }
-
-  useEffect(() => {
-    if (expandedId) {
-      const timer = setTimeout(() => {
-        const el = document.getElementById(`report-card-${expandedId}`)
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }
-      }, 80)
-      return () => clearTimeout(timer)
+    if (!report || !report.id) {
+      showToast('Hindi natagpuan ang report. Pakisubukang muli.', 'error')
+      return
     }
-  }, [expandedId])
+    const isCurrentlyExpanded = expandedId === report.id
+    if (isCurrentlyExpanded) {
+      setExpandedId(null)
+      return
+    }
+    handleViewReport(report)
+  }
+
+  function collapseReport() {
+    setExpandedId(null)
+  }
 
   function confirmReport(report) {
     updateBlotterReport(report.id, { status: 'Inimbestigahan' })
@@ -417,7 +599,7 @@ export default function DigitalBlotter() {
         <StatTile
           icon={FileText}
           label="Kabuuan (Total)"
-          value={blotterReports.length}
+          value={uniqueReports.length}
           accent="blue"
           onClick={() => setSelectedStatus(null)}
           selected={selectedStatus === null}
@@ -426,7 +608,7 @@ export default function DigitalBlotter() {
         <StatTile
           icon={Clock}
           label="Sinuri (Pending)"
-          value={blotterReports.filter(r => r.status === 'Sinuri').length}
+          value={uniqueReports.filter((r) => r.status === 'Sinuri').length}
           accent="orange"
           onClick={() => setSelectedStatus(selectedStatus === 'Sinuri' ? null : 'Sinuri')}
           selected={selectedStatus === 'Sinuri'}
@@ -435,7 +617,7 @@ export default function DigitalBlotter() {
         <StatTile
           icon={CalendarClock}
           label="Inimbestigahan"
-          value={blotterReports.filter(r => r.status === 'Inimbestigahan').length}
+          value={uniqueReports.filter((r) => r.status === 'Inimbestigahan').length}
           accent="blue"
           onClick={() => setSelectedStatus(selectedStatus === 'Inimbestigahan' ? null : 'Inimbestigahan')}
           selected={selectedStatus === 'Inimbestigahan'}
@@ -444,7 +626,7 @@ export default function DigitalBlotter() {
         <StatTile
           icon={CheckCircle2}
           label="Nareselba"
-          value={blotterReports.filter(r => r.status === 'Nareselba').length}
+          value={uniqueReports.filter((r) => r.status === 'Nareselba').length}
           accent="green"
           onClick={() => setSelectedStatus(selectedStatus === 'Nareselba' ? null : 'Nareselba')}
           selected={selectedStatus === 'Nareselba'}
@@ -465,29 +647,27 @@ export default function DigitalBlotter() {
           {REPORT_TYPE_FILTERS.map((pill) => {
             const count =
               pill.value === 'All'
-                ? blotterReports.length
+                ? uniqueReports.length
                 : pill.value === 'hazard'
-                ? blotterReports.filter(isHazardReport).length
-                : blotterReports.filter(isDigitalReport).length
+                  ? uniqueReports.filter(isHazardReport).length
+                  : uniqueReports.filter(isDigitalReport).length
             const isActive = reportTypeFilter === pill.value
 
             return (
               <button
                 key={pill.value}
                 onClick={() => setReportTypeFilter(pill.value)}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
-                  isActive
-                    ? `${pill.activeClass} scale-102`
-                    : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-                }`}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${isActive
+                  ? `${pill.activeClass} scale-102`
+                  : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                  }`}
               >
                 <span>{pill.label}</span>
                 <span
-                  className={`rounded-full px-1.5 py-0.2 text-[10px] ${
-                    isActive
-                      ? 'bg-white/20 text-white'
-                      : 'bg-gray-100 text-gray-500 border border-gray-200/50'
-                  }`}
+                  className={`rounded-full px-1.5 py-0.2 text-[10px] ${isActive
+                    ? 'bg-white/20 text-white'
+                    : 'bg-gray-100 text-gray-500 border border-gray-200/50'
+                    }`}
                 >
                   {count}
                 </span>
@@ -497,30 +677,35 @@ export default function DigitalBlotter() {
         </div>
       </div>
 
-      <div className="mt-4 min-h-[300px] max-h-[calc(100vh-380px)] space-y-3 overflow-y-auto pr-2 sm:pr-3">
+      <div className="mt-4 space-y-3 pb-8">
         {filtered.map((report) => {
           const meta = STATUS_META[report.status] || { color: 'gray' }
           const isExpanded = expandedId === report.id
           const isVerified = report.status !== 'Sinuri' && report.status !== 'Under Review' && report.status !== 'Spam'
           const isHazard = isHazardReport(report)
+          const domId = getReportDomId(report.id)
 
           if (!isExpanded) {
             return (
               <div
                 key={report.id}
-                id={`report-card-${report.id}`}
+                id={domId}
+                data-report-id={report.id}
                 onClick={() => expand(report)}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 p-4 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all"
+                className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 ${
+                  highlightedId === report.id
+                    ? 'border-bb-blue ring-2 ring-bb-blue/50 bg-blue-50/40 shadow-sm'
+                    : 'border-gray-200'
+                }`}
               >
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-semibold text-gray-400">{report.id}</span>
                     <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold border ${
-                        isHazard
-                          ? 'bg-amber-50 text-amber-700 border-amber-200'
-                          : 'bg-blue-50 text-blue-700 border-blue-200'
-                      }`}
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold border ${isHazard
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'bg-blue-50 text-blue-700 border-blue-200'
+                        }`}
                     >
                       {isHazard ? 'General Hazard' : 'Digital Report'}
                     </span>
@@ -529,9 +714,9 @@ export default function DigitalBlotter() {
                     </Pill>
                     {isVerified && <GisStatusPill isMapped={checkIsMapped(report)} />}
                   </div>
-                  <h3 className="mt-1 font-bold text-gray-900">{report.title}</h3>
+                  <h3 className="mt-1 font-bold text-gray-900">{formatReportValue(report.title)}</h3>
                   <p className="text-sm text-gray-500">
-                    {report.datetime} - {report.filedBy}
+                    {formatReportValue(report.datetime)} - {formatReportValue(report.filedBy)}
                   </p>
                 </div>
                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
@@ -578,7 +763,11 @@ export default function DigitalBlotter() {
                     )
                   )}
                   <button
-                    onClick={() => expand(report)}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleViewReport(report.id)
+                    }}
                     className="rounded-lg bg-gradient-to-b from-gray-600 to-gray-700/90 border border-gray-500/10 shadow-xs px-4 py-1.5 text-xs font-semibold text-white hover:from-gray-700 hover:to-gray-800 transition-all cursor-pointer"
                   >
                     Tingnan ang report
@@ -589,19 +778,27 @@ export default function DigitalBlotter() {
           }
 
           return (
-            <div key={report.id} id={`report-card-${report.id}`} className="overflow-hidden rounded-lg border border-gray-200 shadow-sm">
+            <div
+              key={report.id}
+              id={domId}
+              data-report-id={report.id}
+              className={`overflow-hidden rounded-lg border shadow-sm transition-all duration-200 ${
+                highlightedId === report.id
+                  ? 'border-bb-blue ring-2 ring-bb-blue/50 shadow-md'
+                  : 'border-gray-200'
+              }`}
+            >
               <div
-                onClick={() => collapseReport(report.id)}
+                onClick={() => collapseReport()}
                 className="bg-bb-blue p-4 text-white cursor-pointer hover:bg-bb-blue-dark transition-all select-none"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-semibold">{report.id}</span>
                   <span
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
-                      isHazard
-                        ? 'bg-amber-500/20 text-amber-200 border-amber-400/30'
-                        : 'bg-white/20 text-white border-white/20'
-                    }`}
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold border ${isHazard
+                      ? 'bg-amber-500/20 text-amber-200 border-amber-400/30'
+                      : 'bg-white/20 text-white border-white/20'
+                      }`}
                   >
                     {isHazard ? 'General Hazard' : 'Digital Report'}
                   </span>
@@ -672,9 +869,9 @@ export default function DigitalBlotter() {
                 </div>
                 <div className="flex items-end justify-between mt-3">
                   <div>
-                    <h3 className="text-lg font-bold leading-tight">{report.title}</h3>
+                    <h3 className="text-lg font-bold leading-tight">{formatReportValue(report.title)}</h3>
                     <p className="text-xs text-white/80 mt-1">
-                      {report.datetime} - {report.filedBy}
+                      {formatReportValue(report.datetime)} - {formatReportValue(report.filedBy)}
                     </p>
                   </div>
                   <span className="text-[10px] bg-white/10 hover:bg-white/20 border border-white/10 px-2.5 py-1 rounded text-white/90 font-medium transition-all">
@@ -688,14 +885,14 @@ export default function DigitalBlotter() {
                   <User size={14} className="text-bb-blue shrink-0" />
                   <div>
                     <span className="block text-[10px] font-semibold text-gray-400 uppercase">Nagrereklamo</span>
-                    <span className="font-semibold text-gray-700">{report.filedBy}</span>
+                    <span className="font-semibold text-gray-700">{formatReportValue(report.filedBy)}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 min-w-[120px]">
                   <Phone size={14} className="text-bb-blue shrink-0" />
                   <div>
                     <span className="block text-[10px] font-semibold text-gray-400 uppercase">Contact No.</span>
-                    <span className="font-semibold text-gray-700">{report.complainantPhone || 'N/A'}</span>
+                    <span className="font-semibold text-gray-700">{formatReportValue(report.complainantPhone)}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 min-w-[100px]">
@@ -703,8 +900,8 @@ export default function DigitalBlotter() {
                   <div>
                     <span className="block text-[10px] font-semibold text-gray-400 uppercase">Kasarian / Edad</span>
                     <span className="font-semibold text-gray-700">
-                      {report.complainantGender || 'N/A'}
-                      {report.complainantAge ? ` (${report.complainantAge} yrs)` : ''}
+                      {formatReportValue(report.complainantGender)}
+                      {report.complainantAge ? ` (${formatReportValue(report.complainantAge)} yrs)` : ''}
                     </span>
                   </div>
                 </div>
@@ -712,7 +909,7 @@ export default function DigitalBlotter() {
                   <MapPin size={14} className="text-bb-blue shrink-0" />
                   <div>
                     <span className="block text-[10px] font-semibold text-gray-400 uppercase">Tirahan</span>
-                    <span className="font-semibold text-gray-700">{report.complainantAddress || 'N/A'}</span>
+                    <span className="font-semibold text-gray-700">{formatReportValue(report.complainantAddress)}</span>
                   </div>
                 </div>
                 {report.isMinor && (
@@ -729,7 +926,7 @@ export default function DigitalBlotter() {
                     <span className="inline-block rounded-md bg-bb-blue-light px-2.5 py-0.5 text-xs font-semibold text-bb-blue">
                       {label}
                     </span>
-                    <p className="mt-2 text-sm text-gray-700">{report[key]}</p>
+                    <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap">{formatReportValue(report[key])}</p>
                   </div>
                 ))}
               </div>
@@ -836,7 +1033,7 @@ export default function DigitalBlotter() {
               {report.status === 'Nareselba' && report.outcome && (
                 <div className="border-t border-gray-100 p-4">
                   <h4 className="text-sm font-semibold text-gray-700">Huling Resulta</h4>
-                  <p className="mt-1 text-sm text-gray-600">{report.outcome}</p>
+                  <p className="mt-1 text-sm text-gray-600">{formatReportValue(report.outcome)}</p>
                 </div>
               )}
 
@@ -844,7 +1041,7 @@ export default function DigitalBlotter() {
                 <div className="flex items-center gap-2 border-t border-gray-100 bg-red-50 p-4 text-sm text-red-700">
                   <ShieldAlert size={16} />
                   Na-flag bilang spam ang report na ito at na-block ang account ni{' '}
-                  {report.filedBy}.
+                  {formatReportValue(report.filedBy)}.
                 </div>
               )}
             </div>
