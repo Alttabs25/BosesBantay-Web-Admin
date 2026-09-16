@@ -122,10 +122,12 @@ export default function BlotterMapModal({ open, onClose, report, onSave }) {
         lat,
         lng,
         location: location.trim() || 'Quezon City',
+        report,
       })
-      showToast(`${report?.id}: Matagumpay na nai-map ang insidente.`)
+      showToast(`${report?.id || report?.ref}: Matagumpay na nai-map ang insidente.`)
       onClose()
     } catch (err) {
+      console.error('Error saving incident location in BlotterMapModal:', err)
       showToast(err.message || 'Hindi na-save ang lokasyon ng insidente. Pakisubukan muli.', 'error')
     } finally {
       setIsSaving(false)

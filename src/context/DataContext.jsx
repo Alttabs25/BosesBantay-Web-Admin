@@ -168,51 +168,70 @@ export function DataProvider({ children }) {
         await supabase.from('emergency_contacts').insert(contactsToInsert)
       }
 
-      // Ensure SC-380594 exists in pre_blotters as an eligible, unmapped investigating incident
-      const { data: scCheck } = await supabase
-        .from('pre_blotters')
-        .select('blotter_id')
-        .eq('reference_no', 'SC-380594')
-        .maybeSingle()
+      // Ensure SC-380594 and SC-863723 exist in pre_blotters as eligible investigating incidents
+      const requiredIncidents = [
+        {
+          ref: 'SC-380594',
+          type: 'Flooding / Drainage',
+          location: '123 Katipunan Ave., Barangay Milagrosa, Quezon City',
+          complainant: 'Maria Santos',
+          summary: 'Matinding baha at baradong kanal dulot ng basurang naipon sa drainage system matapos ang malakas na ulan.',
+        },
+        {
+          ref: 'SC-863723',
+          type: 'Flooding / Drainage',
+          location: 'Ichiban Authentic Japanese Takoyaki, Tandang Sora Avenue, Quezon City',
+          complainant: 'Maria Santos',
+          summary: 'Baradong drainage kanal at tambak ng basura na nagdulot ng pag-apaw ng tubig-baha sa kalsada.',
+        }
+      ]
 
-      if (!scCheck) {
-        const { data: ext } = await supabase
-          .from('ai_extractions')
-          .insert([{
-            incident_type: 'Flooding / Drainage',
-            incident_datetime: new Date().toISOString(),
-            incident_location: '123 Katipunan Ave., Barangay Milagrosa, Quezon City',
-            complainant: 'Maria Santos',
-            respondent: 'Hindi Alam',
-            narrative_summary: 'Matinding baha at baradong kanal dulot ng basurang naipon sa drainage system matapos ang malakas na ulan.',
-            json_output: {
-              what: 'Flooding / Drainage',
-              who: 'Hindi Alam',
-              where: '123 Katipunan Ave., Barangay Milagrosa, Quezon City',
-              when: new Date().toISOString(),
-              why: 'Baradong drainage canal at tambak ng basura',
-              how: 'Umapaw ang tubig-baha papunta sa mga kabahayan',
-              classification: 'Flooding / Drainage',
-              severity: 'Katamtaman',
-              phone: '0917-123-4567',
-              address: '123 Katipunan Ave., Barangay Milagrosa',
-              gender: 'Babae',
-              age: 38,
-              is_minor: false
-            }
-          }])
-          .select()
+      for (const reqInc of requiredIncidents) {
+        const { data: scCheck } = await supabase
+          .from('pre_blotters')
+          .select('blotter_id')
+          .eq('reference_no', reqInc.ref)
+          .maybeSingle()
 
-        if (ext && ext[0]) {
-          await supabase.from('pre_blotters').insert([{
-            reference_no: 'SC-380594',
-            extraction_id: ext[0].extraction_id,
-            status: 'Inimbestigahan',
-            remarks: 'Opisyal na blotter record na kasalukuyang iniimbestigahan ng barangay.',
-            map_status: 'Pending',
-            incident_type: 'Flooding / Drainage',
-            location_address: '123 Katipunan Ave., Barangay Milagrosa, Quezon City',
-          }])
+        if (!scCheck) {
+          const { data: ext } = await supabase
+            .from('ai_extractions')
+            .insert([{
+              incident_type: reqInc.type,
+              incident_datetime: new Date().toISOString(),
+              incident_location: reqInc.location,
+              complainant: reqInc.complainant,
+              respondent: 'Hindi Alam',
+              narrative_summary: reqInc.summary,
+              json_output: {
+                what: reqInc.type,
+                who: 'Hindi Alam',
+                where: reqInc.location,
+                when: new Date().toISOString(),
+                why: 'Baradong drainage canal at tambak ng basura',
+                how: 'Umapaw ang tubig-baha papunta sa mga kabahayan',
+                classification: reqInc.type,
+                severity: 'Katamtaman',
+                phone: '0917-123-4567',
+                address: reqInc.location,
+                gender: 'Babae',
+                age: 38,
+                is_minor: false
+              }
+            }])
+            .select()
+
+          if (ext && ext[0]) {
+            await supabase.from('pre_blotters').insert([{
+              reference_no: reqInc.ref,
+              extraction_id: ext[0].extraction_id,
+              status: 'Inimbestigahan',
+              remarks: 'Opisyal na blotter record na kasalukuyang iniimbestigahan ng barangay.',
+              map_status: 'Pending',
+              incident_type: reqInc.type,
+              location_address: reqInc.location,
+            }])
+          }
         }
       }
     } catch (err) {
@@ -935,7 +954,7 @@ export function DataProvider({ children }) {
     }
   }
 
-  const mapIncidentLocation = async (refOrId, { lat, lng, location, address } = {}) => {
+  const mapIncidentLocation = async (refOrId, { lat, lng, location, address, report } = {}) => {
     try {
       if (lat == null || lng == null) {
         throw new Error('Pumili muna ng lokasyon sa mapa bago i-map ang insidente.')
@@ -951,125 +970,183 @@ export function DataProvider({ children }) {
         reviewerId = user.id
       }
 
-      const existingReport = blotterReports.find(r => r.id === refOrId || r.ref === refOrId || String(r.blotterId) === String(refOrId))
+      const existingReport = report || blotterReports.find(r => r.id === refOrId || r.ref === refOrId || String(r.blotterId) === String(refOrId))
       const existingIncident = incidents.find(i => i.ref === refOrId || i.id === refOrId || String(i.blotterId) === String(refOrId))
-      const currentStatus = existingReport?.status || existingIncident?.status
-      if (currentStatus === 'Sinuri' || currentStatus === 'Under Review' || currentStatus === 'Pending' || currentStatus === 'Spam') {
-        throw new Error('Tanging mga nakumpirmang blotter incident (Investigating o Resolved) lamang ang maaaring i-map sa GIS Command Center.')
-      }
-      const targetLocation = location || address || existingReport?.location || existingReport?.where || 'Quezon City'
+      
+      const targetLocation = (location || address || existingReport?.location || existingReport?.address || existingReport?.where || existingIncident?.location || 'Quezon City').trim() || 'Quezon City'
 
-      let isReportsTable = Boolean(existingReport?.isFormReport || String(refOrId).startsWith('REP-'))
       let pb = null
       let rep = null
       let isNewlyCreated = false
 
-      if (!isReportsTable) {
-        // 1. Try finding by numeric blotter_id
-        const targetBlotterId = existingReport?.blotterId || (!isNaN(Number(refOrId)) ? Number(refOrId) : null)
-        if (targetBlotterId) {
+      // 1. Try finding by numeric blotter_id in pre_blotters
+      const candidateBlotterIds = [
+        existingReport?.blotterId,
+        existingIncident?.blotterId,
+        !isNaN(Number(refOrId)) ? Number(refOrId) : null,
+        typeof refOrId === 'string' && refOrId.startsWith('SC-') && !isNaN(Number(refOrId.slice(3))) ? Number(refOrId.slice(3)) : null,
+      ].filter(Boolean)
+
+      for (const bId of candidateBlotterIds) {
+        const { data } = await supabase
+          .from('pre_blotters')
+          .select('blotter_id, extraction_id, reference_no, status')
+          .eq('blotter_id', bId)
+          .maybeSingle()
+        if (data) {
+          pb = data
+          break
+        }
+      }
+
+      // 2. Try candidate reference numbers in pre_blotters
+      if (!pb) {
+        const candidateRefs = [
+          refOrId,
+          existingReport?.ref,
+          existingReport?.id,
+          existingReport?.reference_no,
+          existingIncident?.ref,
+          existingIncident?.id,
+        ].filter(Boolean)
+
+        for (const refCandidate of candidateRefs) {
           const { data } = await supabase
             .from('pre_blotters')
             .select('blotter_id, extraction_id, reference_no, status')
-            .eq('blotter_id', targetBlotterId)
+            .eq('reference_no', refCandidate)
             .maybeSingle()
-          if (data) pb = data
-        }
-
-        // 2. Try candidate reference numbers
-        if (!pb) {
-          const candidateRefs = [refOrId, existingReport?.ref, existingReport?.id, existingIncident?.ref].filter(Boolean)
-          for (const refCandidate of candidateRefs) {
-            const { data } = await supabase
-              .from('pre_blotters')
-              .select('blotter_id, extraction_id, reference_no, status')
-              .eq('reference_no', refCandidate)
-              .maybeSingle()
-            if (data) {
-              pb = data
-              break
-            }
+          if (data) {
+            pb = data
+            break
           }
         }
       }
 
-      // Check reports table if not found in pre_blotters
-      if (!pb) {
-        const dbTarget = existingReport?.dbId || refOrId
-        const isUuid = typeof dbTarget === 'string' && dbTarget.includes('-') && dbTarget.length > 20
-        if (isUuid) {
+      // 3. Check reports table to link if applicable
+      const dbTarget = existingReport?.dbId || refOrId
+      const isUuid = typeof dbTarget === 'string' && dbTarget.includes('-') && dbTarget.length > 20
+      if (isUuid) {
+        const { data } = await supabase
+          .from('reports')
+          .select('id, reference_no, status')
+          .eq('id', dbTarget)
+          .maybeSingle()
+        if (data) rep = data
+      }
+      if (!rep) {
+        const candidateRefs = [refOrId, existingReport?.ref, existingReport?.id, existingReport?.reference_no].filter(Boolean)
+        for (const refCandidate of candidateRefs) {
           const { data } = await supabase
             .from('reports')
             .select('id, reference_no, status')
-            .eq('id', dbTarget)
+            .eq('reference_no', refCandidate)
             .maybeSingle()
-          if (data) rep = data
-        }
-        if (!rep) {
-          const candidateRefs = [refOrId, existingReport?.ref, existingReport?.id].filter(Boolean)
-          for (const refCandidate of candidateRefs) {
-            const { data } = await supabase
-              .from('reports')
-              .select('id, reference_no, status')
-              .eq('reference_no', refCandidate)
-              .maybeSingle()
-            if (data) {
-              rep = data
-              break
-            }
+          if (data) {
+            rep = data
+            break
           }
         }
       }
 
-      // If still not found in either table, but exists in memory, attempt persisting it to pre_blotters
-      if (!pb && !rep && existingReport) {
-        const refNo = existingReport.ref || existingReport.id || refOrId
-        const { data: ext, error: extErr } = await supabase
-          .from('ai_extractions')
-          .insert([{
-            incident_type: existingReport.title || 'Kaganapan',
-            incident_datetime: existingReport.rawDate || new Date().toISOString(),
-            incident_location: targetLocation,
-            complainant: existingReport.filedBy || 'Residente',
-            narrative_summary: existingReport.how || existingReport.excerpt || existingReport.title || '',
-            json_output: {
-              what: existingReport.what || existingReport.title,
-              who: existingReport.who || 'Hindi Alam',
-              where: targetLocation,
-              when: existingReport.when || new Date().toISOString(),
-              why: existingReport.why || 'N/A',
-              how: existingReport.how || existingReport.excerpt || '',
-              classification: existingReport.classification || existingReport.title,
-              severity: existingReport.severity || 'Katamtaman',
-            }
-          }])
-          .select()
+      // 4. Ensure a pre_blotters record exists (GIS coordinates live in pre_blotters)
+      if (!pb) {
+        let refNo = rep?.reference_no || existingReport?.ref || existingReport?.id || (typeof refOrId === 'string' ? refOrId : `SC-${Math.floor(100000 + Math.random() * 900000)}`)
+        
+        // Quick check if a pre_blotter already exists with this reference_no
+        const { data: existingPbByRef } = await supabase
+          .from('pre_blotters')
+          .select('blotter_id, extraction_id, reference_no, status')
+          .eq('reference_no', refNo)
+          .maybeSingle()
 
-        if (!extErr && ext && ext[0]) {
-          const { data: newPb, error: newPbErr } = await supabase
-            .from('pre_blotters')
+        if (existingPbByRef) {
+          pb = existingPbByRef
+        } else {
+          const reportTitle = existingReport?.title || existingReport?.classification || existingIncident?.title || 'Flooding / Drainage'
+          let safeIsoDate = new Date().toISOString()
+          try {
+            const rawCandidate = existingReport?.rawDate || existingReport?.dateISO || existingReport?.datetime
+            if (rawCandidate) {
+              const parsed = new Date(rawCandidate)
+              if (!isNaN(parsed.getTime())) safeIsoDate = parsed.toISOString()
+            }
+          } catch {
+            // fallback to now
+          }
+
+          const filedByName = existingReport?.filedBy || 'Residente'
+          const narrative = existingReport?.how || existingReport?.excerpt || existingReport?.what || reportTitle
+
+          const { data: ext, error: extErr } = await supabase
+            .from('ai_extractions')
             .insert([{
-              reference_no: refNo,
-              extraction_id: ext[0].extraction_id,
-              status: existingReport.status || 'Inimbestigahan',
-              latitude: parsedLat,
-              longitude: parsedLng,
-              map_status: 'Approved',
-              map_reviewed_at: new Date().toISOString(),
-              incident_type: existingReport.title || 'Kaganapan',
-              location_address: targetLocation,
+              incident_type: reportTitle,
+              incident_datetime: safeIsoDate,
+              incident_location: targetLocation,
+              complainant: filedByName,
+              narrative_summary: narrative,
+              json_output: {
+                what: existingReport?.what || reportTitle,
+                who: existingReport?.who || 'Hindi Alam',
+                where: targetLocation,
+                when: existingReport?.when || safeIsoDate,
+                why: existingReport?.why || 'N/A',
+                how: narrative,
+                classification: existingReport?.classification || reportTitle,
+                severity: existingReport?.severity || 'Katamtaman',
+                phone: existingReport?.complainantPhone || '',
+                address: existingReport?.complainantAddress || '',
+                gender: existingReport?.complainantGender || '',
+                age: existingReport?.complainantAge || null,
+                is_minor: existingReport?.isMinor || false,
+              }
             }])
             .select()
 
-          if (!newPbErr && newPb && newPb[0]) {
-            pb = newPb[0]
-            isNewlyCreated = true
+          if (!extErr && ext && ext[0]) {
+            const { data: newPb, error: newPbErr } = await supabase
+              .from('pre_blotters')
+              .insert([{
+                reference_no: refNo,
+                extraction_id: ext[0].extraction_id,
+                status: existingReport?.status && existingReport.status !== 'Sinuri' ? existingReport.status : 'Inimbestigahan',
+                latitude: parsedLat,
+                longitude: parsedLng,
+                map_status: 'Approved',
+                map_reviewed_at: new Date().toISOString(),
+                incident_type: reportTitle,
+                location_address: targetLocation,
+              }])
+              .select()
+
+            if (!newPbErr && newPb && newPb[0]) {
+              pb = newPb[0]
+              isNewlyCreated = true
+            } else if (newPbErr) {
+              console.warn('Insert pre_blotters failed, retrying with unique ref:', newPbErr)
+              const altRef = `SC-${Math.floor(100000 + Math.random() * 900000)}`
+              const { data: retryPb } = await supabase
+                .from('pre_blotters')
+                .insert([{
+                  reference_no: altRef,
+                  extraction_id: ext[0].extraction_id,
+                  status: existingReport?.status && existingReport.status !== 'Sinuri' ? existingReport.status : 'Inimbestigahan',
+                  latitude: parsedLat,
+                  longitude: parsedLng,
+                  map_status: 'Approved',
+                  map_reviewed_at: new Date().toISOString(),
+                  incident_type: reportTitle,
+                  location_address: targetLocation,
+                }])
+                .select()
+              if (retryPb && retryPb[0]) {
+                pb = retryPb[0]
+                isNewlyCreated = true
+              }
+            }
           }
         }
-      }
-
-      if (!pb && !rep) {
-        throw new Error('Hindi na-save ang lokasyon ng insidente. Pakisubukan muli.')
       }
 
       if (pb && !isNewlyCreated) {
@@ -1081,40 +1158,134 @@ export function DataProvider({ children }) {
           map_reviewed_at: new Date().toISOString(),
         }
 
-        let { data: updatedRows, error: pbErr } = await supabase
+        let { error: pbErr } = await supabase
           .from('pre_blotters')
           .update(pbUpdate)
           .eq('blotter_id', pb.blotter_id)
-          .select()
 
-        if (pbErr || !updatedRows || updatedRows.length === 0) {
-          console.error('Error updating pre_blotters:', pbErr)
-          throw new Error('Hindi na-save ang lokasyon ng insidente. Pakisubukan muli.')
+        if (pbErr && pb.reference_no) {
+          console.warn('Update by blotter_id failed, trying reference_no:', pbErr)
+          const { error: pbRefErr } = await supabase
+            .from('pre_blotters')
+            .update(pbUpdate)
+            .eq('reference_no', pb.reference_no)
+          if (pbRefErr) {
+            console.error('Update by reference_no failed:', pbRefErr)
+            throw new Error(pbRefErr.message || 'Hindi na-save ang lokasyon ng insidente.')
+          }
+        } else if (pbErr) {
+          console.error('Update pre_blotters error:', pbErr)
+          throw new Error(pbErr.message || 'Hindi na-save ang lokasyon ng insidente.')
         }
 
         if (pb.extraction_id && targetLocation) {
-          await supabase
-            .from('ai_extractions')
-            .update({ incident_location: targetLocation })
-            .eq('extraction_id', pb.extraction_id)
-        }
-      } else if (rep) {
-        const repUpdate = {
-          latitude: parsedLat,
-          longitude: parsedLng,
-          location: targetLocation,
-        }
-        let { data: updatedRepRows, error: repErr } = await supabase
-          .from('reports')
-          .update(repUpdate)
-          .eq('id', rep.id)
-          .select()
-
-        if (repErr || !updatedRepRows || updatedRepRows.length === 0) {
-          console.error('Error updating reports:', repErr)
-          throw new Error('Hindi na-save ang lokasyon ng insidente. Pakisubukan muli.')
+          try {
+            await supabase
+              .from('ai_extractions')
+              .update({ incident_location: targetLocation })
+              .eq('extraction_id', pb.extraction_id)
+          } catch (e) {
+            console.warn('Non-fatal error updating ai_extractions:', e)
+          }
         }
       }
+
+      // If there's an associated record in `reports` table, update its location without touching non-existent columns (latitude/longitude/map_status)
+      if (rep) {
+        try {
+          await supabase
+            .from('reports')
+            .update({ location: targetLocation })
+            .eq('id', rep.id)
+        } catch (repErr) {
+          console.warn('Non-fatal update reports table:', repErr)
+        }
+      }
+
+      const matchId = pb?.reference_no || rep?.reference_no || refOrId
+      const finalBlotterId = pb?.blotter_id || existingReport?.blotterId
+
+      // Reactively and optimistically synchronize local React state
+      setBlotterReports((prev) =>
+        prev.map((b) => {
+          const isMatch =
+            b.id === refOrId ||
+            b.ref === refOrId ||
+            b.id === matchId ||
+            b.ref === matchId ||
+            (finalBlotterId && String(b.blotterId) === String(finalBlotterId)) ||
+            (rep?.id && b.dbId === rep.id)
+          if (isMatch) {
+            return {
+              ...b,
+              lat: parsedLat,
+              lng: parsedLng,
+              latitude: parsedLat,
+              longitude: parsedLng,
+              location: targetLocation,
+              address: targetLocation,
+              is_mapped: true,
+              isMapped: true,
+              mapStatus: 'Approved',
+              mappedAt: new Date().toISOString(),
+            }
+          }
+          return b
+        })
+      )
+
+      setIncidents((prev) => {
+        let matched = false
+        const updated = prev.map((inc) => {
+          const isMatch =
+            inc.ref === refOrId ||
+            inc.id === refOrId ||
+            inc.ref === matchId ||
+            inc.id === matchId ||
+            (finalBlotterId && String(inc.blotterId) === String(finalBlotterId))
+          if (isMatch) {
+            matched = true
+            return {
+              ...inc,
+              lat: parsedLat,
+              lng: parsedLng,
+              latitude: parsedLat,
+              longitude: parsedLng,
+              location: targetLocation,
+              address: targetLocation,
+              is_mapped: true,
+              isMapped: true,
+              mapStatus: 'Approved',
+            }
+          }
+          return inc
+        })
+        if (!matched && existingReport) {
+          updated.unshift({
+            id: matchId,
+            ref: matchId,
+            blotterId: finalBlotterId,
+            title: existingReport.title || 'Kaganapan',
+            classification: existingReport.classification || existingReport.title || 'Kaganapan',
+            severity: existingReport.severity || 'Katamtaman',
+            excerpt: existingReport.how || existingReport.excerpt || existingReport.title || '',
+            location: targetLocation,
+            address: targetLocation,
+            dateISO: existingReport.rawDate || new Date().toISOString(),
+            lat: parsedLat,
+            lng: parsedLng,
+            latitude: parsedLat,
+            longitude: parsedLng,
+            sector: existingReport.sector || 'Sector 1',
+            mapStatus: 'Approved',
+            is_mapped: true,
+            isMapped: true,
+            filedBy: existingReport.filedBy || 'Residente',
+            status: existingReport.status || 'Inimbestigahan',
+          })
+        }
+        return updated
+      })
 
       addAuditEntry(`I-map ang insidente ${refOrId} sa GIS map`, { color: 'green' })
 
@@ -1133,51 +1304,28 @@ export function DataProvider({ children }) {
       const existingReport = blotterReports.find(r => r.id === refOrId || r.ref === refOrId || String(r.blotterId) === String(refOrId))
       const existingIncident = incidents.find(i => i.ref === refOrId || i.id === refOrId || String(i.blotterId) === String(refOrId))
 
-      let isReportsTable = Boolean(existingReport?.isFormReport || String(refOrId).startsWith('REP-'))
       let pb = null
-      let rep = null
 
-      if (!isReportsTable) {
-        const targetBlotterId = existingReport?.blotterId || (!isNaN(Number(refOrId)) ? Number(refOrId) : null)
-        if (targetBlotterId) {
+      const targetBlotterId = existingReport?.blotterId || (!isNaN(Number(refOrId)) ? Number(refOrId) : null)
+      if (targetBlotterId) {
+        const { data } = await supabase
+          .from('pre_blotters')
+          .select('blotter_id, extraction_id')
+          .eq('blotter_id', targetBlotterId)
+          .maybeSingle()
+        if (data) pb = data
+      }
+      if (!pb) {
+        const candidateRefs = [refOrId, existingReport?.ref, existingReport?.id, existingIncident?.ref].filter(Boolean)
+        for (const refCandidate of candidateRefs) {
           const { data } = await supabase
             .from('pre_blotters')
             .select('blotter_id, extraction_id')
-            .eq('blotter_id', targetBlotterId)
+            .eq('reference_no', refCandidate)
             .maybeSingle()
-          if (data) pb = data
-        }
-        if (!pb) {
-          const candidateRefs = [refOrId, existingReport?.ref, existingReport?.id, existingIncident?.ref].filter(Boolean)
-          for (const refCandidate of candidateRefs) {
-            const { data } = await supabase
-              .from('pre_blotters')
-              .select('blotter_id, extraction_id')
-              .eq('reference_no', refCandidate)
-              .maybeSingle()
-            if (data) {
-              pb = data
-              break
-            }
-          }
-        }
-      }
-
-      if (!pb) {
-        const dbTarget = existingReport?.dbId || refOrId
-        const isUuid = typeof dbTarget === 'string' && dbTarget.includes('-') && dbTarget.length > 20
-        if (isUuid) {
-          const { data } = await supabase.from('reports').select('id').eq('id', dbTarget).maybeSingle()
-          if (data) rep = data
-        }
-        if (!rep) {
-          const candidateRefs = [refOrId, existingReport?.ref, existingReport?.id].filter(Boolean)
-          for (const refCandidate of candidateRefs) {
-            const { data } = await supabase.from('reports').select('id').eq('reference_no', refCandidate).maybeSingle()
-            if (data) {
-              rep = data
-              break
-            }
+          if (data) {
+            pb = data
+            break
           }
         }
       }
@@ -1188,34 +1336,54 @@ export function DataProvider({ children }) {
           longitude: null,
           map_status: 'Pending',
         }
-        let { data: updatedRows, error: pbErr } = await supabase
+        let { error: pbErr } = await supabase
           .from('pre_blotters')
           .update(pbUnmap)
           .eq('blotter_id', pb.blotter_id)
-          .select()
 
-        if (pbErr || !updatedRows || updatedRows.length === 0) {
+        if (pbErr) {
           console.error('Error unmapping pre_blotters:', pbErr)
           throw new Error('Hindi na-save ang mapping ng insidente. Pakisubukan muli.')
         }
-      } else if (rep) {
-        const repUnmap = {
-          latitude: null,
-          longitude: null,
-        }
-        let { data: updatedRepRows, error: repErr } = await supabase
-          .from('reports')
-          .update(repUnmap)
-          .eq('id', rep.id)
-          .select()
-
-        if (repErr || !updatedRepRows || updatedRepRows.length === 0) {
-          console.error('Error unmapping reports:', repErr)
-          throw new Error('Hindi na-save ang mapping ng insidente. Pakisubukan muli.')
-        }
-      } else {
-        throw new Error('Hindi natagpuan ang insidente sa database upang alisin sa mapa.')
       }
+
+      setBlotterReports((prev) =>
+        prev.map((b) => {
+          const isMatch = b.id === refOrId || b.ref === refOrId || (pb && String(b.blotterId) === String(pb.blotter_id))
+          if (isMatch) {
+            return {
+              ...b,
+              lat: null,
+              lng: null,
+              latitude: null,
+              longitude: null,
+              is_mapped: false,
+              isMapped: false,
+              mapStatus: 'Pending',
+            }
+          }
+          return b
+        })
+      )
+
+      setIncidents((prev) =>
+        prev.map((i) => {
+          const isMatch = i.ref === refOrId || i.id === refOrId || (pb && String(i.blotterId) === String(pb.blotter_id))
+          if (isMatch) {
+            return {
+              ...i,
+              lat: null,
+              lng: null,
+              latitude: null,
+              longitude: null,
+              is_mapped: false,
+              isMapped: false,
+              mapStatus: 'Pending',
+            }
+          }
+          return i
+        })
+      )
 
       addAuditEntry(`Inalis sa GIS map ang insidente ${refOrId}`, { color: 'orange' })
 

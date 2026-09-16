@@ -1078,7 +1078,7 @@ export default function DigitalBlotter() {
         open={mappingReport != null}
         onClose={() => setMappingReport(null)}
         report={mappingReport}
-        onSave={(data) => mapIncidentLocation(mappingReport.id, data)}
+        onSave={(data) => mapIncidentLocation(mappingReport?.id || mappingReport?.ref, { ...data, report: mappingReport })}
       />
 
       <BlotterCreateModal

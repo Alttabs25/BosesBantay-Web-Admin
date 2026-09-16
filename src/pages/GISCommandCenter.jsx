@@ -257,7 +257,9 @@ export default function GISCommandCenter() {
   useEffect(() => {
     const targetId = searchParams.get('id')
     if (targetId) {
-      const found = mappedIncidents.find((i) => i.ref === targetId || i.id === targetId)
+      const found = mappedIncidents.find(
+        (i) => i.ref === targetId || i.id === targetId || (i.blotterId && String(i.blotterId) === targetId)
+      )
       if (found) {
         focusIncident(found)
       }
