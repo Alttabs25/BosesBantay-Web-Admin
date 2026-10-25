@@ -342,11 +342,11 @@ export default function DigitalBlotter() {
       list = list.filter(isDigitalReport)
     }
 
-    // Sort by oldest first so newest reports appear at the bottom
+    // Sort by newest first so recent reports appear at the top
     list.sort((a, b) => {
       const timeA = new Date(a.rawDate).getTime() || 0
       const timeB = new Date(b.rawDate).getTime() || 0
-      return timeA - timeB
+      return timeB - timeA
     })
 
     if (selectedStatus) {
