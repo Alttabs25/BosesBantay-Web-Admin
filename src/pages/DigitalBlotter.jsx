@@ -8,6 +8,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import StatTile from '../components/StatTile'
 import BlotterMapModal from '../components/BlotterMapModal'
 import BlotterCreateModal from '../components/BlotterCreateModal'
+import ReportEvidenceGallery from '../components/ReportEvidenceGallery'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
@@ -930,6 +931,8 @@ export default function DigitalBlotter() {
                   </div>
                 ))}
               </div>
+
+              <ReportEvidenceGallery paths={report.photoPaths} reportId={report.id} />
 
               {report.status === 'Inimbestigahan' && (
                 <div className="border-t border-gray-100 p-4">

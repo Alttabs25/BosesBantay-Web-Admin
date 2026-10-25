@@ -69,6 +69,33 @@ function sanitizeText(val, fallback = 'N/A') {
   return String(val)
 }
 
+function extractPhotoPaths(report) {
+  const details = report?.full_details && typeof report.full_details === 'object'
+    ? report.full_details
+    : {}
+  const candidates = [
+    report?.photo_paths,
+    report?.photos,
+    report?.attachments,
+    details.photoPaths,
+    details.photo_paths,
+    details.photos,
+    details.attachments,
+  ]
+
+  return [...new Set(
+    candidates
+      .flatMap((candidate) => Array.isArray(candidate) ? candidate : [])
+      .map((item) => {
+        if (typeof item === 'string') return item.trim()
+        if (!item || typeof item !== 'object') return ''
+        if (item.type && !String(item.type).toLowerCase().startsWith('image')) return ''
+        return String(item.path || item.storagePath || item.storage_path || item.url || item.signedUrl || '').trim()
+      })
+      .filter(Boolean)
+  )]
+}
+
 export function DataProvider({ children }) {
   const { user } = useAuth()
   const [users, setUsers] = useState([])
@@ -455,6 +482,7 @@ export function DataProvider({ children }) {
             is_mapped: repIsMapped,
             isMapped: repIsMapped,
             mapStatus: repIsMapped ? 'Approved' : 'Pending',
+            photoPaths: extractPhotoPaths(r),
           }
 
           if (repIsMapped) {
