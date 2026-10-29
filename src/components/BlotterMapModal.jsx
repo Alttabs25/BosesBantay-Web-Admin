@@ -4,9 +4,10 @@ import L from 'leaflet'
 import { MapPin, Search, Loader2 } from 'lucide-react'
 import Modal from './Modal'
 import { reverseGeocode, searchAddress } from '../lib/geocode'
+import { MilagrosaMapArea, MILAGROSA_CENTER } from './MilagrosaMapArea'
 import { useToast } from '../context/ToastContext'
 
-const DEFAULT_CENTER = [14.6768, 121.0453]
+const DEFAULT_CENTER = MILAGROSA_CENTER
 
 function draftIcon() {
   return L.divIcon({
@@ -192,6 +193,7 @@ export default function BlotterMapModal({ open, onClose, report, onSave }) {
         {/* Map view */}
         <div className="relative h-64 w-full overflow-hidden rounded-lg border border-gray-200 shadow-inner">
           <MapContainer center={centerPos} zoom={15} className="h-full w-full">
+            <MilagrosaMapArea />
             <TileLayer
               attribution="&copy; OpenStreetMap contributors"
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

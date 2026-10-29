@@ -1,8 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from './AuthContext'
-import { MOCK_INCIDENTS } from '../data/mockIncidents'
-import { MOCK_BLOTTER } from '../data/mockBlotter'
 import {
   ROLES,
   ALWAYS_ON_MODULES,
@@ -101,170 +99,14 @@ export function DataProvider({ children }) {
   const [users, setUsers] = useState([])
   const [incidents, setIncidents] = useState([])
   const [blotterReports, setBlotterReports] = useState([])
+  const [serviceComplaints, setServiceComplaints] = useState([])
+  const [serviceComplaintsError, setServiceComplaintsError] = useState(null)
   const [documents, setDocuments] = useState([])
   const [alertHistory, setAlertHistory] = useState([])
   const [auditLog, setAuditLog] = useState([])
   const [roleModuleAccess, setRoleModuleAccess] = useState(defaultModuleAccessMap)
   const [emergencyContacts, setEmergencyContacts] = useState([])
   const [loading, setLoading] = useState(true)
-
-  // Seed database if empty
-  const seedDatabaseIfEmpty = async () => {
-    try {
-      const { data: currentRoles } = await supabase.from('roles').select('*')
-      if (!currentRoles || currentRoles.length === 0) return
-
-      const roleMap = {}
-      currentRoles.forEach(r => {
-        roleMap[r.role_name] = r.role_id
-      })
-
-      const { data: sectors } = await supabase.from('barangay_sectors').select('*')
-      let dbSectors = sectors || []
-      if (dbSectors.length === 0) {
-        const { data: insertedSectors } = await supabase
-          .from('barangay_sectors')
-          .insert([
-            { sector_name: 'Sector 1' },
-            { sector_name: 'Sector 2' },
-            { sector_name: 'Sector 3' }
-          ])
-          .select()
-        dbSectors = insertedSectors || []
-      }
-
-      const sectorMap = {}
-      dbSectors.forEach(s => {
-        sectorMap[s.sector_name] = s.sector_id
-      })
-
-      const { count: pbCount } = await supabase
-        .from('pre_blotters')
-        .select('*', { count: 'exact', head: true })
-
-      if (pbCount === 0) {
-        for (let i = 0; i < MOCK_INCIDENTS.length; i++) {
-          const inc = MOCK_INCIDENTS[i]
-          const { data: ext } = await supabase
-            .from('ai_extractions')
-            .insert([{
-              incident_type: inc.title,
-              incident_datetime: inc.dateISO,
-              incident_location: inc.location,
-              narrative_summary: inc.excerpt,
-              json_output: {
-                what: inc.title,
-                who: 'Unknown Suspect',
-                where: inc.location,
-                when: inc.dateISO,
-                why: 'Community hazard requiring barangay inspection and action',
-                how: inc.excerpt
-              }
-            }])
-            .select()
-
-          if (ext && ext[0]) {
-            const matchingBlotter = MOCK_BLOTTER.find(b => b.title === inc.title) || {}
-            await supabase
-              .from('pre_blotters')
-              .insert([{
-                reference_no: inc.ref,
-                extraction_id: ext[0].extraction_id,
-                sector_id: sectorMap[inc.sector] || null,
-                latitude: inc.lat,
-                longitude: inc.lng,
-                status: matchingBlotter.status || 'Sinuri',
-                remarks: matchingBlotter.hearingNote || ''
-              }])
-          }
-        }
-      }
-
-      const { count: contactsCount } = await supabase
-        .from('emergency_contacts')
-        .select('*', { count: 'exact', head: true })
-
-      if (contactsCount === 0) {
-        const contactsToInsert = [
-          { agency_name: 'BFP Milagrosa', contact_person: 'Fire Department', phone_number: '0912-345-6789', category: 'Emergency', is_active: true },
-          { agency_name: 'PNP Station 5', contact_person: 'Police Department', phone_number: '0923-456-7890', category: 'Emergency', is_active: true },
-          { agency_name: 'Barangay Hall', contact_person: 'Desk Officer', phone_number: '0934-567-8901', category: 'Barangay Services', is_active: true },
-          { agency_name: 'Barangay Tanod', contact_person: 'BPSO Chief', phone_number: '0945-678-9012', category: 'Barangay Services', is_active: true },
-          { agency_name: 'Barangay Health Center', contact_person: 'Health Worker', phone_number: '0956-789-0123', category: 'Barangay Services', is_active: true },
-        ]
-        await supabase.from('emergency_contacts').insert(contactsToInsert)
-      }
-
-      // Ensure SC-380594 and SC-863723 exist in pre_blotters as eligible investigating incidents
-      const requiredIncidents = [
-        {
-          ref: 'SC-380594',
-          type: 'Flooding / Drainage',
-          location: '123 Katipunan Ave., Barangay Milagrosa, Quezon City',
-          complainant: 'Maria Santos',
-          summary: 'Matinding baha at baradong kanal dulot ng basurang naipon sa drainage system matapos ang malakas na ulan.',
-        },
-        {
-          ref: 'SC-863723',
-          type: 'Flooding / Drainage',
-          location: 'Ichiban Authentic Japanese Takoyaki, Tandang Sora Avenue, Quezon City',
-          complainant: 'Maria Santos',
-          summary: 'Baradong drainage kanal at tambak ng basura na nagdulot ng pag-apaw ng tubig-baha sa kalsada.',
-        }
-      ]
-
-      for (const reqInc of requiredIncidents) {
-        const { data: scCheck } = await supabase
-          .from('pre_blotters')
-          .select('blotter_id')
-          .eq('reference_no', reqInc.ref)
-          .maybeSingle()
-
-        if (!scCheck) {
-          const { data: ext } = await supabase
-            .from('ai_extractions')
-            .insert([{
-              incident_type: reqInc.type,
-              incident_datetime: new Date().toISOString(),
-              incident_location: reqInc.location,
-              complainant: reqInc.complainant,
-              respondent: 'Hindi Alam',
-              narrative_summary: reqInc.summary,
-              json_output: {
-                what: reqInc.type,
-                who: 'Hindi Alam',
-                where: reqInc.location,
-                when: new Date().toISOString(),
-                why: 'Baradong drainage canal at tambak ng basura',
-                how: 'Umapaw ang tubig-baha papunta sa mga kabahayan',
-                classification: reqInc.type,
-                severity: 'Katamtaman',
-                phone: '0917-123-4567',
-                address: reqInc.location,
-                gender: 'Babae',
-                age: 38,
-                is_minor: false
-              }
-            }])
-            .select()
-
-          if (ext && ext[0]) {
-            await supabase.from('pre_blotters').insert([{
-              reference_no: reqInc.ref,
-              extraction_id: ext[0].extraction_id,
-              status: 'Inimbestigahan',
-              remarks: 'Opisyal na blotter record na kasalukuyang iniimbestigahan ng barangay.',
-              map_status: 'Pending',
-              incident_type: reqInc.type,
-              location_address: reqInc.location,
-            }])
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Error seeding database:', err)
-    }
-  }
 
   // Fetch all tables from Supabase
   const fetchData = async () => {
@@ -273,7 +115,7 @@ export function DataProvider({ children }) {
       const { data: usersData, error: usersErr } = await supabase
         .from('users')
         .select('*, roles(role_name)')
-      
+
       if (!usersErr && usersData) {
         const mappedUsers = usersData
           .filter(u => u.roles?.role_name !== 'System Administrator')
@@ -303,7 +145,7 @@ export function DataProvider({ children }) {
       const { data: pbsData, error: pbsErr } = await supabase
         .from('pre_blotters')
         .select('*, ai_extractions(*), barangay_sectors(*)')
-      
+
       let mappedBlotter = []
       let mappedIncidents = []
 
@@ -311,7 +153,7 @@ export function DataProvider({ children }) {
         pbsData.forEach(b => {
           const json = b.ai_extractions?.json_output || {}
           const complainantName = json.complainant || b.ai_extractions?.complainant || 'Residente'
-          
+
           const userObj = usersData?.find(u => u.id === b.user_id) ||
                           usersData?.find(u => `${u.first_name} ${u.last_name}`.trim().toLowerCase() === complainantName.toLowerCase())
 
@@ -362,7 +204,19 @@ export function DataProvider({ children }) {
             ref: b.reference_no,
             blotterId: b.blotter_id,
             reportType: 'blotter',
+            sourceTable: 'pre_blotters',
             isFormReport: false,
+            intakeDetails: null,
+            legacyDetails: {
+              complainant: b.complainant_details,
+              respondent: b.respondent_details,
+              extraction: json,
+              incident_type: b.incident_type,
+              motive_cause: b.motive_cause,
+              modus_operandi: b.modus_operandi,
+              action_taken: b.action_taken,
+              remarks: b.remarks,
+            },
             rawDate: b.submitted_at || b.created_at,
             title: b.incident_type || b.ai_extractions?.incident_type || 'Kaganapan',
             status: b.status || 'Sinuri',
@@ -417,8 +271,8 @@ export function DataProvider({ children }) {
       if (!reportsErr && reportsData) {
         mappedReports = reportsData.map(r => {
           const userObj = usersData?.find(u => u.id === r.user_id)
-          const filedBy = sanitizeText(r.full_details?.complainant_name || (userObj ? `${userObj.first_name} ${userObj.last_name}`.trim() : 'Residente'), 'Residente')
-          
+          const filedBy = sanitizeText(r.full_details?.complainantName || r.full_details?.complainant_name || (userObj ? `${userObj.first_name} ${userObj.last_name}`.trim() : 'Residente'), 'Residente')
+
           let adminStatus = 'Sinuri'
           if (r.status === 'Under Review' || r.status === 'Pending') adminStatus = 'Sinuri'
           else if (r.status === 'Investigating') adminStatus = 'Inimbestigahan'
@@ -426,16 +280,19 @@ export function DataProvider({ children }) {
           else if (r.status === 'Spam') adminStatus = 'Spam'
           else if (r.status) adminStatus = r.status
 
-          const finalAge = userObj?.birthdate ? calculateAge(userObj.birthdate) : sanitizeText(r.full_details?.age, '')
+          const finalAge = sanitizeText(r.full_details?.complainantAge || r.full_details?.age || (userObj?.birthdate ? calculateAge(userObj.birthdate) : ''), '')
           const rawDateStr = r.created_at || r.submitted_at || new Date().toISOString()
 
-          const rawRepLat = r.latitude != null ? parseFloat(r.latitude) : null
-          const rawRepLng = r.longitude != null ? parseFloat(r.longitude) : null
+          const residentPin = r.full_details?.locationPin
+          const hasStaffCoordinates = r.latitude != null && r.longitude != null
+          const rawRepLat = hasStaffCoordinates ? parseFloat(r.latitude) : (typeof residentPin?.latitude === 'number' ? residentPin.latitude : null)
+          const rawRepLng = hasStaffCoordinates ? parseFloat(r.longitude) : (typeof residentPin?.longitude === 'number' ? residentPin.longitude : null)
           const repValid = rawRepLat != null && rawRepLng != null && !isNaN(rawRepLat) && !isNaN(rawRepLng) && rawRepLat >= -90 && rawRepLat <= 90 && rawRepLng >= -180 && rawRepLng <= 180
           const repIsMapped = repValid && (
             r.is_mapped === true ||
             r.map_status === 'Approved' ||
-            (r.is_mapped !== false && r.map_status !== 'Pending' && r.map_status !== 'Rejected')
+            // A resident's pin is a location suggestion until staff approve its GIS mapping.
+            (hasStaffCoordinates && r.is_mapped !== false && r.map_status !== 'Pending' && r.map_status !== 'Rejected')
           )
 
           const reportItem = {
@@ -443,7 +300,10 @@ export function DataProvider({ children }) {
             ref: r.reference_no || (r.id ? `REP-${String(r.id).substring(0, 8)}` : `REP-${Math.floor(100000 + Math.random() * 900000)}`),
             dbId: r.id,
             isFormReport: true,
-            reportType: 'hazard',
+            // Older reports rows were service forms; newer mobile blotters mark type explicitly.
+            reportType: r.full_details?.type === 'blotter' ? 'blotter' : 'service_complaint',
+            sourceTable: 'reports',
+            intakeDetails: r.full_details && typeof r.full_details === 'object' ? r.full_details : null,
             rawDate: rawDateStr,
             title: sanitizeText(r.category || r.summary, 'Resident Form Report'),
             classification: sanitizeText(r.category || r.summary, 'Resident Form Report'),
@@ -458,7 +318,7 @@ export function DataProvider({ children }) {
             }).toUpperCase(),
             filedBy,
             what: sanitizeText(r.full_details?.what || r.category || r.summary, 'Unspecified Incident'),
-            who: sanitizeText(r.full_details?.who || r.other_party || r.respondent || r.full_details?.otherParties, 'Hindi Alam'),
+            who: sanitizeText(r.full_details?.respondentName || r.full_details?.who || r.other_party || r.respondent || r.full_details?.otherParties, 'Hindi Alam'),
             where: sanitizeText(r.location || r.full_details?.where || r.full_details?.location, 'N/A'),
             location: sanitizeText(r.location || r.full_details?.where || r.full_details?.location, 'N/A'),
             address: sanitizeText(r.location || r.full_details?.where || r.full_details?.location, 'N/A'),
@@ -467,12 +327,12 @@ export function DataProvider({ children }) {
             how: sanitizeText(r.description || r.full_details?.how || r.incident_details || r.full_details?.description, 'N/A'),
             excerpt: sanitizeText(r.description || r.full_details?.how || r.incident_details, ''),
             hearingDate: formatDateTimeLocal(r.hearing_date),
-            hearingNote: sanitizeText(r.hearing_note || ((r.witnesses || r.full_details?.witnesses) ? `Saksi: ${r.witnesses || r.full_details?.witnesses}` : ''), ''),
+            hearingNote: sanitizeText(r.hearing_note, ''),
             hearingCompleted: r.hearing_completed !== undefined && r.hearing_completed !== null ? r.hearing_completed : (adminStatus === 'Nareselba' || adminStatus === 'Spam'),
             outcome: sanitizeText(r.outcome || (adminStatus === 'Nareselba' ? 'Resolbado na.' : ''), ''),
-            complainantPhone: sanitizeText(r.full_details?.complainant_phone || userObj?.mobile_number || r.full_details?.phone || userObj?.phone, 'N/A'),
-            complainantAddress: sanitizeText(r.full_details?.complainant_address || userObj?.address || r.full_details?.address, 'N/A'),
-            complainantGender: sanitizeText(r.full_details?.complainant_gender || userObj?.gender || r.full_details?.gender, 'N/A'),
+            complainantPhone: sanitizeText(r.full_details?.complainantContact || r.full_details?.complainant_phone || userObj?.mobile_number || r.full_details?.phone || userObj?.phone, 'N/A'),
+            complainantAddress: sanitizeText(r.full_details?.complainantAddress || r.full_details?.complainant_address || userObj?.address || r.full_details?.address, 'N/A'),
+            complainantGender: sanitizeText(r.full_details?.complainantGender || r.full_details?.complainant_gender || userObj?.gender || r.full_details?.gender, 'N/A'),
             complainantAge: finalAge,
             isMinor: finalAge ? Number(finalAge) < 18 : false,
             lat: repValid ? rawRepLat : null,
@@ -491,6 +351,42 @@ export function DataProvider({ children }) {
 
           return reportItem
         })
+      }
+
+      // Older service complaints have their own table; current mobile submissions
+      // are identified by full_details.type in reports above.
+      const { data: complaintsData, error: complaintsErr } = await supabase
+        .from('service_complaints')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (complaintsErr) {
+        console.error('Error loading service complaints:', complaintsErr)
+        setServiceComplaintsError('Hindi ma-load ang mga service complaint mula sa database.')
+        setServiceComplaints([])
+      } else {
+        setServiceComplaintsError(null)
+        setServiceComplaints((complaintsData || []).map((row) => {
+          const owner = usersData?.find((u) => u.id === row.user_id)
+          const createdAt = row.created_at || row.submitted_at || ''
+          return {
+            id: row.reference_no || `SC-${row.complaint_id}`,
+            ref: row.reference_no || `SC-${row.complaint_id}`,
+            dbId: row.complaint_id,
+            sourceTable: 'service_complaints',
+            reportType: 'service_complaint',
+            rawDate: createdAt,
+            datetime: createdAt ? new Date(createdAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : '',
+            title: row.category || 'Service Complaint',
+            classification: row.category || 'Service Complaint',
+            status: row.status || 'Under Review',
+            filedBy: owner ? `${owner.first_name || ''} ${owner.last_name || ''}`.trim() : 'Residente',
+            location: row.location || row.location_address || '',
+            excerpt: row.description || '',
+            photoPaths: row.image_url ? [row.image_url] : [],
+            assignedTo: row.assigned_to || null,
+          }
+        }))
       }
 
       // Deduplicate blotter reports by unique ID / reference_no
@@ -602,7 +498,7 @@ export function DataProvider({ children }) {
         .from('documents')
         .select('*')
         .order('document_id', { ascending: false })
-      
+
       if (!docsErr && docsData) {
         const mappedDocs = docsData.map((d) => {
           const sections = d.sections || []
@@ -638,12 +534,12 @@ export function DataProvider({ children }) {
         .select('*, users(first_name, last_name, roles(role_name))')
         .order('created_at', { ascending: false })
         .limit(100)
-      
+
       if (!logsErr && logsData) {
         const mappedLogs = logsData.map(l => {
           const actorName = l.users ? `${l.users.first_name} ${l.users.last_name}`.trim() : 'System'
           const actorRole = l.users?.roles?.role_name || '—'
-          
+
           let color = 'blue'
           if (l.action_type?.toLowerCase().includes('suspend') || l.action_type?.toLowerCase().includes('reject')) color = 'orange'
           else if (l.action_type?.toLowerCase().includes('delete') || l.action_type?.toLowerCase().includes('deactivate')) color = 'red'
@@ -713,8 +609,8 @@ export function DataProvider({ children }) {
             level = match[2]
             actualTitle = match[3]
           }
-          
-          const senderName = n.sender 
+
+          const senderName = n.sender
             ? `${n.sender.first_name} ${n.sender.last_name}`.trim()
             : 'System'
 
@@ -747,7 +643,6 @@ export function DataProvider({ children }) {
   // Initial setup and Supabase Realtime Subscriptions
   useEffect(() => {
     const init = async () => {
-      await seedDatabaseIfEmpty()
       await fetchData()
     }
     init()
@@ -765,6 +660,13 @@ export function DataProvider({ children }) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'pre_blotters' },
+        () => {
+          fetchData()
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'service_complaints' },
         () => {
           fetchData()
         }
@@ -793,13 +695,13 @@ export function DataProvider({ children }) {
           action_type: action.substring(0, 50),
           details: action
         }])
-      
+
       const { data: logsData, error: logsErr } = await supabase
         .from('audit_logs')
         .select('*, users(first_name, last_name, roles(role_name))')
         .order('created_at', { ascending: false })
         .limit(100)
-      
+
       if (!logsErr && logsData) {
         const mappedLogs = logsData.map(l => {
           const name = l.users ? `${l.users.first_name} ${l.users.last_name}`.trim() : 'System'
@@ -845,7 +747,7 @@ export function DataProvider({ children }) {
       if (patch.status) updateFields.approval_status = patch.status
       if (patch.verified) updateFields.verification_status = patch.verified === 'Verified' ? 'Verified' : 'Pending'
       if (patch.barangayIdStatus) updateFields.verification_status = patch.barangayIdStatus
-      
+
       if (patch.role) {
         const { data: roleObj } = await supabase
           .from('roles')
@@ -917,7 +819,7 @@ export function DataProvider({ children }) {
       const parts = name.trim().split(' ')
       const first_name = parts[0] || ''
       const last_name = parts.slice(1).join(' ') || ''
-      
+
       await supabase
         .from('users')
         .update({ approval_status: 'Suspended' })
@@ -1000,7 +902,7 @@ export function DataProvider({ children }) {
 
       const existingReport = report || blotterReports.find(r => r.id === refOrId || r.ref === refOrId || String(r.blotterId) === String(refOrId))
       const existingIncident = incidents.find(i => i.ref === refOrId || i.id === refOrId || String(i.blotterId) === String(refOrId))
-      
+
       const targetLocation = (location || address || existingReport?.location || existingReport?.address || existingReport?.where || existingIncident?.location || 'Quezon City').trim() || 'Quezon City'
 
       let pb = null
@@ -1080,7 +982,7 @@ export function DataProvider({ children }) {
       // 4. Ensure a pre_blotters record exists (GIS coordinates live in pre_blotters)
       if (!pb) {
         let refNo = rep?.reference_no || existingReport?.ref || existingReport?.id || (typeof refOrId === 'string' ? refOrId : `SC-${Math.floor(100000 + Math.random() * 900000)}`)
-        
+
         // Quick check if a pre_blotter already exists with this reference_no
         const { data: existingPbByRef } = await supabase
           .from('pre_blotters')
@@ -1906,15 +1808,6 @@ export function DataProvider({ children }) {
     try {
       const existingReport = blotterReports.find(r => r.id === id)
 
-      if (patch.status) {
-        setBlotterReports((prev) =>
-          prev.map((b) => (b.id === id || b.ref === id ? { ...b, ...patch } : b))
-        )
-        setIncidents((prev) =>
-          prev.map((i) => (i.ref === id || i.id === id ? { ...i, status: patch.status } : i))
-        )
-      }
-
       if (existingReport?.isFormReport || id.startsWith('REP-')) {
         const updateFields = {}
         if (patch.status) {
@@ -1934,19 +1827,19 @@ export function DataProvider({ children }) {
         const dbTarget = existingReport?.dbId || id
         const isUuid = typeof dbTarget === 'string' && dbTarget.includes('-') && dbTarget.length > 20
 
-        if (isUuid) {
-          await supabase.from('reports').update(updateFields).eq('id', dbTarget)
-        } else {
-          await supabase.from('reports').update(updateFields).eq('reference_no', id)
-        }
+        const updateQuery = supabase.from('reports').update(updateFields)
+        const { data: saved, error: updateError } = await (isUuid
+          ? updateQuery.eq('id', dbTarget)
+          : updateQuery.eq('reference_no', id)).select('id').maybeSingle()
+        if (updateError || !saved) throw new Error(updateError?.message || 'Hindi nakumpirma ang pagbabago sa report.')
       } else {
-        const { data: pb } = await supabase
+        const { data: pb, error: lookupError } = await supabase
           .from('pre_blotters')
           .select('blotter_id, extraction_id')
           .eq('reference_no', id)
           .single()
 
-        if (!pb) return
+        if (lookupError || !pb) throw new Error(lookupError?.message || 'Hindi natagpuan ang blotter record.')
 
         let pbPatch = {}
         if (patch.status) pbPatch.status = patch.status
@@ -1956,14 +1849,21 @@ export function DataProvider({ children }) {
         if (patch.outcome !== undefined) pbPatch.outcome = patch.outcome
         if (patch.remarks !== undefined) pbPatch.remarks = patch.remarks
 
-        await supabase
+        const { data: saved, error: updateError } = await supabase
           .from('pre_blotters')
           .update(pbPatch)
           .eq('blotter_id', pb.blotter_id)
+          .select('blotter_id')
+          .maybeSingle()
+        if (updateError || !saved) throw new Error(updateError?.message || 'Hindi nakumpirma ang pagbabago sa blotter.')
       }
-      fetchData()
+      setBlotterReports((prev) => prev.map((report) => (report.id === id || report.ref === id ? { ...report, ...patch } : report)))
+      if (patch.status) setIncidents((prev) => prev.map((incident) => (incident.ref === id || incident.id === id ? { ...incident, status: patch.status } : incident)))
+      fetchData().catch((refreshError) => console.error('Error refreshing blotter reports:', refreshError))
+      return true
     } catch (err) {
       console.error('Error updating blotter report:', err)
+      throw err
     }
   }
 
@@ -2108,14 +2008,17 @@ export function DataProvider({ children }) {
           notification_type: entry.type,
           is_read: false
         }])
-      
+
       if (!error) {
         await fetchData()
+        return { success: true }
       } else {
         console.error('Error inserting notification:', error)
+        return { success: false, error }
       }
     } catch (err) {
       console.error('Error adding alert:', err)
+      return { success: false, error: err }
     }
   }
 
@@ -2127,7 +2030,7 @@ export function DataProvider({ children }) {
         .from('notifications')
         .delete()
         .eq('id', id)
-      
+
       if (!error) {
         await fetchData()
         return { success: true }
@@ -2175,6 +2078,8 @@ export function DataProvider({ children }) {
         mapIncidentLocation,
         unmapIncidentLocation,
         blotterReports,
+        serviceComplaints,
+        serviceComplaintsError,
         addBlotterReport,
         updateBlotterReport,
         documents,

@@ -63,10 +63,18 @@ function App() {
           }
         />
         <Route
+          path="/complaints"
+          element={
+            <RoleGuard module="blotter">
+              <DigitalBlotter reportType="service_complaint" />
+            </RoleGuard>
+          }
+        />
+        <Route
           path="/blotter"
           element={
             <RoleGuard module="blotter">
-              <DigitalBlotter />
+              <DigitalBlotter reportType="blotter" />
             </RoleGuard>
           }
         />
