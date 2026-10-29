@@ -18,20 +18,27 @@ function focusMilagrosa(map, animate = false) {
   map.setZoom(map.getZoom() + 1, { animate })
 }
 
-export function MilagrosaMapArea() {
+export function MilagrosaMapArea({ focusPosition = null }) {
   const map = useMap()
+  const lat = focusPosition?.[0]
+  const lng = focusPosition?.[1]
 
   useEffect(() => {
-    map.setMaxBounds(paddedBounds)
+    const hasPin = Number.isFinite(lat) && Number.isFinite(lng)
+    map.setMaxBounds(hasPin ? [
+      [Math.min(paddedBounds[0][0], lat - 0.001), Math.min(paddedBounds[0][1], lng - 0.001)],
+      [Math.max(paddedBounds[1][0], lat + 0.001), Math.max(paddedBounds[1][1], lng + 0.001)],
+    ] : paddedBounds)
     map.options.maxBoundsViscosity = 1
-    focusMilagrosa(map)
+    const focus = () => hasPin ? map.setView([lat, lng], 18, { animate: false }) : focusMilagrosa(map)
+    focus()
     // Modals can mount before their final size is known.
     const timer = window.setTimeout(() => {
       map.invalidateSize()
-      focusMilagrosa(map)
+      focus()
     }, 180)
     return () => window.clearTimeout(timer)
-  }, [map])
+  }, [map, lat, lng])
 
   useEffect(() => {
     const container = map.getContainer()
@@ -46,14 +53,16 @@ export function MilagrosaMapArea() {
     const recenter = document.createElement('button')
     recenter.type = 'button'
     recenter.className = 'bb-map-recenter'
-    recenter.setAttribute('aria-label', 'Ibalik sa saklaw ng Barangay Milagrosa')
-    recenter.title = 'Ibalik sa Barangay Milagrosa'
+    const hasPin = Number.isFinite(lat) && Number.isFinite(lng)
+    recenter.setAttribute('aria-label', hasPin ? 'Ibalik sa lokasyon ng reklamo' : 'Ibalik sa saklaw ng Barangay Milagrosa')
+    recenter.title = hasPin ? 'Ibalik sa lokasyon ng reklamo' : 'Ibalik sa Barangay Milagrosa'
     recenter.innerHTML = '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>'
     recenter.addEventListener('click', (event) => {
       event.preventDefault()
       event.stopPropagation()
       map.stop()
-      focusMilagrosa(map, true)
+      if (hasPin) map.setView([lat, lng], 18, { animate: true, duration: 0.25 })
+      else focusMilagrosa(map, true)
     })
     container.appendChild(recenter)
 
@@ -62,7 +71,7 @@ export function MilagrosaMapArea() {
       recenter.remove()
       container.classList.remove('bb-milagrosa-map')
     }
-  }, [map])
+  }, [map, lat, lng])
 
   useEffect(() => {
     const overlay = document.createElement('div')

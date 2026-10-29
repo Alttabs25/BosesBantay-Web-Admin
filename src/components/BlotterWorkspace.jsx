@@ -80,22 +80,36 @@ function answerFor(report, key) {
   return readable(details[key])
 }
 
+function PaperSectionHeading({ number, children }) {
+  return <div className="paper-section-heading">{number && <span className="paper-section-number">{String(number).padStart(2, '0')}</span>}<h4>{children}</h4></div>
+}
+
+function NarrativePaper({ report }) {
+  const details = report.intakeDetails || {}
+  const narrative = readable(details.description) || readable(details.raw_narrative) || readable(report.excerpt)
+  const mainQuestions = { kailanSaan: 'Kailan at saan po eksakto nangyari ang insidente?', sino: 'Sino po ang mga sangkot sa insidenteng ito?' }
+  const supplements = Array.isArray(details.raw_transcripts) ? details.raw_transcripts.filter(entry => mainQuestions[entry.chunk] && readable(entry.text) && readable(entry.text) !== narrative) : []
+  return <section className="paper-section px-6 py-6 sm:px-10" aria-label="Salaysay ng residente">
+    <PaperSectionHeading number={2}>Salaysay ng residente</PaperSectionHeading>
+    <dl className="paper-narrative-fields">
+      {[{ question: 'Ikwento niyo po nang detalyado ang buong pangyayari.', text: narrative }, ...supplements.map(entry => ({ question: mainQuestions[entry.chunk], text: entry.text }))].map((entry, index) => <div key={index} className="paper-answer-block"><dt className="paper-question">{entry.question}</dt><dd className={`paper-narrative whitespace-pre-wrap break-words ${entry.text ? '' : 'paper-empty'}`}>{entry.text || 'Walang nakatalang sagot.'}</dd></div>)}
+    </dl>
+  </section>
+}
+
 function QuestionSection({ title, questions, report, isMobileIntake, number, documentStyle = true }) {
   const visibleQuestions = isMobileIntake ? questions : questions.filter(([key]) => readable(report[key]))
   if (!visibleQuestions.length) return null
   return (
-    <section className={documentStyle ? 'px-6 py-6 sm:px-10' : 'border-t border-slate-200 px-5 py-6 sm:px-6'} aria-label={title}>
-      <div className={documentStyle ? 'flex items-baseline gap-2 border-b border-gray-300 pb-2' : 'flex items-center gap-3'}>
-        {number && <span className={documentStyle ? 'text-xs font-semibold tabular-nums text-gray-500' : 'text-[11px] font-semibold tabular-nums text-slate-400'}>{String(number).padStart(2, '0')}.</span>}
-        <h4 className={documentStyle ? 'font-serif text-base font-bold text-gray-900' : 'text-sm font-bold text-slate-900'}>{title}</h4>
-      </div>
+    <section className={documentStyle ? 'paper-section px-6 py-6 sm:px-10' : 'border-t border-slate-200 px-5 py-6 sm:px-6'} aria-label={title}>
+      {documentStyle ? <PaperSectionHeading number={number}>{title}</PaperSectionHeading> : <div className="flex items-center gap-3">{number && <span className="text-[11px] font-semibold tabular-nums text-slate-400">{String(number).padStart(2, '0')}</span>}<h4 className="text-sm font-bold text-slate-900">{title}</h4></div>}
 
-      <dl className={documentStyle ? 'mt-4 space-y-5' : 'mt-5 grid gap-x-6 gap-y-5 sm:grid-cols-2'}>
+      <dl className={documentStyle ? 'paper-field-grid' : 'mt-5 grid gap-x-6 gap-y-5 sm:grid-cols-2'}>
         {visibleQuestions.map(([key, question]) => {
           const answer = isMobileIntake ? answerFor(report, key) : readable(report[key])
           let displayAnswer = answer || (key === 'guardianName' && answerFor(report, 'filedByGuardian') === 'Ako mismo' ? 'Hindi naaangkop' : 'Walang nakatalang sagot')
           if (!documentStyle && key === 'incidentAt' && /^\d{4}-\d{2}-\d{2}T/.test(answer) && Number.isFinite(Date.parse(answer))) displayAnswer = new Date(answer).toLocaleString('fil-PH', { timeZone: 'Asia/Manila', dateStyle: 'long', timeStyle: 'short' })
-          return <div key={key} className={`min-w-0 break-inside-avoid ${!documentStyle && ['description', 'location', 'complainantAddress', 'evidence'].includes(key) ? 'sm:col-span-2' : ''}`}>
+          return <div key={key} className={`min-w-0 break-inside-avoid ${['description', 'location', 'complainantAddress', 'evidence', 'filedByGuardian', 'guardianName'].includes(key) ? 'sm:col-span-2' : ''}`}>
             <dt className="text-xs font-medium leading-relaxed text-gray-500">{documentStyle ? question : REVIEW_LABELS[key] || question}</dt>
             <dd className={`${documentStyle ? 'mt-1 border-b border-gray-200 pb-2' : key === 'description' ? 'mt-2 border-b border-l-2 border-slate-200 pb-3 pl-4' : 'mt-1.5 border-b border-slate-200 pb-3'} whitespace-pre-wrap break-words text-sm leading-7 ${answer ? 'text-gray-900' : 'italic text-gray-400'}`}>{displayAnswer}</dd>
           </div>
@@ -173,29 +187,23 @@ export default function BlotterWorkspace({
             <button type="button" onClick={() => window.print()} className="rounded bg-blue-50 px-3 py-1.5 text-xs font-semibold text-bb-blue hover:bg-blue-100">I-print / PDF</button>
           </div>
         </div><div className="overflow-auto p-1"><article style={{ zoom: paperZoom / 100 }} data-blotter-paper className={`mx-auto min-h-full w-full max-w-[850px] bg-white pb-4 shadow-sm ring-1 ring-gray-200 ${detailOnly ? 'min-h-[calc(100vh-16rem)]' : ''}`}>
-          <div className="px-6 pb-5 pt-8 text-center sm:px-10 sm:pt-10">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Boses Bantay</p>
-            <h2 className="mt-2 font-serif text-2xl font-bold tracking-tight text-gray-900">Blotter Report</h2>
-
-            <div className="mx-auto mt-5 h-0.5 w-16 bg-bb-blue" aria-hidden="true" />
+          <div className="paper-letterhead px-6 pb-6 pt-8 sm:px-10 sm:pt-10">
+            <p className="paper-brand">Boses Bantay</p>
+            <h2 className="paper-title">Blotter Report</h2>
           </div>
-          <div className="mx-6 border-y border-gray-300 py-4 sm:mx-10">
+          <div className="paper-reference mx-6 border-b border-gray-300 pb-5 sm:mx-10">
             <dl className="grid gap-x-8 gap-y-4 text-sm sm:grid-cols-2">
               <div><dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Reference no.</dt><dd className="mt-1 break-words font-semibold tabular-nums text-gray-900">{selectedReport.id}</dd></div>
               <div><dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Petsa ng pagsusumite</dt><dd className="mt-1 text-gray-900">{selectedReport.datetime || 'Hindi nakatala'}</dd></div>
-              <div><dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Paksa</dt><dd className="mt-1 break-words text-gray-900">{selectedReport.title || 'Hindi nakatala'}</dd></div>
-              <div><dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Status</dt><dd className="mt-1"><Pill color={(STATUS_META[selectedReport.status] || { color: 'gray' }).color} solid>{selectedReport.status === 'Nareselba' ? (/certificate to file action|cfa/i.test(selectedReport.outcome || '') ? 'Isinara · May CFA' : /settlement|settled|kasunduan|nagkaareglo/i.test(selectedReport.outcome || '') ? 'Isinara · Nagkaareglo' : 'Isinara · Walang tiyak na resulta') : selectedReport.status}</Pill></dd></div>
-              <div><dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Naghain</dt><dd className="mt-1 break-words text-gray-900">{selectedReport.filedBy || 'Hindi nakatala'}</dd></div>
-              <div><dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Lugar ng pangyayari</dt><dd className="mt-1 break-words text-gray-900">{selectedReport.location && selectedReport.location !== 'N/A' ? selectedReport.location : 'Hindi nakatala'}</dd></div>
             </dl>
 
           </div>
 
           {selectedReport.isFormReport && selectedReport.intakeDetails ? <>
-            {QUESTION_SECTIONS.map((section, index) => <QuestionSection key={section.title} {...section} number={index + 1} report={selectedReport} isMobileIntake documentStyle={showPaper} />)}
-            {Array.isArray(selectedReport.intakeDetails.raw_transcripts) && selectedReport.intakeDetails.raw_transcripts.length > 0 && <details className="border-t border-gray-200 px-6 py-5 sm:px-10"><summary className="cursor-pointer text-sm font-semibold text-gray-800">Orihinal na transcript</summary><div className="mt-3 space-y-4 border-l-2 border-gray-200 pl-4">{selectedReport.intakeDetails.raw_transcripts.map((entry, index) => <p key={`${entry.chunk}-${index}`} className="whitespace-pre-wrap text-sm leading-7 text-gray-700">{entry.text}</p>)}</div></details>}
+            <QuestionSection title="Impormasyon ng naghahain" number={1} questions={[...QUESTION_SECTIONS[1].questions, ...QUESTION_SECTIONS[2].questions.filter(([key]) => key === 'filedByGuardian' || (key === 'guardianName' && readable(selectedReport.intakeDetails.guardianName)))].map(([key, question]) => [key, REVIEW_LABELS[key] || question])} report={selectedReport} isMobileIntake documentStyle />
+            <NarrativePaper report={selectedReport} />
+            <QuestionSection number={3} title="Huling detalye" questions={QUESTION_SECTIONS[2].questions.filter(([key]) => ['blotterType', 'incidentCategory', 'requestCctv'].includes(key)).map(([key, question]) => [key, REVIEW_LABELS[key] || question])} report={selectedReport} isMobileIntake documentStyle />
           </> : <>
-
             {selectedReport.excerpt && <section className="px-6 py-5 sm:px-10"><h4 className="border-b border-gray-300 pb-2 font-serif text-base font-bold text-gray-900">Salaysay / buod</h4><p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-gray-800">{selectedReport.excerpt}</p></section>}
             <QuestionSection title="Mga detalye ng insidente" questions={LEGACY_QUESTIONS} report={selectedReport} />
             {legacyEntries(selectedReport.legacyDetails).length > 0 && <section className="px-6 py-5 sm:px-10"><h4 className="border-b border-gray-300 pb-2 font-serif text-base font-bold text-gray-900">Iba pang nakatalang detalye</h4><dl className="mt-3 space-y-4">{legacyEntries(selectedReport.legacyDetails).map(([label, value], index) => <div key={`${label}-${index}`}><dt className="text-xs font-semibold capitalize text-gray-600">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words border-b border-gray-200 pb-2 text-sm leading-7 text-gray-900">{value}</dd></div>)}</dl></section>}

@@ -1,3 +1,4 @@
+import ServiceComplaintWorkspace from '../components/ServiceComplaintWorkspace'
 import ScopedBlotterWorkspace from '../components/ScopedBlotterWorkspace'
 import { useMemo, useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -8,7 +9,6 @@ import SearchInput from '../components/SearchInput'
 import ConfirmDialog from '../components/ConfirmDialog'
 import BlotterCreateModal from '../components/BlotterCreateModal'
 import BlotterOverview, { isEscalated } from '../components/BlotterOverview'
-import ReportEvidenceGallery from '../components/ReportEvidenceGallery'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
@@ -308,53 +308,7 @@ export default function DigitalBlotter({ reportType = 'blotter' }) {
 
       {showBlotterDetail && <ScopedBlotterWorkspace key={selectedBlotter.id} report={selectedBlotter} onFlagSpam={requestFlagSpam} />}
 
-      {isComplaintScreen && <div className="mt-4 space-y-3 pb-8" aria-live="polite">
-        {filtered.map((report) => {
-          if (isServiceComplaint(report)) {
-            const isExpanded = expandedId === report.id
-            const meta = STATUS_META[report.status] || { color: 'gray' }
-            return (
-              <article key={reportKey(report)} id={getReportDomId(report.id)} data-report-id={report.id} className={`overflow-hidden rounded-xl border bg-white transition-colors ${isExpanded || highlightedId === report.id ? 'border-bb-blue ring-2 ring-bb-blue/10 shadow-sm' : 'border-gray-200 hover:border-blue-300'}`}>
-                <button type="button" onClick={() => setExpandedId(isExpanded ? null : report.id)} aria-expanded={isExpanded} className="flex w-full flex-col gap-3 px-4 py-4 text-left sm:flex-row sm:items-center sm:justify-between sm:px-5">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-                      <span className="font-bold tabular-nums text-bb-blue">{report.id}</span>
-                      <span>{formatReportValue(report.datetime)}</span>
-                    </div>
-                    <h3 className="mt-1.5 text-base font-bold text-gray-900">{formatReportValue(report.title)}</h3>
-                    <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-gray-600">{report.excerpt || report.location || 'Buksan para sa detalye.'}</p>
-                    <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500"><span>Ni {formatReportValue(report.filedBy)}</span>{hasReportValue(report.location) && <span>· {report.location}</span>}</p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-3 self-start sm:self-center">
-                    <Pill color={meta.color} solid>{report.status}</Pill>
-                    <ChevronDown size={17} className={`text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} aria-hidden="true" />
-                  </div>
-                </button>
-                {isExpanded && (
-                  <div className="border-t border-gray-100 bg-slate-50/60 px-4 py-5 sm:px-5">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500">Detalye ng reklamo</h4>
-                    <dl className="mt-3 grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
-                      <div><dt className="text-xs font-semibold text-gray-500">Nagsumite</dt><dd className="mt-1 text-gray-900">{formatReportValue(report.filedBy)}</dd></div>
-                      <div><dt className="text-xs font-semibold text-gray-500">Petsa at oras</dt><dd className="mt-1 text-gray-900">{formatReportValue(report.datetime)}</dd></div>
-                      <div className="sm:col-span-2"><dt className="text-xs font-semibold text-gray-500">Lokasyon</dt><dd className="mt-1 text-gray-900">{formatReportValue(report.location)}</dd></div>
-                      <div className="sm:col-span-2"><dt className="text-xs font-semibold text-gray-500">Paglalarawan</dt><dd className="mt-1 whitespace-pre-wrap leading-relaxed text-gray-900">{formatReportValue(report.excerpt)}</dd></div>
-                    </dl>
-                    <div className="mt-5"><ReportEvidenceGallery paths={report.photoPaths} reportId={report.id} /></div>
-                  </div>
-                )}
-              </article>
-            )
-          }
-        })}
-
-        {filtered.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-gray-300 bg-white px-5 py-12 text-center">
-            <p className="text-sm font-semibold text-gray-800">Walang tugmang ulat</p>
-            <p className="mt-1 text-xs text-gray-500">{currentTypeReports.length === 0 ? 'Wala pang ulat sa kategoryang ito.' : 'Subukan ang ibang salita o status filter.'}</p>
-            {(query || activeFilterCount > 0) && <button type="button" onClick={() => { setQuery(''); clearFilters() }} className="mt-4 text-xs font-bold text-bb-blue hover:underline">I-clear ang mga filter</button>}
-          </div>
-        )}
-      </div>}
+      {isComplaintScreen && <ServiceComplaintWorkspace reports={filtered} total={currentTypeReports.length} selectedId={expandedId} onSelect={report => { setExpandedId(report.id); navigate(`/complaints?id=${encodeURIComponent(report.id)}`) }} onClose={() => { setExpandedId(null); navigate('/complaints') }} hasFilters={Boolean(query || activeFilterCount)} onClear={() => { setQuery(''); clearFilters() }} />}
 
       <ConfirmDialog
         open={pendingSpamId != null}

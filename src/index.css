@@ -332,3 +332,56 @@ body {
   .scoped-blotter-process { overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 4px; padding-bottom: 12px; }
 }
 @media print { .scoped-blotter-workspace, .scoped-blotter-report, .scoped-blotter-report > .case-original-view, .scoped-blotter-report > .case-original-view > section { display: block !important; height: auto !important; overflow: visible !important; } }
+
+/* Formal intake document. All presentation stays scoped to the paper. */
+[data-blotter-paper] {
+  color: #171717;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  line-height: 1.65;
+}
+[data-blotter-paper] .paper-letterhead { text-align: center; padding-top: 36px; padding-bottom: 24px; }
+[data-blotter-paper] .paper-brand { font-family: Arial, sans-serif; font-size: 11px; line-height: 18px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: #333; }
+[data-blotter-paper] .paper-letterhead .paper-title { margin-top: 10px; font-family: Georgia, "Times New Roman", serif; font-size: 25px; line-height: 1.3; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; }
+[data-blotter-paper] .paper-reference { border-top: 1px solid #555; border-bottom: 1px solid #555; padding-top: 12px; padding-bottom: 12px; }
+[data-blotter-paper] .paper-reference dl { gap: 12px 28px; }
+[data-blotter-paper] .paper-reference dt,
+[data-blotter-paper] .paper-field-grid dt { font-family: Arial, sans-serif; font-size: 12px; line-height: 20px; font-weight: 400; color: #444; text-transform: none; letter-spacing: normal; }
+[data-blotter-paper] .paper-reference dd { margin-top: 4px; font-family: Georgia, "Times New Roman", serif; font-size: 15px; line-height: 25px; font-weight: 600; color: #171717; }
+[data-blotter-paper] .paper-section { padding-top: 26px; padding-bottom: 0; }
+[data-blotter-paper] .paper-section-heading { display: flex; align-items: baseline; gap: 10px; padding-bottom: 8px; border-bottom: 1px solid #777; }
+[data-blotter-paper] .paper-section-heading h4 { font-family: Arial, sans-serif; font-size: 12px; line-height: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #222; }
+[data-blotter-paper] .paper-section-number { min-width: 22px; font-family: Arial, sans-serif; font-size: 12px; line-height: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: #222; }
+[data-blotter-paper] .paper-field-grid { display: grid; grid-template-columns: minmax(0,1fr); gap: 16px 28px; margin-top: 16px; }
+[data-blotter-paper] .paper-field-grid > div { min-width: 0; }
+[data-blotter-paper] .paper-field-grid dd { min-height: 30px; margin-top: 4px; padding-bottom: 5px; border-bottom: 1px solid #c4c4c4; font-family: Georgia, "Times New Roman", serif; font-size: 15px; line-height: 25px; color: #171717; }
+[data-blotter-paper] .paper-narrative-fields { display: grid; gap: 22px; margin-top: 18px; }
+[data-blotter-paper] .paper-question { font-family: Arial, sans-serif; font-size: 12px; line-height: 21px; color: #333; font-weight: 600; }
+[data-blotter-paper] .paper-narrative { margin-top: 10px; padding: 0 0 14px; border-bottom: 1px solid #c4c4c4; font-family: Georgia, "Times New Roman", serif; font-size: 15px; line-height: 1.85; text-align: left; color: #171717; }
+[data-blotter-paper] .paper-empty { font-style: italic; color: #777; }
+[data-blotter-paper] .paper-section:last-child { padding-bottom: 40px; }
+@media (min-width: 640px) {
+  [data-blotter-paper] .paper-field-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media print {
+  [data-blotter-paper] { font-size: 11pt; color: #000; }
+  [data-blotter-paper] .paper-letterhead { padding-top: 12px; }
+  [data-blotter-paper] .paper-field-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  [data-blotter-paper] .paper-section-heading,
+  [data-blotter-paper] .paper-question { break-after: avoid; }
+  [data-blotter-paper] .paper-field-grid > div { break-inside: avoid; }
+  [data-blotter-paper] p { orphans: 3; widows: 3; }
+}
+
+/* Service complaints: separate list and reading workspace. */
+.complaint-workspace { display: grid; grid-template-columns: minmax(0,1fr); gap: 16px; padding-bottom: 24px; }
+.complaint-list, .complaint-detail { display: flex; flex-direction: column; min-height: 0; }
+.complaint-scroll { overflow-y: auto; min-height: 0; flex: 1; overscroll-behavior: contain; scrollbar-gutter: stable; }
+@media (min-width: 1024px) {
+  .complaint-workspace { grid-template-columns: minmax(280px,.38fr) minmax(0,.62fr); height: calc(100dvh - 230px); min-height: 420px; }
+}
+@media (max-width: 1023px) {
+  .complaint-detail { display: none; }
+  .complaint-has-selection .complaint-list { display: none; }
+  .complaint-has-selection .complaint-detail { display: flex; }
+}
