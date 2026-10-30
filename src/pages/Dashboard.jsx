@@ -1,13 +1,16 @@
+import './Dashboard.css'
 import {
-  UserCheck,
-  ClipboardList,
-  Gavel,
+  Activity,
+  BarChart3,
   CheckCircle2,
-  MapPin,
+  ClipboardList,
   Clock,
-  TrendingUp,
-  Users,
   FileText,
+  Gavel,
+  MapPin,
+  TrendingUp,
+  UserCheck,
+  Users,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
@@ -19,43 +22,41 @@ const SEVERITY_COLOR = { Mataas: 'red', Katamtaman: 'orange', Mababa: 'green' }
 
 function isToday(dateISO) {
   if (!dateISO) return false
-  const d = new Date(dateISO)
+  const date = new Date(dateISO)
   const now = new Date()
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  )
+  return date.getFullYear() === now.getFullYear()
+    && date.getMonth() === now.getMonth()
+    && date.getDate() === now.getDate()
 }
 
 export default function Dashboard() {
   const { user } = useAuth()
   const { users, incidents, blotterReports, documents, auditLog } = useData()
 
-  const pendingVerifications = users.filter((u) => u.status === 'Pending').length
-  const underReview = blotterReports.filter((r) => r.status === 'Sinuri').length
-  const investigating = blotterReports.filter((r) => r.status === 'Inimbestigahan').length
-  const resolved = blotterReports.filter((r) => r.status === 'Nareselba').length
-  const todayIncidents = incidents.filter((i) => isToday(i.dateISO)).length
+  const pendingVerifications = users.filter((account) => account.status === 'Pending').length
+  const underReview = blotterReports.filter((report) => report.status === 'Sinuri').length
+  const investigating = blotterReports.filter((report) => report.status === 'Inimbestigahan').length
+  const resolved = blotterReports.filter((report) => report.status === 'Nareselba').length
+  const todayIncidents = incidents.filter((incident) => isToday(incident.dateISO)).length
 
   const classificationData = Object.entries(
-    incidents.reduce((acc, i) => {
-      acc[i.classification] = (acc[i.classification] ?? 0) + 1
-      return acc
+    incidents.reduce((counts, incident) => {
+      counts[incident.classification] = (counts[incident.classification] ?? 0) + 1
+      return counts
     }, {}),
   ).map(([label, value]) => ({ label, value, color: 'blue' }))
 
-  const severityData = ['Mataas', 'Katamtaman', 'Mababa'].map((sev) => ({
-    label: sev,
-    value: incidents.filter((i) => i.severity === sev).length,
-    color: SEVERITY_COLOR[sev],
+  const severityData = ['Mataas', 'Katamtaman', 'Mababa'].map((severity) => ({
+    label: severity,
+    value: incidents.filter((incident) => incident.severity === severity).length,
+    color: SEVERITY_COLOR[severity],
   }))
 
   const registrationData = [
-    { label: 'Aktibo (Active)', value: users.filter((u) => u.status === 'Active').length, color: 'green' },
-    { label: 'Pending', value: users.filter((u) => u.status === 'Pending').length, color: 'orange' },
-    { label: 'Suspended', value: users.filter((u) => u.status === 'Suspended').length, color: 'red' },
-    { label: 'Deactivated', value: users.filter((u) => u.status === 'Deactivated').length, color: 'gray' },
+    { label: 'Aktibo (Active)', value: users.filter((account) => account.status === 'Active').length, color: 'green' },
+    { label: 'Pending', value: pendingVerifications, color: 'orange' },
+    { label: 'Suspended', value: users.filter((account) => account.status === 'Suspended').length, color: 'red' },
+    { label: 'Deactivated', value: users.filter((account) => account.status === 'Deactivated').length, color: 'gray' },
   ]
 
   const chatbotQueryData = [
@@ -66,163 +67,93 @@ export default function Dashboard() {
   ]
 
   const blotterData = [
-    { label: 'Sinuri (Pending)', value: blotterReports.filter((r) => r.status === 'Sinuri').length, color: 'orange' },
-    { label: 'Inimbestigahan', value: blotterReports.filter((r) => r.status === 'Inimbestigahan').length, color: 'blue' },
-    { label: 'Nareselba', value: blotterReports.filter((r) => r.status === 'Nareselba').length, color: 'green' },
-    { label: 'Spam', value: blotterReports.filter((r) => r.status === 'Spam').length, color: 'red' },
+    { label: 'Sinuri (Pending)', value: underReview, color: 'orange' },
+    { label: 'Inimbestigahan', value: investigating, color: 'blue' },
+    { label: 'Nareselba', value: resolved, color: 'green' },
+    { label: 'Spam', value: blotterReports.filter((report) => report.status === 'Spam').length, color: 'red' },
   ]
 
   const activityFeed = auditLog.slice(0, 8)
-
   const isFullOverview = user?.role === ROLES.SECRETARY || user?.role === ROLES.CAPTAIN
   const hasActivityFeed = user?.role === ROLES.ADMIN
 
   return (
-    <div>
-      <h2 className="text-xl font-bold text-gray-900">Dashboard</h2>
-      <p className="mt-0.5 text-sm text-gray-500">
-        Buod ng kasalukuyang aktibidad ng barangay para kay {user?.role}.
-      </p>
-
-      {/* Role-scoped counters */}
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {isFullOverview && (
-          <>
+    <div className="dashboard-page">
+      <section className="dashboard-metric-section" aria-label="Mahahalagang bilang">
+        <div className="dashboard-section-label">
+          <div><span>Priority indicators</span><p>Mga bilang na nangangailangan ng mabilis na pagtingin</p></div>
+          <strong>{user?.role}</strong>
+        </div>
+        <div className="dashboard-metric-grid">
+          {isFullOverview && <>
             <StatTile icon={UserCheck} label="Naghihintay na Verification" value={pendingVerifications} accent="orange" />
             <StatTile icon={ClipboardList} label="Sinuri (Under Review)" value={underReview} accent="blue" />
             <StatTile icon={Gavel} label="Inimbestigahan" value={investigating} accent="orange" />
             <StatTile icon={CheckCircle2} label="Nareselba" value={resolved} accent="green" />
-          </>
-        )}
-
-        {user?.role === ROLES.TANOD && (
-          <>
+          </>}
+          {user?.role === ROLES.TANOD && <>
             <StatTile icon={MapPin} label="Insidente Ngayong Araw" value={todayIncidents} accent="blue" />
             <StatTile icon={ClipboardList} label="Sinuri (Under Review)" value={underReview} accent="orange" />
-          </>
-        )}
-
-        {user?.role === ROLES.LUPON && (
-          <StatTile icon={Gavel} label="Nakatalagang Kaso (Investigating)" value={investigating} accent="orange" />
-        )}
-
-        {user?.role === ROLES.KAGAWAD && (
-          <StatTile icon={TrendingUp} label="Kabuuang Insidente" value={incidents.length} accent="blue" />
-        )}
-
-        {user?.role === ROLES.ADMIN && (
-          <>
+          </>}
+          {user?.role === ROLES.LUPON && <StatTile icon={Gavel} label="Nakatalagang Kaso (Investigating)" value={investigating} accent="orange" />}
+          {user?.role === ROLES.KAGAWAD && <StatTile icon={TrendingUp} label="Kabuuang Insidente" value={incidents.length} accent="blue" />}
+          {user?.role === ROLES.ADMIN && <>
             <StatTile icon={Users} label="Kabuuang Account" value={users.length} accent="blue" />
             <StatTile icon={UserCheck} label="Naghihintay na Verification" value={pendingVerifications} accent="orange" />
             <StatTile icon={FileText} label="Mga Dokumento" value={documents.length} accent="green" />
-          </>
-        )}
-      </div>
-
-      <div className={`mt-4 grid grid-cols-1 gap-4 ${hasActivityFeed ? 'lg:grid-cols-2' : ''}`}>
-        {/* Analytics panel */}
-        <div className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Analytics</h3>
-
-          {isFullOverview && (
-            <div
-              className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${hasActivityFeed ? '' : 'xl:grid-cols-3'}`}
-            >
-              <MiniBarChart title="Insidente ayon sa Klasipikasyon" data={classificationData} />
-              <MiniBarChart title="Insidente ayon sa Kalubhaan" data={severityData} />
-              <StatTile
-                icon={Clock}
-                label="Avg. turnaround (submission → resolution)"
-                value="3.5 araw"
-                accent="blue"
-              />
-              <MiniBarChart title="Kabuuan ng Rehistradong Residente (Overall)" data={registrationData} />
-              <MiniBarChart title="Kabuuan ng Blotter Reports (Overall)" data={blotterData} />
-              <MiniBarChart title="Chatbot Query Volume (sample)" data={chatbotQueryData} />
-            </div>
-          )}
-
-          {user?.role === ROLES.KAGAWAD && (
-            <MiniBarChart title="Insidente ayon sa Klasipikasyon (Committee View)" data={classificationData} />
-          )}
-
-          {user?.role === ROLES.TANOD && (
-            <MiniBarChart title="Insidente ayon sa Kalubhaan (Intake)" data={severityData} />
-          )}
-
-          {user?.role === ROLES.ADMIN && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <MiniBarChart title="Kabuuan ng Rehistradong Residente (Overall)" data={registrationData} />
-              <MiniBarChart title="Kabuuan ng Blotter Reports (Overall)" data={blotterData} />
-            </div>
-          )}
-
-          {user?.role === ROLES.LUPON && (
-            <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-400">
-              Walang analytics panel para sa Lupong Tagapamayapa — puro assigned-case
-              activity lamang ang nakalaan dito.
-            </div>
-          )}
+          </>}
         </div>
+      </section>
 
-        {/* Live activity feed (Admin only — everyone else navigates via the sidebar) */}
-        {hasActivityFeed && (
-          <div className="space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-              Live Activity Feed
-            </h3>
-            <div className="max-h-[calc(100vh-360px)] min-h-[220px] space-y-2.5 overflow-y-auto rounded-xl border border-gray-200 p-4">
-              {activityFeed.length === 0 && (
-                <p className="p-2 text-sm text-gray-400">Wala pang aktibidad.</p>
-              )}
-              {activityFeed.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="border-b border-gray-100 pb-2.5 last:border-0 last:pb-0"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span
-                        className={`h-2 w-2 rounded-full shrink-0 ${
-                          entry.color === 'red'
-                            ? 'bg-red-500'
-                            : entry.color === 'orange'
-                            ? 'bg-orange-500'
-                            : entry.color === 'green'
-                            ? 'bg-green-500'
-                            : 'bg-bb-blue'
-                        }`}
-                      />
-                      <span className="text-xs font-bold text-gray-900 truncate">{entry.actorName}</span>
-                      <span className="text-[10px] font-medium text-gray-400 truncate">
-                        {entry.actorRole}
-                      </span>
-                    </div>
-                    <span className="flex items-center gap-1 text-[10px] text-gray-400 shrink-0">
-                      <Clock size={10} />
-                      {entry.timestamp}
-                    </span>
-                  </div>
-                  <div className="mt-1.5 flex pl-3.5">
-                    <span
-                      className={`rounded-lg px-2 py-0.5 text-[11px] font-semibold leading-normal break-words whitespace-normal border ${
-                        entry.color === 'red'
-                          ? 'bg-red-50 text-red-700 border-red-200/50'
-                          : entry.color === 'orange'
-                          ? 'bg-orange-50 text-orange-700 border-orange-200/50'
-                          : entry.color === 'green'
-                          ? 'bg-green-50 text-green-700 border-green-200/50'
-                          : 'bg-blue-50 text-bb-blue border-blue-100'
-                      }`}
-                    >
-                      {entry.action}
-                    </span>
-                  </div>
-                </div>
-              ))}
+      <div className={`dashboard-workspace ${hasActivityFeed ? 'has-activity' : ''}`}>
+        <section className="dashboard-panel dashboard-analytics-panel">
+          <header className="dashboard-panel-heading">
+            <div className="dashboard-panel-title">
+              <span aria-hidden="true"><BarChart3 size={17} /></span>
+              <div><h3>Analytics</h3><p>Distribution at performance ng kasalukuyang records</p></div>
             </div>
+          </header>
+
+          {isFullOverview && <div className="dashboard-chart-grid is-wide">
+            <MiniBarChart title="Insidente ayon sa Klasipikasyon" data={classificationData} />
+            <MiniBarChart title="Insidente ayon sa Kalubhaan" data={severityData} />
+            <StatTile icon={Clock} label="Avg. turnaround (submission to resolution)" value="3.5 araw" accent="blue" />
+            <MiniBarChart title="Kabuuan ng Rehistradong Residente" data={registrationData} />
+            <MiniBarChart title="Kabuuan ng Blotter Reports" data={blotterData} />
+            <MiniBarChart title="Chatbot Query Volume (sample)" data={chatbotQueryData} />
+          </div>}
+
+          {user?.role === ROLES.KAGAWAD && <div className="dashboard-chart-grid single"><MiniBarChart title="Insidente ayon sa Klasipikasyon (Committee View)" data={classificationData} /></div>}
+          {user?.role === ROLES.TANOD && <div className="dashboard-chart-grid single"><MiniBarChart title="Insidente ayon sa Kalubhaan (Intake)" data={severityData} /></div>}
+          {user?.role === ROLES.ADMIN && <div className="dashboard-chart-grid">
+            <MiniBarChart title="Kabuuan ng Rehistradong Residente" data={registrationData} />
+            <MiniBarChart title="Kabuuan ng Blotter Reports" data={blotterData} />
+          </div>}
+          {user?.role === ROLES.LUPON && <div className="dashboard-empty-panel">Walang analytics panel para sa Lupong Tagapamayapa — puro assigned-case activity lamang ang nakalaan dito.</div>}
+        </section>
+
+        {hasActivityFeed && <section className="dashboard-panel dashboard-activity-panel">
+          <header className="dashboard-panel-heading">
+            <div className="dashboard-panel-title">
+              <span aria-hidden="true"><Activity size={17} /></span>
+              <div><h3>Live Activity Feed</h3><p>Pinakabagong galaw sa Command Center</p></div>
+            </div>
+            <span className="dashboard-feed-count">{activityFeed.length}</span>
+          </header>
+          <div className="dashboard-activity-list max-h-[calc(100vh-390px)] min-h-[220px] overflow-y-auto">
+            {activityFeed.length === 0 && <p className="dashboard-feed-empty">Wala pang aktibidad.</p>}
+            {activityFeed.map((entry) => <article key={entry.id} className="dashboard-activity-entry">
+              <span className={`dashboard-activity-marker tone-${entry.color || 'blue'}`} aria-hidden="true" />
+              <div className="dashboard-activity-content">
+                <div className="dashboard-activity-meta">
+                  <div><strong>{entry.actorName}</strong><span>{entry.actorRole}</span></div>
+                  <time><Clock size={11} />{entry.timestamp}</time>
+                </div>
+                <p className={`dashboard-activity-action tone-${entry.color || 'blue'}`}>{entry.action}</p>
+              </div>
+            </article>)}
           </div>
-        )}
+        </section>}
       </div>
     </div>
   )
