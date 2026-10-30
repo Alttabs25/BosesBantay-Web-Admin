@@ -1,181 +1,74 @@
-import { useMemo, useState, useEffect } from 'react'
-import SearchInput from '../components/SearchInput'
+import './AuditLogs.css'
+import { useEffect, useMemo, useState } from 'react'
+import { Activity, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Search, ShieldCheck, Users } from 'lucide-react'
 import { useData } from '../context/DataContext'
+
+const PAGE_SIZE = 10
+
+function initials(name) {
+  return String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
+}
 
 export default function AuditLogs() {
   const { auditLog } = useData()
   const [query, setQuery] = useState('')
+  const [toneFilter, setToneFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 10
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return auditLog
-    return auditLog.filter(
-      (log) =>
-        log.actorName.toLowerCase().includes(q) ||
-        log.action.toLowerCase().includes(q) ||
-        log.actorRole.toLowerCase().includes(q),
-    )
-  }, [auditLog, query])
+    const search = query.trim().toLowerCase()
+    return auditLog.filter((log) => {
+      const matchesSearch = !search || [log.actorName, log.action, log.actorRole, log.timestamp].some((value) => String(value || '').toLowerCase().includes(search))
+      const matchesTone = toneFilter === 'all' || (toneFilter === 'attention' ? ['red', 'orange'].includes(log.color) : log.color === toneFilter)
+      return matchesSearch && matchesTone
+    })
+  }, [auditLog, query, toneFilter])
 
-  // Reset to page 1 when query changes
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [query])
+  useEffect(() => { setCurrentPage(1) }, [query, toneFilter])
 
-  const totalPages = Math.ceil(filtered.length / itemsPerPage)
-  
-  const paginated = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage
-    return filtered.slice(start, start + itemsPerPage)
-  }, [filtered, currentPage])
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginated = useMemo(() => filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE), [filtered, currentPage])
+  const startEntry = filtered.length ? (currentPage - 1) * PAGE_SIZE + 1 : 0
+  const endEntry = Math.min(currentPage * PAGE_SIZE, filtered.length)
+  const attentionCount = auditLog.filter((log) => ['red', 'orange'].includes(log.color)).length
+  const successCount = auditLog.filter((log) => log.color === 'green').length
+  const actorCount = new Set(auditLog.map((log) => log.actorName).filter(Boolean)).size
+  const metrics = [
+    { value: 'all', label: 'Lahat ng aktibidad', count: auditLog.length, tone: 'blue', icon: Activity },
+    { value: 'attention', label: 'Kailangang suriin', count: attentionCount, tone: 'orange', icon: AlertTriangle },
+    { value: 'green', label: 'Matagumpay na aksyon', count: successCount, tone: 'green', icon: CheckCircle2 },
+  ]
 
-  const startEntry = filtered.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1
-  const endEntry = Math.min(currentPage * itemsPerPage, filtered.length)
-
-  const getVisiblePages = () => {
-    const range = []
-    const maxVisible = 5
-    let start = Math.max(1, currentPage - 2)
-    let end = Math.min(totalPages, start + maxVisible - 1)
-    
-    if (end - start + 1 < maxVisible) {
-      start = Math.max(1, end - maxVisible + 1)
-    }
-    
-    for (let i = start; i <= end; i++) {
-      range.push(i)
-    }
-    return range
+  function visiblePages() {
+    const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4))
+    return Array.from({ length: Math.min(5, totalPages) }, (_, index) => start + index)
   }
 
-  return (
-    <div>
-      <h2 className="text-xl font-bold text-gray-900">Audit Logs</h2>
-      <p className="mt-1 text-sm text-gray-500">Read only compliance tracking</p>
+  return <div className="audit-page">
+    <section className="audit-metric-grid" aria-label="Buod ng audit activity">
+      {metrics.map(({ value, label, count, tone, icon: Icon }) => <button type="button" key={value} onClick={() => setToneFilter(value)} aria-pressed={toneFilter === value} className={`audit-metric tone-${tone} ${toneFilter === value ? 'is-active' : ''}`}><div><p>{label}</p><strong>{count}</strong></div><span><Icon size={21} /></span></button>)}
+      <div className="audit-metric tone-blue"><div><p>Mga natatanging actor</p><strong>{actorCount}</strong></div><span><Users size={21} /></span></div>
+    </section>
 
-      <div className="mt-4 max-w-md">
-        <SearchInput
-          value={query}
-          onChange={setQuery}
-          placeholder="Hanapin sa log..."
-        />
-      </div>
-
-      <div className="mt-3.5 min-h-[300px] max-h-[calc(100vh-370px)] overflow-auto rounded-lg border border-gray-200">
-        <table className="w-full text-left text-sm">
-          <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
-            <tr>
-              <th className="px-4 py-2.5 font-semibold">Pangalan</th>
-              <th className="px-4 py-2.5 font-semibold">Role</th>
-              <th className="px-4 py-2.5 font-semibold">Petsa &amp; Oras</th>
-              <th className="px-4 py-2.5 font-semibold">Aksyon</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginated.map((log) => (
-              <tr key={log.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/60 transition-colors">
-                <td className="px-4 py-2 sm:py-2.5 font-medium text-gray-700">{log.actorName}</td>
-                <td className="px-4 py-2 sm:py-2.5 text-gray-500 text-xs">{log.actorRole}</td>
-                <td className="px-4 py-2 sm:py-2.5 text-gray-500 text-xs">{log.timestamp}</td>
-                <td className="px-4 py-2 sm:py-2.5 max-w-lg">
-                  <span
-                    className={`inline-block rounded-lg px-2.5 py-0.5 text-[11px] font-semibold leading-normal break-words whitespace-normal border ${
-                      log.color === 'red'
-                        ? 'bg-red-50 text-red-700 border-red-200/50'
-                        : log.color === 'orange'
-                        ? 'bg-orange-50 text-orange-700 border-orange-200/50'
-                        : log.color === 'green'
-                        ? 'bg-green-50 text-green-700 border-green-200/50'
-                        : 'bg-blue-50 text-bb-blue border-blue-100'
-                    }`}
-                  >
-                    {log.action}
-                  </span>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-400">
-                  Walang nahanap na log entry.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {filtered.length > 0 && (
-        <div className="mt-3 flex items-center justify-between border-t border-gray-200 bg-white px-4 py-2.5 sm:px-6">
-          <div className="flex flex-1 justify-between sm:hidden">
-            <button
-              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-              className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Nakaraan
-            </button>
-            <button
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
-              className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Susunod
-            </button>
-          </div>
-          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs text-gray-700">
-                Ipinapakita ang <span className="font-semibold">{startEntry}</span> hanggang{' '}
-                <span className="font-semibold">{endEntry}</span> ng{' '}
-                <span className="font-semibold">{filtered.length}</span> na resulta
-              </p>
-            </div>
-            <div>
-              <nav className="isolate inline-flex -space-x-px rounded-md shadow-xs" aria-label="Pagination">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="relative inline-flex items-center rounded-l-md px-2 py-1.5 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <span className="sr-only">Previous</span>
-                  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
-                  </svg>
-                </button>
-                
-                {getVisiblePages().map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    aria-current={currentPage === page ? 'page' : undefined}
-                    className={`relative inline-flex items-center px-3.5 py-1.5 text-xs font-semibold focus:z-20 ${
-                      currentPage === page
-                        ? 'z-10 bg-bb-blue text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bb-blue'
-                        : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-offset-0'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className="relative inline-flex items-center rounded-r-md px-2 py-1.5 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <span className="sr-only">Next</span>
-                  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              </nav>
-            </div>
-          </div>
+    <section className="audit-registry">
+      <header className="audit-registry-heading">
+        <div className="audit-registry-title"><span><ShieldCheck size={20} /></span><div><p>Read-only compliance trail</p><h2>Activity Registry <small>{filtered.length} / {auditLog.length}</small></h2></div></div>
+        <div className="audit-registry-tools">
+          <label className="audit-search"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Hanapin ang actor, role, o aksyon..." /></label>
+          <select value={toneFilter} onChange={(event) => setToneFilter(event.target.value)} aria-label="I-filter ang audit logs"><option value="all">Lahat ng activity</option><option value="attention">Kailangang suriin</option><option value="green">Matagumpay</option><option value="blue">Regular activity</option><option value="red">Critical activity</option></select>
         </div>
-      )}
-    </div>
-  )
+      </header>
+
+      <div className="audit-event-list max-h-[calc(100vh-300px)] overflow-y-auto">
+        {!paginated.length && <div className="audit-empty-state"><Search size={28} /><h3>Walang nahanap na audit entry</h3><p>Subukan ang ibang search term o activity filter.</p></div>}
+        {paginated.map((log) => <article key={log.id} className={`audit-event-card tone-${log.color || 'blue'}`}>
+          <div className="audit-event-actor"><span>{initials(log.actorName)}</span><div><h3>{log.actorName}</h3><p>{log.actorRole}</p></div></div>
+          <div className="audit-event-action"><p>Recorded action</p><strong>{log.action}</strong></div>
+          <time><Clock size={14} />{log.timestamp}</time>
+        </article>)}
+      </div>
+
+      {filtered.length > 0 && <footer className="audit-pagination"><p>Ipinapakita ang <strong>{startEntry}–{endEntry}</strong> ng <strong>{filtered.length}</strong> na resulta</p><nav aria-label="Audit log pages"><button type="button" onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))} disabled={currentPage === 1} aria-label="Nakaraang page"><ChevronLeft size={17} /></button>{visiblePages().map((page) => <button type="button" key={page} onClick={() => setCurrentPage(page)} aria-current={currentPage === page ? 'page' : undefined} className={currentPage === page ? 'is-current' : ''}>{page}</button>)}<button type="button" onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))} disabled={currentPage === totalPages} aria-label="Susunod na page"><ChevronRight size={17} /></button></nav></footer>}
+    </section>
+  </div>
 }
