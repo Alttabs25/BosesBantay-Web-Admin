@@ -1,0 +1,33 @@
+/* Reading-first detail panels; isolated from the registry and other modules. */
+.complaint-detail .complaint-summary-header { padding: 22px 24px 20px; }
+.complaint-detail .complaint-summary-title h2 { font-size: 25px; line-height: 34px; font-weight: 650; }
+.complaint-detail .complaint-summary-reference { font-size: 13px; line-height: 22px; gap: 10px; margin-top: 10px; }
+.complaint-detail .complaint-summary-fields { margin-top: 18px; padding-top: 16px; }
+.complaint-detail .complaint-summary-fields dt { font-size: 13px; line-height: 22px; color: #64748b; }
+.complaint-detail .complaint-summary-fields dd { margin-top: 5px; font-size: 16px; line-height: 26px; color: #26374f; }
+.complaint-detail .complaint-section-title { font-size: 17px; line-height: 26px; font-weight: 600; color: #334155; }
+.complaint-detail .complaint-description { padding: 20px; background: #fafbfd; border-color: #dce3ed; }
+.complaint-detail .complaint-description > p { font-size: 16px; line-height: 29px; color: #334155; }
+.complaint-detail .complaint-location-copy > p { font-size: 15px; line-height: 27px; }
+.complaint-detail .complaint-location-controls { gap: 10px; }
+.complaint-detail .complaint-map-toggle, .complaint-detail .complaint-repin { min-height: 44px; font-size: 13px; line-height: 22px; padding: 10px 14px; }
+.complaint-detail .complaint-location-confirmed { font-size: 12px; line-height: 21px; padding: 10px 12px; background: #f2f7f4; border-radius: 0 8px 8px 0; }
+.complaint-detail .complaint-location-confirmed p { margin-top: 3px; color: #526b5c; }
+.complaint-detail .complaint-coordinates { font-size: 12px; line-height: 22px; }
+.complaint-detail .complaint-photo-section h4 { font-size: 16px; line-height: 25px; }
+.complaint-detail .complaint-photo-section .text-xs { font-size: 12px; line-height: 21px; color: #64748b; }
+.complaint-actions-panel > div:first-child h2 { font-size: 16px; line-height: 25px; }
+.complaint-actions-panel .service-actions > div:first-child h3 { font-size: 14px; line-height: 23px; color: #64748b; font-weight: 500; }
+.complaint-actions-panel .service-progress { list-style: none; padding-left: 12px; }
+.complaint-actions-panel .service-progress li { font-size: 12px; line-height: 21px; }
+.complaint-actions-panel .service-actions legend { font-size: 14px; line-height: 23px; }
+.complaint-actions-panel .service-action-option { min-height: 48px; font-size: 14px; line-height: 23px; }
+.complaint-actions-panel .service-actions textarea { font-size: 15px; line-height: 25px; }
+.complaint-actions-panel .service-event-list { list-style: none; padding: 0; }
+.complaint-actions-panel .service-event { padding: 16px; background: #fafbfd; border-color: #dce3ed; }
+.complaint-actions-panel .service-event h4 { font-size: 14px; line-height: 23px; }
+.complaint-actions-panel .service-event time { font-size: 12px; line-height: 21px; }
+.complaint-actions-panel .service-event > p { margin-top: 12px; font-size: 15px; line-height: 26px; }
+.service-activity-author { display: grid; gap: 3px; padding-top: 12px; margin-top: 14px; border-top: 1px solid #e3e9f1; }
+.service-activity-author > span { color: #718096; font-size: 11px; line-height: 19px; }
+.service-activity-author > strong { color: #475569; font-size: 13px; line-height: 22px; font-weight: 600; }

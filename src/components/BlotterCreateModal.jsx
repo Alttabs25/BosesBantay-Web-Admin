@@ -4,9 +4,10 @@ import L from 'leaflet'
 import { MapPin, Search, Loader2, CheckCircle2, CircleDot, AlertCircle } from 'lucide-react'
 import Modal from './Modal'
 import { reverseGeocode, searchAddress } from '../lib/geocode'
+import { MilagrosaMapArea, MILAGROSA_CENTER } from './MilagrosaMapArea'
 import { useToast } from '../context/ToastContext'
 
-const DEFAULT_CENTER = [14.6768, 121.0453]
+const DEFAULT_CENTER = MILAGROSA_CENTER
 
 const CLASSIFICATION_OPTIONS = [
   'Kaganapan',
@@ -522,6 +523,7 @@ export default function BlotterCreateModal({ open, onClose, onCreated }) {
               {/* Leaflet map for Option A */}
               <div className="relative h-56 w-full overflow-hidden rounded-lg border border-gray-300">
                 <MapContainer center={mapCenter} zoom={15} className="h-full w-full">
+                  <MilagrosaMapArea />
                   <TileLayer
                     attribution="&copy; OpenStreetMap contributors"
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

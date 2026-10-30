@@ -13,7 +13,13 @@ const WARNING_TIMEOUT = 60 * 1000 // 60 Seconds warning countdown
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => localStorage.getItem('bb_sidebar_collapsed') === 'true',
+  )
+
+  useEffect(() => {
+    localStorage.setItem('bb_sidebar_collapsed', String(sidebarCollapsed))
+  }, [sidebarCollapsed])
 
   const { logout } = useAuth()
   const { addAuditEntry } = useData()

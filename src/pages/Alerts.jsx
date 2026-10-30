@@ -95,13 +95,18 @@ export default function Alerts() {
   }
 
   const confirmSend = async () => {
-    await addAlert({
+    const result = await addAlert({
       title: title.trim(),
       type: noticeType,
       target,
       level,
       message: message.trim(),
     })
+    if (!result?.success) {
+      showToast('Hindi naipadala ang abiso. Subukan muli.', 'error')
+      setConfirmingSend(false)
+      return
+    }
     addAuditEntry(`Nagpadala ng ${noticeType} ("${title.trim()}") sa ${target}`, { color: 'blue' })
     showToast(`Naipadala ang abiso sa ${target}.`)
     setTitle('')

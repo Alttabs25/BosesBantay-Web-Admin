@@ -1,7 +1,8 @@
 import {
   LayoutDashboard,
   MapPin,
-  Smartphone,
+  ClipboardList,
+  MessageSquareWarning,
   Users,
   FolderOpen,
   Bell,
@@ -14,7 +15,8 @@ import {
 export const NAV_ITEMS = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, headerTitle: 'Dashboard', module: 'dashboard' },
   { label: 'GIS Command Center', path: '/gis', icon: MapPin, headerTitle: 'Map', module: 'gis' },
-  { label: 'Digital Reports', path: '/blotter', icon: Smartphone, headerTitle: 'Digital Reports', module: 'blotter' },
+  { label: 'Service Complaints', path: '/complaints', icon: MessageSquareWarning, headerTitle: 'Service Complaints', module: 'blotter' },
+  { label: 'Blotter Reports', path: '/blotter', icon: ClipboardList, headerTitle: 'Blotter Reports', module: 'blotter' },
   { label: 'User Accounts', path: '/accounts', icon: Users, headerTitle: 'User Accounts', module: 'userAccounts' },
   { label: 'Knowledge Base', path: '/knowledge-base', icon: FolderOpen, headerTitle: 'Document Management', module: 'knowledgeBase' },
   { label: 'Emergency Directory', path: '/directory', icon: Phone, headerTitle: 'Emergency Directory', module: 'directory' },

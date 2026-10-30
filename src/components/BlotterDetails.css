@@ -1,0 +1,62 @@
+
+.blotter-record-summary { padding: 18px 24px; background: #f7f9fc; }
+.blotter-record-summary dl { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; }
+.blotter-record-summary dt { font-size: 13px; line-height: 22px; color: #64748b; }
+.blotter-record-summary dd { margin-top: 5px; font-size: 16px; line-height: 26px; font-weight: 500; color: #26374f; overflow-wrap: anywhere; }
+.blotter-record-section h4 { font-size: 17px; line-height: 26px; font-weight: 600; }
+.blotter-record-section dt { font-size: 13px; line-height: 22px; color: #64748b; }
+.blotter-record-section dd { font-size: 16px; line-height: 28px; border-left: 0; padding-left: 0; }
+.blotter-missing-fields { margin-top: 18px; padding: 12px 14px; border: 1px solid #e3e9f0; border-radius: 8px; color: #64748b; font-size: 12px; line-height: 21px; }
+.blotter-missing-fields summary { cursor: pointer; }
+.blotter-missing-fields p { margin-top: 8px; }
+.blotter-original-recordings { padding: 18px 24px; border-top: 1px solid #e2e8f0; }
+.blotter-original-recordings summary { cursor: pointer; font-size: 14px; font-weight: 600; line-height: 23px; color: #475569; }
+.blotter-original-recordings > div { margin-top: 18px; }
+.blotter-original-recordings h4 { font-size: 13px; font-weight: 500; color: #64748b; }
+.blotter-original-recordings p { margin-top: 8px; font-size: 15px; line-height: 27px; color: #334155; white-space: pre-wrap; overflow-wrap: anywhere; }
+.scoped-blotter-process > section h2, .scoped-blotter-process > section h3 { font-size: 15px; line-height: 24px; }
+.scoped-blotter-process > section dl { font-size: 14px; }
+.scoped-blotter-process > section dt { font-size: 13px; line-height: 22px; }
+.scoped-blotter-process > section dd { font-size: 15px; line-height: 25px; }
+.scoped-blotter-process button { min-height: 42px; }
+.blotter-session-notes article h4 { font-size: 14px; line-height: 23px; }
+.blotter-session-notes article header p { font-size: 12px; line-height: 20px; color: #718096; }
+.blotter-session-notes article > p { font-size: 14px; line-height: 25px; }
+.blotter-session-notes article > p:last-of-type { font-size: 15px; line-height: 27px; }
+@media (max-width: 479px) { .blotter-record-summary dl { grid-template-columns: minmax(0,1fr); gap: 14px; } }
+
+.blotter-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.blotter-report-state { padding: 4px 9px; border-radius: 7px; background: #edf3fc; color: #315780; font-size: 12px; line-height: 21px; font-weight: 600; }
+.blotter-progress-values { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; margin-top: 16px; }
+.blotter-progress-values dt { color: #718096; }
+.blotter-progress-values dd { margin-top: 5px; color: #334155; font-weight: 500; }
+.blotter-hearing-card dl { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; margin-top: 14px; }
+.blotter-hearing-card dt { color: #718096; }
+.blotter-hearing-card dd { margin-top: 4px; color: #334155; font-weight: 500; overflow-wrap: anywhere; }
+.blotter-hearing-venue { grid-column: 1 / -1; border-top: 1px solid #edf0f5; padding-top: 12px; }
+.blotter-next-actions { display: grid; gap: 10px; margin-top: 16px; }
+.blotter-next-actions > button { min-height: 52px; padding: 13px 14px; font-size: 14px; line-height: 23px; }
+.blotter-note-entry { padding: 18px 0; }
+.blotter-note-entry header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.blotter-note-entry header h4 { font-size: 15px; line-height: 24px; font-weight: 600; }
+.blotter-note-date { display: block; margin-top: 6px; font-size: 12px; line-height: 21px; color: #718096; }
+.blotter-note-entry .blotter-note-content { margin-top: 13px; font-size: 15px; line-height: 27px; color: #334155; }
+.blotter-note-entry footer { display: grid; gap: 3px; margin-top: 16px; padding-top: 12px; border-top: 1px solid #edf0f5; }
+.blotter-note-entry footer span { font-size: 11px; line-height: 19px; color: #718096; }
+.blotter-note-entry footer strong { font-size: 13px; line-height: 22px; color: #475569; font-weight: 600; }
+
+.blotter-hearing-inline { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #e2e8f0; }
+.blotter-hearing-inline span { font-size: 12px; line-height: 21px; color: #718096; }
+.blotter-hearing-inline p { margin-top: 5px; font-size: 14px; line-height: 24px; color: #334155; overflow-wrap: anywhere; }
+.blotter-next-actions { gap: 12px; }
+
+.blotter-action-form form { margin-top: 16px; }
+.blotter-action-form legend { font-size: 13px; line-height: 22px; }
+.blotter-action-form input[type="radio"] + span strong { font-size: 14px; line-height: 23px; font-weight: 600; }
+.blotter-action-form input[type="radio"] + span > span { font-size: 12px; line-height: 20px; }
+.blotter-action-form label:has(textarea) { font-size: 13px; line-height: 22px; }
+.blotter-action-form textarea { font-size: 15px; line-height: 25px; }
+.blotter-recording-as { font-size: 11px; line-height: 20px; color: #718096; margin-top: 16px; }
+.blotter-recording-as strong { color: #526178; font-weight: 500; }
+.blotter-form-actions { display: flex; align-items: center; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #e2e8f0; }
+.blotter-form-actions > button { min-height: 44px; font-size: 13px; line-height: 22px; }

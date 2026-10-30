@@ -10,16 +10,17 @@ function isDirectUrl(value) {
   return /^(https?:|blob:|data:)/i.test(value)
 }
 
-export default function ReportEvidenceGallery({ paths = EMPTY_PATHS, reportId }) {
-  const uniquePaths = useMemo(
-    () => [...new Set(paths.filter((path) => typeof path === 'string' && path.trim()).map((path) => path.trim()))],
-    [paths]
-  )
+export default function ReportEvidenceGallery({ paths = EMPTY_PATHS, reportId, compact = false }) {
+  // Background report refreshes create new arrays even when attachments are unchanged.
+  // Depend on the actual paths so existing image URLs and viewer state stay stable.
+  const pathsKey = JSON.stringify([...new Set((Array.isArray(paths) ? paths : []).filter(path => typeof path === 'string' && path.trim()).map(path => path.trim()))])
+  const uniquePaths = useMemo(() => JSON.parse(pathsKey), [pathsKey])
   const [photos, setPhotos] = useState([])
   const [loading, setLoading] = useState(uniquePaths.length > 0)
   const [error, setError] = useState('')
   const [activeIndex, setActiveIndex] = useState(null)
   const [zoom, setZoom] = useState(1)
+  const [retry, setRetry] = useState(0)
   const touchStartX = useRef(null)
 
   useEffect(() => {
@@ -35,26 +36,38 @@ export default function ReportEvidenceGallery({ paths = EMPTY_PATHS, reportId })
 
       setLoading(true)
       setError('')
+      setPhotos([])
+      setActiveIndex(null)
 
-      const resolved = await Promise.all(
+      const resolved = await Promise.allSettled(
         uniquePaths.map(async (path) => {
-          if (isDirectUrl(path)) return { path, url: path }
+          let objectPath = path.replace(/^\/?report_evidence\//, '')
+          if (isDirectUrl(path)) {
+            const url = new URL(path)
+            const project = new URL(import.meta.env.VITE_SUPABASE_URL)
+            const match = url.pathname.match(/^\/storage\/v1\/object\/(?:sign|public|authenticated)\/report_evidence\/(.+)$/)
+            if (url.origin !== project.origin || !match) return { path, url: path }
+            objectPath = decodeURIComponent(match[1])
+          }
 
           const { data, error: signedUrlError } = await supabase.storage
             .from('report_evidence')
-            .createSignedUrl(path, SIGNED_URL_TTL_SECONDS)
+            .createSignedUrl(objectPath, SIGNED_URL_TTL_SECONDS)
 
-          if (signedUrlError || !data?.signedUrl) return null
+          if (signedUrlError || !data?.signedUrl) {
+            console.warn('[report-photos] Unable to authorize attachment', { reportId, status: signedUrlError?.status || signedUrlError?.statusCode, message: signedUrlError?.message })
+            throw signedUrlError || new Error('Missing signed photo URL')
+          }
           return { path, url: data.signedUrl }
         })
       )
 
       if (cancelled) return
-      const availablePhotos = resolved.filter(Boolean)
+      const availablePhotos = resolved.filter(result => result.status === 'fulfilled').map(result => result.value)
       setPhotos(availablePhotos)
       setLoading(false)
-      if (availablePhotos.length === 0) {
-        setError('Hindi mabuksan ang mga kalakip na larawan.')
+      if (availablePhotos.length < uniquePaths.length) {
+        setError(availablePhotos.length ? 'May ilang larawang hindi ma-load. Subukan muli.' : 'Hindi ma-load ang mga larawan. Maaaring walang access ang account o hindi na available ang file.')
       }
     }
 
@@ -68,7 +81,7 @@ export default function ReportEvidenceGallery({ paths = EMPTY_PATHS, reportId })
     return () => {
       cancelled = true
     }
-  }, [uniquePaths])
+  }, [uniquePaths, reportId, retry])
 
   useEffect(() => {
     if (activeIndex === null) return undefined
@@ -131,16 +144,16 @@ export default function ReportEvidenceGallery({ paths = EMPTY_PATHS, reportId })
   const activePhoto = activeIndex === null ? null : photos[activeIndex]
 
   return (
-    <section className="border-t border-gray-100 px-4 pb-4 pt-1" aria-label="Mga kalakip na larawan">
-      <div className="mb-3 flex items-center justify-between">
+    <section className={compact ? "pb-1" : "border-t border-gray-100 px-4 pb-4 pt-1"} aria-label="Mga kalakip na larawan">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-700">
           <Images size={16} className="text-bb-blue" />
-          Mga Larawan
+          {compact ? "Photos" : "Mga Larawan"}
           <span className="rounded-full bg-bb-blue-light px-2 py-0.5 text-[11px] font-bold text-bb-blue">
             {uniquePaths.length}
           </span>
         </h4>
-        <span className="text-xs text-gray-400">Pindutin ang larawan para palakihin</span>
+        <span className="text-xs text-gray-400">{compact ? "Click a photo to enlarge" : "Pindutin ang larawan para palakihin"}</span>
       </div>
 
       {loading && (
@@ -153,11 +166,12 @@ export default function ReportEvidenceGallery({ paths = EMPTY_PATHS, reportId })
       {!loading && error && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           {error}
+          <button type="button" onClick={() => setRetry(value => value + 1)} className="ml-2 rounded px-2 py-1 font-semibold underline">Subukan muli</button>
         </div>
       )}
 
       {!loading && photos.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className={compact ? "grid grid-cols-2 gap-3 sm:grid-cols-3" : "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"}>
           {photos.map((photo, index) => (
             <button
               key={photo.path}
@@ -170,6 +184,7 @@ export default function ReportEvidenceGallery({ paths = EMPTY_PATHS, reportId })
                 src={photo.url}
                 alt={`Kalakip na larawan ${index + 1} ng report ${reportId}`}
                 className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.03]"
+                onError={() => setError('May larawang hindi ma-load. Subukan muli para kumuha ng bagong access link.')}
               />
               <span className="absolute bottom-2 right-2 rounded-md bg-gray-950/70 px-2 py-1 text-[10px] font-semibold text-white">
                 {index + 1} / {photos.length}
