@@ -11,10 +11,10 @@ function isDirectUrl(value) {
 }
 
 export default function ReportEvidenceGallery({ paths = EMPTY_PATHS, reportId, compact = false }) {
-  const uniquePaths = useMemo(
-    () => [...new Set(paths.filter((path) => typeof path === 'string' && path.trim()).map((path) => path.trim()))],
-    [paths]
-  )
+  // Background report refreshes create new arrays even when attachments are unchanged.
+  // Depend on the actual paths so existing image URLs and viewer state stay stable.
+  const pathsKey = JSON.stringify([...new Set((Array.isArray(paths) ? paths : []).filter(path => typeof path === 'string' && path.trim()).map(path => path.trim()))])
+  const uniquePaths = useMemo(() => JSON.parse(pathsKey), [pathsKey])
   const [photos, setPhotos] = useState([])
   const [loading, setLoading] = useState(uniquePaths.length > 0)
   const [error, setError] = useState('')
@@ -148,12 +148,12 @@ export default function ReportEvidenceGallery({ paths = EMPTY_PATHS, reportId, c
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-700">
           <Images size={16} className="text-bb-blue" />
-          Mga Larawan
+          {compact ? "Photos" : "Mga Larawan"}
           <span className="rounded-full bg-bb-blue-light px-2 py-0.5 text-[11px] font-bold text-bb-blue">
             {uniquePaths.length}
           </span>
         </h4>
-        <span className="text-xs text-gray-400">Pindutin ang larawan para palakihin</span>
+        <span className="text-xs text-gray-400">{compact ? "Click a photo to enlarge" : "Pindutin ang larawan para palakihin"}</span>
       </div>
 
       {loading && (

@@ -1,3 +1,4 @@
+import { blotterProgress } from './blotterProgress.js'
 export const SIMPLE_STATUS = { Sinuri: 'Under Review', Inimbestigahan: 'Investigating', Nareselba: 'Resolved', Spam: 'Spam' }
 export function hearingVenue(note = '') {
   return [...note.matchAll(/^Venue: ([^\r\n]+)$/gm)].at(-1)?.[1]?.trim() || ''
@@ -5,6 +6,8 @@ export function hearingVenue(note = '') {
 export function scopedNextActions(report, now = Date.now(), { ignoreDateConstraints = false } = {}) {
   if (report.status === 'Sinuri') return { actions: ['review'], hint: 'Suriin muna ang draft bago magtakda ng pagdinig.', scheduleLabel: 'Itakda ang pagdinig' }
   if (report.status !== 'Inimbestigahan') return { actions: [], hint: report.status === 'Nareselba' ? 'Naitala na ang huling resulta.' : 'Walang aktibong proseso para sa status na ito.' }
+  const progress = blotterProgress(report)
+  if (['postponed','missed'].includes(progress.stageKey)) return { actions: ['schedule'], hint: progress.stage, scheduleLabel: 'Reschedule hearing' }
   if (report.hearingCompleted) return { actions: ['finalize', 'schedule'], hint: 'May naitalang pagdinig. Itala ang aktuwal na resulta o magtakda ng susunod na pagdinig.', scheduleLabel: 'Itakda ang susunod na pagdinig', noteLabel: 'Dagdagan ang tala ng huling pagdinig' }
   if (!report.hearingDate || !Number.isFinite(Date.parse(report.hearingDate))) return { actions: ['schedule'], hint: 'Wala pang iskedyul. Itakda muna ang unang pagdinig.', scheduleLabel: 'Itakda ang unang pagdinig' }
   if (ignoreDateConstraints) return { actions: ['note', 'schedule'], hint: '', scheduleLabel: 'Baguhin ang iskedyul', noteLabel: 'Itala ang nangyari sa pagdinig' }

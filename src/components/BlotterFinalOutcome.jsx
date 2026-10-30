@@ -4,7 +4,7 @@ export default function BlotterFinalOutcome({ outcome }) {
   const raw = String(outcome || '').trim()
   const cfa = /certificate to file action|\bcfa\b/i.test(raw)
   const settled = !cfa && /settlement|settled|nagkaareglo|kasunduan/i.test(raw)
-  const title = cfa ? 'May naisyung CFA' : settled ? 'Nagkaareglo' : 'Naitalang resulta'
+  const title = cfa ? 'CFA recorded' : settled ? 'Settled' : 'Outcome not recorded'
   const details = raw.replace(/^(?:Settlement\s*[—–-]\s*Nagkaareglo|Certificate to File Action\s*\(CFA\)\s*[—–-]\s*naisyung sertipikasyon)\s*/i, '').trim()
   const tone = cfa ? 'bg-violet-50 text-violet-800' : settled ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-50 text-slate-700'
   const Icon = cfa ? FileCheck2 : CheckCircle2

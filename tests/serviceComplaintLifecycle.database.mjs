@@ -16,6 +16,7 @@ await db.exec(readFileSync(new URL('../supabase/migrations/20261029_resident_not
 
 await db.exec(`alter table users add column role_id int; create table roles(role_id int,role_name text); insert into roles values(1,'System Administrator'); insert into users values('00000000-0000-0000-0000-000000000009','Staff','Admin',1); grant select on users,roles to authenticated;`)
 await db.exec(readFileSync(new URL('../supabase/migrations/20261030_service_complaint_lifecycle.sql',import.meta.url),'utf8'))
+await db.exec(readFileSync(new URL('../supabase/migrations/20261030_service_complaint_triage.sql',import.meta.url),'utf8'))
 const inserted=await db.query("insert into reports(reference_no,user_id,status,full_details) values('SERVICE',$1,'Under Review','{\"type\":\"service_complaint\"}') returning id",[owner]);
 const id=inserted.rows[0].id;
 await db.exec("set role authenticated; set request.jwt.claim.sub='00000000-0000-0000-0000-000000000009'")
@@ -46,6 +47,14 @@ await db.query("select public.save_service_complaint_action('service_complaints'
 await db.exec('reset role');
 assert.equal((await db.query('select status from service_complaints where complaint_id=$1',[legacy])).rows[0].status,'Investigating');
 assert.equal((await db.query('select count(*)::int as n from resident_report_notifications where report_id=$1',[legacy])).rows[0].n,2);
+await db.exec("set role authenticated; set request.jwt.claim.sub='00000000-0000-0000-0000-000000000009'");
+await save('reopen','Review triage');
+const spam=await save('spam','Repeated unrelated submission'); assert.equal(spam.stage,'closed_unresolved');
+await assert.rejects(save('note'),/Reopen/);
+await save('reopen','Correct classification');
+const outside=await save('out_of_scope','Refer to city engineering'); assert.equal(outside.stage,'closed_unresolved');
+await db.exec('reset role');
+assert.equal((await db.query('select status from reports where id=$1',[id])).rows[0].status,'Out of Scope');
 await db.exec(`set role authenticated; set request.jwt.claim.sub='${owner}'`);
 await assert.rejects(save('reopen'),/Not authorized/);
 assert.equal((await db.query('select * from bb_service_events')).rows.length,0);

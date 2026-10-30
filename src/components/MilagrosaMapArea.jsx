@@ -18,7 +18,7 @@ function focusMilagrosa(map, animate = false) {
   map.setZoom(map.getZoom() + 1, { animate })
 }
 
-export function MilagrosaMapArea({ focusPosition = null }) {
+export function MilagrosaMapArea({ focusPosition = null, showLabel = true }) {
   const map = useMap()
   const lat = focusPosition?.[0]
   const lng = focusPosition?.[1]
@@ -48,7 +48,7 @@ export function MilagrosaMapArea({ focusPosition = null }) {
     const label = document.createElement('div')
     label.className = 'bb-map-area-label'
     label.innerHTML = '<span aria-hidden="true"></span>Barangay Milagrosa'
-    container.appendChild(label)
+    if (showLabel) container.appendChild(label)
 
     const recenter = document.createElement('button')
     recenter.type = 'button'
@@ -71,7 +71,7 @@ export function MilagrosaMapArea({ focusPosition = null }) {
       recenter.remove()
       container.classList.remove('bb-milagrosa-map')
     }
-  }, [map, lat, lng])
+  }, [map, lat, lng, showLabel])
 
   useEffect(() => {
     const overlay = document.createElement('div')

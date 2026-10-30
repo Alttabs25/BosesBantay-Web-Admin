@@ -1,3 +1,4 @@
+import { blotterProgress } from '../lib/blotterProgress'
 import ServiceComplaintWorkspace from '../components/ServiceComplaintWorkspace'
 import ScopedBlotterWorkspace from '../components/ScopedBlotterWorkspace'
 import { useMemo, useState, useEffect } from 'react'
@@ -21,11 +22,17 @@ const STATUS_GROUPS = [
   { value: 'scheduled', label: 'May pagdinig' },
   { value: 'escalated', label: 'Nai-escalate' },
   { value: 'closed', label: 'Tapos na' },
+  { value: 'spam', label: 'Spam' },
+  { value: 'out_of_scope', label: 'Out of scope' },
+  { value: 'needs_schedule', label: 'Needs hearing schedule' },
+  { value: 'needs_outcome', label: 'Awaiting final outcome' },
   { value: 'other', label: 'Iba pa' },
 ]
 
 function statusGroup(status) {
   const value = String(status || '').toLowerCase()
+  if (value === 'spam') return 'spam'
+  if (value === 'out of scope') return 'out_of_scope'
   if (['resolved', 'nareselba', 'closed', 'completed', 'done'].includes(value)) return 'closed'
   if (['investigating', 'inimbestigahan', 'in progress', 'assigned', 'processing'].includes(value)) return 'active'
   if (['sinuri', 'under review', 'pending', 'for review', ''].includes(value)) return 'pending'
@@ -194,7 +201,9 @@ export default function DigitalBlotter({ reportType = 'blotter' }) {
       return sortOrder === 'oldest' ? timeA - timeB : timeB - timeA
     })
 
-    if (selectedStatus === 'scheduled') list = list.filter((r) => r.hearingDate && !r.hearingCompleted)
+    if (selectedStatus === 'scheduled') list = list.filter(r => blotterProgress(r).stageKey === 'scheduled')
+    else if (selectedStatus === 'needs_schedule') list = list.filter(r => ['schedule_pending','postponed','missed'].includes(blotterProgress(r).stageKey))
+    else if (selectedStatus === 'needs_outcome') list = list.filter(r => blotterProgress(r).stageKey === 'outcome_pending')
     else if (selectedStatus === 'escalated') list = list.filter(isEscalated)
     else if (selectedStatus !== 'all') list = list.filter((r) => statusGroup(r.status) === selectedStatus)
     if (selectedCategory !== 'all') list = list.filter((r) => (r.classification || r.title) === selectedCategory)
@@ -223,10 +232,12 @@ export default function DigitalBlotter({ reportType = 'blotter' }) {
   ), [uniqueReports, isComplaintScreen])
   const statusCounts = useMemo(() => currentTypeReports.reduce((counts, report) => {
     counts[statusGroup(report.status)] += 1
-    if (report.hearingDate && !report.hearingCompleted) counts.scheduled += 1
+    if (['schedule_pending','postponed','missed'].includes(blotterProgress(report).stageKey)) counts.needs_schedule += 1
+    if (blotterProgress(report).stageKey === 'outcome_pending') counts.needs_outcome += 1
+    if (blotterProgress(report).stageKey === 'scheduled') counts.scheduled += 1
     if (isEscalated(report)) counts.escalated += 1
     return counts
-  }, { pending: 0, active: 0, scheduled: 0, escalated: 0, closed: 0, other: 0 }), [currentTypeReports])
+  }, { pending: 0, active: 0, scheduled: 0, escalated: 0, closed: 0, needs_schedule: 0, needs_outcome: 0, spam: 0, out_of_scope: 0, other: 0 }), [currentTypeReports])
   const categories = useMemo(() => [...new Set(currentTypeReports.map((report) => report.classification || report.title).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [currentTypeReports])
   const activeFilterCount = Number(selectedStatus !== 'all') + Number(selectedCategory !== 'all') + Number(dateRange !== 'all') + Number(sortOrder !== 'newest')
   function clearFilters() {
@@ -264,7 +275,7 @@ export default function DigitalBlotter({ reportType = 'blotter' }) {
   return (
     <div>
       {showBlotterDetail ? <div className="flex items-center pb-2">
-        <button type="button" onClick={() => { setExpandedId(null); navigate('/blotter') }} className="inline-flex items-center gap-2 rounded-lg bg-white px-2 py-2 text-base font-semibold text-gray-700 hover:border-bb-blue/50 hover:text-bb-blue"><ArrowLeft size={16} /> Bumalik sa mga ulat</button>
+        <button type="button" onClick={() => { setExpandedId(null); navigate('/blotter') }} className="inline-flex items-center gap-2 rounded-lg bg-white px-2 py-2 text-base font-semibold text-gray-700 hover:border-bb-blue/50 hover:text-bb-blue"><ArrowLeft size={16} /> Back to all reports</button>
 
       </div> : <>
       <div className="flex flex-col gap-3 border-b border-gray-200 pb-3 sm:flex-row sm:items-center sm:justify-between">
@@ -285,7 +296,7 @@ export default function DigitalBlotter({ reportType = 'blotter' }) {
         </div>
         <p className="mb-3 text-xs text-gray-500">Pumili ng status, kategorya, petsa, o pagkakasunod ng mga ulat.</p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="block"><span className="mb-1 block text-xs font-semibold text-gray-500">Status</span><select value={selectedStatus} onChange={(event) => setSelectedStatus(event.target.value)} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue">{STATUS_GROUPS.filter(({ value }) => (value !== 'other' || statusCounts.other > 0) && (!isComplaintScreen || !['scheduled', 'escalated'].includes(value))).map(({ value, label }) => <option key={value} value={value}>{label} ({value === 'all' ? currentTypeReports.length : statusCounts[value]})</option>)}</select></label>
+          <label className="block"><span className="mb-1 block text-xs font-semibold text-gray-500">Status</span><select value={selectedStatus} onChange={(event) => setSelectedStatus(event.target.value)} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue">{STATUS_GROUPS.filter(({ value }) => (isComplaintScreen || !['spam','out_of_scope'].includes(value)) && (value !== 'other' || statusCounts.other > 0) && (!isComplaintScreen || !['scheduled', 'escalated', 'needs_schedule', 'needs_outcome'].includes(value))).map(({ value, label }) => <option key={value} value={value}>{label} ({value === 'all' ? currentTypeReports.length : statusCounts[value]})</option>)}</select></label>
           <label className="block"><span className="mb-1 block text-xs font-semibold text-gray-500">Kategorya</span><select value={selectedCategory} onChange={(event) => setSelectedCategory(event.target.value)} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"><option value="all">Lahat ng kategorya</option>{categories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
           <label className="block"><span className="mb-1 block text-xs font-semibold text-gray-500">Saklaw ng petsa</span><select value={dateRange} onChange={(event) => setDateRange(event.target.value)} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"><option value="all">Lahat ng petsa</option><option value="7">Huling 7 araw</option><option value="30">Huling 30 araw</option><option value="90">Huling 90 araw</option></select></label>
           <label className="block"><span className="mb-1 block text-xs font-semibold text-gray-500">Pagkakasunod</span><select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"><option value="newest">Pinakabago</option><option value="oldest">Pinakaluma</option></select></label>
@@ -308,7 +319,7 @@ export default function DigitalBlotter({ reportType = 'blotter' }) {
 
       {showBlotterDetail && <ScopedBlotterWorkspace key={selectedBlotter.id} report={selectedBlotter} onFlagSpam={requestFlagSpam} />}
 
-      {isComplaintScreen && <ServiceComplaintWorkspace reports={filtered} total={currentTypeReports.length} selectedId={expandedId} onSelect={report => { setExpandedId(report.id); navigate(`/complaints?id=${encodeURIComponent(report.id)}`) }} onClose={() => { setExpandedId(null); navigate('/complaints') }} hasFilters={Boolean(query || activeFilterCount)} onClear={() => { setQuery(''); clearFilters() }} />}
+      {isComplaintScreen && <ServiceComplaintWorkspace onCategorySelect={category => { setSelectedStatus("all"); setSelectedCategory(category) }} allReports={currentTypeReports} activeStatus={selectedStatus} onStatusSelect={setSelectedStatus} reports={filtered} total={currentTypeReports.length} selectedId={expandedId} onSelect={report => { setExpandedId(report.id); navigate(`/complaints?id=${encodeURIComponent(report.id)}`) }} onClose={() => { setExpandedId(null); setQuery(''); clearFilters(); navigate('/complaints') }} hasFilters={Boolean(query || activeFilterCount)} onClear={() => { setQuery(''); clearFilters() }} />}
 
       <ConfirmDialog
         open={pendingSpamId != null}

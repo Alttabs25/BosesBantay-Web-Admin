@@ -283,10 +283,10 @@ export function DataProvider({ children }) {
           const finalAge = sanitizeText(r.full_details?.complainantAge || r.full_details?.age || (userObj?.birthdate ? calculateAge(userObj.birthdate) : ''), '')
           const rawDateStr = r.created_at || r.submitted_at || new Date().toISOString()
 
-          const residentPin = r.full_details?.locationPin
+          const residentPin = r.full_details?.staffLocationPin || r.full_details?.locationPin
           const hasStaffCoordinates = r.latitude != null && r.longitude != null
-          const rawRepLat = hasStaffCoordinates ? parseFloat(r.latitude) : (typeof residentPin?.latitude === 'number' ? residentPin.latitude : null)
-          const rawRepLng = hasStaffCoordinates ? parseFloat(r.longitude) : (typeof residentPin?.longitude === 'number' ? residentPin.longitude : null)
+          const rawRepLat = typeof r.full_details?.staffLocationPin?.latitude === 'number' ? r.full_details.staffLocationPin.latitude : hasStaffCoordinates ? parseFloat(r.latitude) : (typeof residentPin?.latitude === 'number' ? residentPin.latitude : null)
+          const rawRepLng = typeof r.full_details?.staffLocationPin?.longitude === 'number' ? r.full_details.staffLocationPin.longitude : hasStaffCoordinates ? parseFloat(r.longitude) : (typeof residentPin?.longitude === 'number' ? residentPin.longitude : null)
           const repValid = rawRepLat != null && rawRepLng != null && !isNaN(rawRepLat) && !isNaN(rawRepLng) && rawRepLat >= -90 && rawRepLat <= 90 && rawRepLng >= -180 && rawRepLng <= 180
           const repIsMapped = repValid && (
             r.is_mapped === true ||

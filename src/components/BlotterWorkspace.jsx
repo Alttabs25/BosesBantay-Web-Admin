@@ -1,3 +1,5 @@
+import './BlotterDetails.css'
+import { blotterProgress } from '../lib/blotterProgress'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { CalendarCheck2, CalendarClock, FileText, ShieldAlert } from 'lucide-react'
 import Pill from './Pill'
@@ -50,9 +52,9 @@ const LEGACY_QUESTIONS = [
 ]
 
 const REVIEW_LABELS = {
-  description: 'Salaysay ng insidente', incidentAt: 'Petsa at oras ng insidente', location: 'Lugar ng insidente', respondentName: 'Inirereklamo', witnesses: 'Mga saksi', evidence: 'Nabanggit na ebidensya',
-  complainantName: 'Buong pangalan', complainantAddress: 'Tirahan / purok', complainantAge: 'Edad', complainantContact: 'Contact number', complainantGender: 'Kasarian',
-  filedByGuardian: 'Paraan ng paghahain', guardianName: 'Magulang / tagapag-alaga', blotterType: 'Uri ng blotter', incidentCategory: 'Kategorya ng insidente', requestCctv: 'Kahilingan sa CCTV review',
+  description: 'Resident statement', incidentAt: 'Incident date and time', location: 'Incident location', respondentName: 'Respondent', witnesses: 'Witnesses', evidence: 'Evidence mentioned',
+  complainantName: 'Full name', complainantAddress: 'Address / purok', complainantAge: 'Age', complainantContact: 'Contact number', complainantGender: 'Gender',
+  filedByGuardian: 'Filed by', guardianName: 'Parent / guardian', blotterType: 'Blotter type', incidentCategory: 'Incident category', requestCctv: 'CCTV review requested',
 }
 
 function readable(value) {
@@ -98,11 +100,13 @@ function NarrativePaper({ report }) {
 }
 
 function QuestionSection({ title, questions, report, isMobileIntake, number, documentStyle = true }) {
-  const visibleQuestions = isMobileIntake ? questions : questions.filter(([key]) => readable(report[key]))
+  const availableQuestions = isMobileIntake ? questions : questions.filter(([key]) => readable(report[key]))
+  const missingQuestions = isMobileIntake && !documentStyle ? availableQuestions.filter(([key]) => !answerFor(report,key) && !(key === 'guardianName' && answerFor(report,'filedByGuardian') === 'Ako mismo')) : []
+  const visibleQuestions = isMobileIntake && !documentStyle ? availableQuestions.filter(([key]) => answerFor(report,key)) : availableQuestions
   if (!visibleQuestions.length) return null
   return (
-    <section className={documentStyle ? 'paper-section px-6 py-6 sm:px-10' : 'border-t border-slate-200 px-5 py-6 sm:px-6'} aria-label={title}>
-      {documentStyle ? <PaperSectionHeading number={number}>{title}</PaperSectionHeading> : <div className="flex items-center gap-3">{number && <span className="text-[11px] font-semibold tabular-nums text-slate-400">{String(number).padStart(2, '0')}</span>}<h4 className="text-sm font-bold text-slate-900">{title}</h4></div>}
+    <section className={documentStyle ? 'paper-section px-6 py-6 sm:px-10' : 'blotter-record-section border-t border-slate-200 px-5 py-6 sm:px-6'} aria-label={title}>
+      {documentStyle ? <PaperSectionHeading number={number}>{title}</PaperSectionHeading> : <div className="flex items-center gap-3">{number && <span className="text-[11px] font-semibold tabular-nums text-slate-400">{String(number).padStart(2, '0')}</span>}<h4 className="text-sm font-bold text-slate-900">{documentStyle ? title : ({ 'Salaysay at pangyayari': 'Incident statement', 'Impormasyon ng naghahain': 'Resident information', 'Uri at hinihiling na aksyon': 'Filing details' }[title] || title)}</h4></div>}
 
       <dl className={documentStyle ? 'paper-field-grid' : 'mt-5 grid gap-x-6 gap-y-5 sm:grid-cols-2'}>
         {visibleQuestions.map(([key, question]) => {
@@ -115,6 +119,7 @@ function QuestionSection({ title, questions, report, isMobileIntake, number, doc
           </div>
         })}
       </dl>
+      {missingQuestions.length > 0 && <details className="blotter-missing-fields"><summary>{missingQuestions.length} fields not recorded</summary><p>{missingQuestions.map(([key]) => REVIEW_LABELS[key]).join(' · ')}</p></details>}
     </section>
   )
 }
@@ -164,18 +169,16 @@ export default function BlotterWorkspace({
           <h3 className="mt-3 text-sm font-bold text-gray-800">Pumili ng blotter report</h3>
           <p className="mt-1 max-w-xs text-xs leading-relaxed">I-click ang ulat sa listahan para makita ang buong salaysay, mga sagot, at status ng kaso.</p>
         </div> : <><div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5">
-          <div className="min-w-0"><h2 className="break-words font-mono text-sm font-semibold text-bb-blue">{selectedReport.id}</h2><p className="mt-1 text-xs text-slate-500">{selectedReport.datetime || 'Walang petsa'}</p></div>
-          <div className="inline-flex shrink-0 gap-0.5 rounded-lg bg-slate-100 p-1" aria-label="Paraan ng pagtingin">{[[false, 'Kumpletong detalye'], [true, 'Tingnan ang papel']].map(([value, label]) => <button type="button" key={label} aria-pressed={showPaper === value} onClick={() => setShowPaper(value)} className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors ${showPaper === value ? 'bg-white text-bb-blue shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>{label}</button>)}</div>
+          <div className="min-w-0"><h2 className="break-words font-mono text-sm font-semibold text-bb-blue">{selectedReport.id}</h2><p className="mt-1 text-xs text-slate-500">{selectedReport.rawDate && Number.isFinite(Date.parse(selectedReport.rawDate)) ? new Date(selectedReport.rawDate).toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' }) : selectedReport.datetime || 'Not recorded'}</p></div>
+          <div className="inline-flex shrink-0 gap-0.5 rounded-lg bg-slate-100 p-1" aria-label="Paraan ng pagtingin">{[[false, 'Complete details'], [true, 'Paper view']].map(([value, label]) => <button type="button" key={label} aria-pressed={showPaper === value} onClick={() => setShowPaper(value)} className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors ${showPaper === value ? 'bg-white text-bb-blue shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>{label}</button>)}</div>
         </div>
-        <div className="blotter-detail-body min-h-0 flex-1 overflow-y-auto overscroll-contain">{!showPaper ? <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-          <div className="bg-slate-50/50 px-5 py-5 sm:px-6"><h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Buod ng record</h3><dl className="mt-4 grid gap-x-8 gap-y-4 sm:grid-cols-2">{[
-            ['Naghain', selectedReport.intakeDetails?.complainantName || selectedReport.filedBy],
-            ['Kategorya', selectedReport.intakeDetails?.incidentCategory || selectedReport.classification || selectedReport.title],
-            ['Kasalukuyang status', selectedReport.status === 'Nareselba' ? (/CFA|certificate/i.test(selectedReport.outcome || '') ? 'Resolved · May CFA' : /settlement|settled|kasunduan|nagkaareglo/i.test(selectedReport.outcome || '') ? 'Resolved · Nagkaareglo' : 'Resolved') : selectedReport.status === 'Sinuri' ? 'Under Review' : selectedReport.status === 'Inimbestigahan' ? 'Investigating' : selectedReport.status],
-            ['Pinagmulan', selectedReport.isFormReport ? 'Resident mobile intake' : 'Naunang blotter record'],
-          ].map(([label, value]) => <div key={label}><dt className="text-[11px] font-medium text-slate-500">{label}</dt><dd className="mt-1 break-words text-sm font-medium leading-relaxed text-slate-800">{value || 'Hindi nakatala'}</dd></div>)}</dl></div>
+        <div className="blotter-detail-body min-h-0 flex-1 overflow-y-auto overscroll-contain">{!showPaper ? <div className="blotter-record-details overflow-hidden rounded-xl border border-gray-200 bg-white">
+          <div className="blotter-record-summary"><dl>{[
+            ['Submitted by', selectedReport.intakeDetails?.complainantName || selectedReport.filedBy],
+            ['Category', selectedReport.intakeDetails?.incidentCategory || selectedReport.classification || selectedReport.title],
+          ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || 'Not recorded'}</dd></div>)}</dl></div>
           {selectedReport.isFormReport && selectedReport.intakeDetails ? QUESTION_SECTIONS.map((section, index) => <QuestionSection key={section.title} {...section} number={index + 1} report={selectedReport} isMobileIntake documentStyle={showPaper} />) : <div className="p-5"><h3 className="text-sm font-bold text-gray-900">Salaysay at detalye</h3><p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-gray-800">{selectedReport.excerpt || 'Walang salaysay.'}</p><dl className="mt-4 space-y-4">{[...LEGACY_QUESTIONS.map(([key, label]) => [label, readable(selectedReport[key])]), ...legacyEntries(selectedReport.legacyDetails)].filter(([, value]) => value).map(([label, value], index) => <div key={index}><dt className="text-xs font-semibold text-gray-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-800">{value}</dd></div>)}</dl></div>}
-          {selectedReport.intakeDetails?.raw_transcripts?.length > 0 && <details className="border-t border-gray-100 p-5"><summary className="cursor-pointer text-sm font-semibold text-gray-700">Orihinal na transcript</summary>{selectedReport.intakeDetails.raw_transcripts.map((entry, index) => <p key={index} className="mt-3 whitespace-pre-wrap text-sm leading-7 text-gray-700">{entry.text}</p>)}</details>}
+          {Array.isArray(selectedReport.intakeDetails?.raw_transcripts) && selectedReport.intakeDetails.raw_transcripts.some(entry => readable(entry.text) && readable(entry.text) !== answerFor(selectedReport,'description')) && <details className="blotter-original-recordings"><summary>Additional recordings</summary>{selectedReport.intakeDetails.raw_transcripts.filter(entry => readable(entry.text) && readable(entry.text) !== answerFor(selectedReport,'description')).map((entry,index) => <div key={index}><h4>{{ ano: 'Original narrative', kailanSaan: 'When and where did it happen?', sino: 'Who was involved?' }[entry.chunk] || 'Recorded statement'}</h4><p>{entry.text}</p></div>)}</details>}
 
         </div> : <><div className="blotter-paper-toolbar mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2" aria-label="Mga kontrol ng dokumento">
           <span className="text-xs font-semibold text-gray-600">Dokumento</span>

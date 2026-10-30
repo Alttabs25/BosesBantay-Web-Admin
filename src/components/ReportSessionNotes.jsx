@@ -1,3 +1,4 @@
+import './ReportSessionNotes.css'
 import { useState } from 'react'
 
 function parseEntries(notes) {
@@ -19,20 +20,18 @@ function NoteEntry({ text, number, latest }) {
   const last = lines.at(-1)?.trim() || ''
   const status = /^Kalagayan: (Naganap|Ipinagpaliban|Hindi natuloy)$/.test(last) ? lines.pop().trim().slice('Kalagayan: '.length) : ''
   const tone = status === 'Naganap' ? 'bg-emerald-50 text-emerald-700' : status === 'Ipinagpaliban' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'
-  const content = lines.join('\n').trim()
+  const venueLines = lines.filter(line => /^Venue:\s*\S/.test(line.trim()))
+  const venue = venueLines.at(-1)?.trim().replace(/^Venue:\s*/, '')
+  const content = lines.filter(line => !/^Venue:\s*\S/.test(line.trim())).join('\n').trim()
   const author = authorParts.join(' · ')
   const [name, ...role] = author.split(' — ')
   const long = content.length > 280 || content.split('\n').length > 5
-  return <article className="relative py-4 pl-5" aria-label={`Tala ${number}`}>
-    <span aria-hidden="true" className={`absolute left-0 top-5 h-2 w-2 rounded-full ${latest ? 'bg-bb-blue ring-4 ring-blue-50' : 'bg-slate-300'}`} />
-    <header className="flex items-start justify-between gap-3">
-      <div className="min-w-0"><h4 className="break-words text-xs font-semibold leading-relaxed text-slate-800">{name || 'Naunang tala'}</h4>{role.length > 0 && <p className="mt-0.5 text-[10px] leading-relaxed text-slate-400">{role.join(' — ')}</p>}</div>
-      {status && <span className={`shrink-0 rounded-md px-2 py-1 text-[10px] font-semibold ${tone}`}>{status}</span>}
-    </header>
-    <p className="mt-1.5 text-[11px] tabular-nums leading-relaxed text-slate-500">{date ? date.replace(/(\d{1,2}:\d{2}):\d{2}(?=\s|$)/g, '$1') : 'Walang nakatalang petsa'}</p>
-    <p className={`mt-2.5 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-700 ${long && !expanded ? 'line-clamp-4' : ''}`}>{content || 'Walang karagdagang detalye.'}</p>
-    {long && <button type="button" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} className="mt-1 py-1 text-xs font-medium text-bb-blue">{expanded ? 'Paikliin' : 'Basahin ang buo'}</button>}
+  return <article className="blotter-note-entry" aria-label={`Activity ${number}`}>
+    <header className="blotter-activity-heading"><div><h4>{status ? 'Hearing record' : venue ? 'Hearing schedule' : 'Staff note'}</h4><time className="blotter-note-date">{date ? date.replace(/(\d{1,2}:\d{2}):\d{2}(?=\s|$)/g, '$1') : 'Date not recorded'}</time></div>{status && <span className={`blotter-activity-status rounded-md px-2 py-1 text-xs font-medium ${tone}`}>{{ Naganap: 'Completed', Ipinagpaliban: 'Postponed', 'Hindi natuloy': 'Not held' }[status]}</span>}</header>
+    <div className="blotter-activity-body"><p className={`blotter-note-content whitespace-pre-wrap break-words ${long && !expanded ? 'line-clamp-4' : ''}`}>{content || 'No additional details recorded.'}</p>{long && <button type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)} className="blotter-note-expand">{expanded ? 'Show less' : 'Read full note'}</button>}{venue && <dl className="blotter-activity-venue"><dt>Venue</dt><dd>{venue}</dd></dl>}</div>
+    <footer className="blotter-activity-footer"><span>Recorded by</span><div><strong>{name || 'Staff not recorded'}</strong>{role.length > 0 && <span>{role.join(' — ')}</span>}</div></footer>
   </article>
+
 }
 
 export default function ReportSessionNotes({ notes }) {
@@ -41,9 +40,9 @@ export default function ReportSessionNotes({ notes }) {
   if (!entries.length) return null
   const ordered = entries.map((text, index) => ({ text, number: index + 1 })).reverse()
   const visible = showAll ? ordered : ordered.slice(0, 1)
-  return <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-    <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3"><h3 className="text-sm font-semibold text-slate-800">Mga tala</h3><span className="text-[11px] tabular-nums text-slate-400">{entries.length} naitala</span></div>
-    <div className="px-4"><ol className="m-0 list-none divide-y divide-slate-100 p-0" style={{ listStyle: 'none' }} aria-label="Mga tala, pinakabago muna">{visible.map(({ text, number }, index) => <li key={`${number}:${text}`} className="list-none"><NoteEntry text={text} number={number} latest={index === 0} /></li>)}</ol></div>
-    {entries.length > 1 && <div className="border-t border-slate-100 px-4 py-2"><button type="button" aria-expanded={showAll} onClick={() => setShowAll((value) => !value)} className="w-full rounded-lg py-2 text-xs font-semibold text-bb-blue hover:bg-blue-50">{showAll ? 'Ipakita lamang ang pinakahuling tala' : `Tingnan ang lahat (${entries.length})`}</button></div>}
+  return <section className="blotter-session-notes overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <div className="blotter-history-heading"><h3>Activity history <span>{entries.length}</span></h3>{entries.length > 1 && <button type="button" aria-expanded={showAll} onClick={() => setShowAll(value => !value)}>{showAll ? 'Show latest' : 'View all'}</button>}</div>
+    <div className="blotter-activity-list" role="list" aria-label="Activity history, newest first">{visible.map(({ text, number }, index) => <div role="listitem" key={`${number}:${text}`}><NoteEntry text={text} number={number} latest={index === 0} /></div>)}</div>
+
   </section>
 }

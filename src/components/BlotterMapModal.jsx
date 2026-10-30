@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, useMap, useMapEvent } from 'react-leaflet'
 import L from 'leaflet'
 import { MapPin, Search, Loader2 } from 'lucide-react'
@@ -12,9 +12,9 @@ const DEFAULT_CENTER = MILAGROSA_CENTER
 function draftIcon() {
   return L.divIcon({
     className: '',
-    html: `<div style="background:#0b3d66;width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.5)"></div>`,
-    iconSize: [26, 26],
-    iconAnchor: [13, 26],
+    html: '<svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg" style="display:block;filter:drop-shadow(0 2px 3px #17294b55)"><path d="M14 34C11 29 2 22 2 14a12 12 0 0 1 24 0c0 8-9 15-12 20Z" fill="#244ca1" stroke="white" stroke-width="2"/><circle cx="14" cy="14" r="4" fill="white"/></svg>',
+    iconSize: [28, 36],
+    iconAnchor: [14, 34],
   })
 }
 
@@ -27,22 +27,29 @@ function ClickCapture({ onPick }) {
 
 function MapController({ onReady, center }) {
   const map = useMap()
+  const latitude = center?.[0]
+  const longitude = center?.[1]
   useEffect(() => {
-    onReady?.(map)
+    onReady(map)
+    const resize = () => map.invalidateSize({ pan: false })
+    const observer = new ResizeObserver(resize)
+    observer.observe(map.getContainer())
     const timer = setTimeout(() => {
-      map.invalidateSize()
-      if (center && center[0] != null && center[1] != null) {
-        map.setView(center, Math.max(map.getZoom(), 16))
-      }
-    }, 150)
-    return () => clearTimeout(timer)
-  }, [map, onReady, center])
+      resize()
+      if (latitude != null && longitude != null) map.setView([latitude, longitude], 18, { animate: false })
+    }, 200)
+    return () => { clearTimeout(timer); observer.disconnect() }
+  }, [map, onReady, latitude, longitude])
   return null
 }
 
-export default function BlotterMapModal({ open, onClose, report, onSave }) {
+export default function BlotterMapModal({ open, onClose, report, onSave, correction = false }) {
   const { showToast } = useToast()
   const mapRef = useRef(null)
+  const lookupVersion = useRef(0)
+  const onMapReady = useCallback(map => { mapRef.current = map }, [])
+  const initialPosition = useMemo(() => report?.lat != null && report?.lng != null ? [Number(report.lat), Number(report.lng)] : DEFAULT_CENTER, [report?.lat, report?.lng])
+  const markerIcon = useMemo(draftIcon, [])
 
   const [lat, setLat] = useState(null)
   const [lng, setLng] = useState(null)
@@ -52,6 +59,9 @@ export default function BlotterMapModal({ open, onClose, report, onSave }) {
   const [isSearching, setIsSearching] = useState(false)
   const [isGeocoding, setIsGeocoding] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [reason, setReason] = useState('')
+  const [reviewing, setReviewing] = useState(false)
+  const [addressWarning, setAddressWarning] = useState('')
 
   useEffect(() => {
     if (open && report) {
@@ -60,23 +70,34 @@ export default function BlotterMapModal({ open, onClose, report, onSave }) {
       setLat(initialLat)
       setLng(initialLng)
       setLocation(report.location || report.where || report.address || '')
+      ++lookupVersion.current
+      setIsGeocoding(false)
+      setAddressWarning('')
       setAddressQuery('')
+      setReason('')
+      setReviewing(false)
       setAddressResults([])
     }
+    return () => { ++lookupVersion.current }
   }, [open, report])
 
   // Reverse geocode when coordinates change via click or drag
   const handlePickPosition = async (latlng) => {
+    const lookup = ++lookupVersion.current
+    setReviewing(false)
+    setAddressWarning('')
     setLat(latlng.lat)
     setLng(latlng.lng)
     setIsGeocoding(true)
     try {
       const label = await reverseGeocode(latlng.lat, latlng.lng)
+      if (lookup !== lookupVersion.current) return
       if (label) setLocation(label)
+      else setAddressWarning('Address lookup unavailable. Check or enter the correct address.')
     } catch {
-      // Keep existing location if reverse geocoding fails
+      if (lookup === lookupVersion.current) setAddressWarning('Address lookup unavailable. Check or enter the correct address.')
     } finally {
-      setIsGeocoding(false)
+      if (lookup === lookupVersion.current) setIsGeocoding(false)
     }
   }
 
@@ -95,6 +116,10 @@ export default function BlotterMapModal({ open, onClose, report, onSave }) {
   }
 
   const handleSelectResult = (result) => {
+    ++lookupVersion.current
+    setReviewing(false)
+    setIsGeocoding(false)
+    setAddressWarning('')
     setLat(result.lat)
     setLng(result.lng)
     setLocation(result.label)
@@ -107,6 +132,8 @@ export default function BlotterMapModal({ open, onClose, report, onSave }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (isSaving || isGeocoding) return
+    if (correction && !reason.trim()) return
     if (lat == null || lng == null) {
       showToast('Pumili muna ng lokasyon sa mapa bago i-map ang insidente.', 'error')
       return
@@ -117,6 +144,7 @@ export default function BlotterMapModal({ open, onClose, report, onSave }) {
       return
     }
 
+    if (correction && !reviewing) { setReviewing(true); return }
     setIsSaving(true)
     try {
       await onSave({
@@ -124,8 +152,9 @@ export default function BlotterMapModal({ open, onClose, report, onSave }) {
         lng,
         location: location.trim() || 'Quezon City',
         report,
+        reason: reason.trim(),
       })
-      showToast(`${report?.id || report?.ref}: Matagumpay na nai-map ang insidente.`)
+      showToast(correction ? 'Na-save ang corrected location.' : `${report?.id || report?.ref}: Matagumpay na nai-map ang insidente.`)
       onClose()
     } catch (err) {
       console.error('Error saving incident location in BlotterMapModal:', err)
@@ -140,14 +169,14 @@ export default function BlotterMapModal({ open, onClose, report, onSave }) {
   return (
     <Modal
       open={open}
-      onClose={onClose}
-      title={report?.is_mapped ? `Baguhin ang Lokasyon: ${report?.id}` : `I-map ang Insidente: ${report?.id}`}
+      onClose={() => { if (!isSaving) onClose() }}
+      title={correction ? `Confirm location: ${report?.id}` : report?.is_mapped ? `Baguhin ang Lokasyon: ${report?.id}` : `I-map ang Insidente: ${report?.id}`}
       maxWidth="max-w-2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <p className="text-xs text-gray-500 mb-2">
-            I-click ang mapa upang itakda o i-drag ang pin sa eksaktong lokasyon ng insidente. Maaari ring mag-search ng address sa ibaba.
+            Click the correct spot or drag the pin. Zoom in for a more precise location.
           </p>
 
           {/* Search address bar */}
@@ -191,19 +220,19 @@ export default function BlotterMapModal({ open, onClose, report, onSave }) {
         </div>
 
         {/* Map view */}
-        <div className="relative h-64 w-full overflow-hidden rounded-lg border border-gray-200 shadow-inner">
+        <div className={`relative ${correction ? "h-80" : "h-64"} w-full overflow-hidden rounded-lg border border-gray-200 shadow-inner`}>
           <MapContainer center={centerPos} zoom={15} className="h-full w-full">
-            <MilagrosaMapArea />
+            <MilagrosaMapArea showLabel={!correction} focusPosition={correction ? initialPosition : null} />
             <TileLayer
               attribution="&copy; OpenStreetMap contributors"
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
-            <MapController onReady={(map) => (mapRef.current = map)} center={centerPos} />
+            <MapController onReady={onMapReady} center={initialPosition} />
             <ClickCapture onPick={handlePickPosition} />
             {lat != null && lng != null && (
               <Marker
                 position={[lat, lng]}
-                icon={draftIcon()}
+                icon={markerIcon}
                 draggable
                 eventHandlers={{
                   dragend: (e) => {
@@ -248,7 +277,7 @@ export default function BlotterMapModal({ open, onClose, report, onSave }) {
                 type="text"
                 required
                 value={location}
-                onChange={(e) => setLocation(e.target.value)}
+                onChange={(e) => { ++lookupVersion.current; setIsGeocoding(false); setAddressWarning(''); setLocation(e.target.value); setReviewing(false) }}
                 placeholder={isGeocoding ? 'Kinukuha ang address...' : 'hal. Purok 4, Quezon City'}
                 className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-xs focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
               />
@@ -256,6 +285,10 @@ export default function BlotterMapModal({ open, onClose, report, onSave }) {
           </div>
         </div>
 
+        {addressWarning && <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{addressWarning}</p>}
+        {correction && <div><label className="block text-xs font-semibold text-slate-600">Reason for correction<textarea required maxLength={1000} rows={2} value={reason} onChange={event => { setReason(event.target.value); setReviewing(false) }} className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal" placeholder="Briefly explain why the pin needs to be corrected." /></label><div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Quick-fill correction reasons">{['Pin does not match the address.', 'Pin is on the wrong street.', 'Exact location confirmed with the resident.'].map(value => <button type="button" key={value} onClick={() => { setReason(value); setReviewing(false) }} aria-pressed={reason === value} className={`rounded-lg border px-2.5 py-2 text-[11px] font-medium ${reason === value ? 'border-blue-300 bg-blue-50 text-bb-blue' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-blue-50'}`}>{value}</button>)}</div></div>}
+
+        {correction && reviewing && <div role="status" className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-slate-700"><p className="font-semibold">Kumpirmahin ang bagong lokasyon</p><p className="mt-1">{location}</p><p className="mt-1 text-xs tabular-nums">{lat?.toFixed(6)}, {lng?.toFixed(6)}</p><p className="mt-2 text-xs">Mase-save ang bagong pin, dahilan, at staff na nagkumpirma.</p></div>}
         {/* Footer Actions */}
         <div className="flex items-center justify-end gap-3 pt-2 border-t border-gray-100">
           <button
@@ -268,11 +301,11 @@ export default function BlotterMapModal({ open, onClose, report, onSave }) {
           </button>
           <button
             type="submit"
-            disabled={isSaving || lat == null || lng == null}
+            disabled={isSaving || isGeocoding || lat == null || lng == null || (correction && !reason.trim())}
             className="flex items-center gap-1.5 rounded-lg bg-bb-blue hover:bg-bb-blue-dark px-5 py-2 text-xs font-semibold text-white shadow-xs hover:shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {isSaving ? <Loader2 size={14} className="animate-spin" /> : <MapPin size={14} />}
-            <span>I-save ang Lokasyon</span>
+            <span>{correction ? reviewing ? 'Confirm and save' : 'Review location' : 'I-save ang Lokasyon'}</span>
           </button>
         </div>
       </form>
