@@ -9,23 +9,22 @@
 .bb-sidebar-link:hover { color: #fff; background: #ffffff09; }
 .bb-sidebar-link.is-active { background: #e9f1ff; color: #173b70; border-color: #ffffff30; box-shadow: 0 2px 5px #06162b18; }
 .bb-sidebar-link.is-active svg { color: #285997; }
-.bb-sidebar-link:focus-visible, .bb-sidebar-collapse:focus-visible, .bb-sidebar-logout:focus-visible { outline: 2px solid #9cc0f1; outline-offset: 2px; }
+.bb-sidebar-link:focus-visible, .bb-sidebar-logo-button:focus-visible, .bb-sidebar-logout:focus-visible { outline: 2px solid #9cc0f1; outline-offset: 2px; }
 .bb-sidebar-footer { margin-top: 12px; border-top: 1px solid #ffffff10; }
-.bb-sidebar-collapse { width: 100%; align-items: center; gap: 12px; min-height: 42px; padding: 8px 12px; border-radius: 8px; font-size: 12px; color: #a6b8d0; margin-bottom: 6px; }
-.bb-sidebar-collapse:hover { background: #ffffff08; color: #fff; }
 .bb-sidebar-logout { justify-content: flex-start; gap: 12px; min-height: 43px; padding: 10px 12px; background: transparent; border: 1px solid #ffffff10; box-shadow: none; font-size: 13px; font-weight: 500; color: #e0c8cd; }
 .bb-sidebar-logout:hover { background: #ffffff09; box-shadow: none; color: #ffe6eb; }
 @media (min-width: 1024px) {
   .bb-sidebar.is-collapsed .bb-sidebar-header { justify-content: center; }
   .bb-sidebar.is-collapsed .bb-sidebar-group { min-height: 22px; margin-top: 12px; padding: 0; border-top: 1px solid #ffffff0d; }
   .bb-sidebar.is-collapsed .bb-sidebar-group:first-child { border-top: 0; margin-top: 0; }
-  .bb-sidebar.is-collapsed .bb-sidebar-collapse, .bb-sidebar.is-collapsed .bb-sidebar-logout { justify-content: center; padding-left: 0; padding-right: 0; gap: 0; }
+  .bb-sidebar.is-collapsed .bb-sidebar-logout { justify-content: center; padding-left: 0; padding-right: 0; gap: 0; }
 }
 
 /* Keep icon alignment stable in expanded and compact navigation. */
 .bb-sidebar-nav { scrollbar-width: none; -ms-overflow-style: none; overflow-x: hidden; }
 .bb-sidebar-nav::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .bb-sidebar-brand-row { gap: 12px; }
+.bb-sidebar-logo-button { cursor: pointer; }
 .bb-sidebar-logo { display: block; object-position: center; }
 .bb-sidebar-icon { display: inline-flex; width: 28px; height: 28px; flex: 0 0 28px; align-items: center; justify-content: center; border-radius: 8px; }
 .bb-sidebar-icon svg { display: block; margin: 0; }
@@ -34,17 +33,17 @@
 .bb-sidebar-link.is-active .bb-sidebar-icon { background: #ffffff0c; }
 .bb-sidebar-link.is-active svg { color: #c9dfff; }
 .bb-sidebar-brand { letter-spacing: .035em; }
-.bb-sidebar-logout, .bb-sidebar-collapse { padding-left: 15px; gap: 13px; }
-.bb-sidebar-collapse > svg, .bb-sidebar-logout > svg { display: block; width: 20px; height: 20px; flex: 0 0 20px; }
+.bb-sidebar-logout { padding-left: 15px; gap: 13px; }
+.bb-sidebar-logout > svg { display: block; width: 20px; height: 20px; flex: 0 0 20px; }
 @media (min-width: 1024px) {
   .bb-sidebar.is-collapsed .bb-sidebar-header { padding-left: 0; padding-right: 0; }
   .bb-sidebar.is-collapsed .bb-sidebar-brand-row { width: 100%; justify-content: center; gap: 0; }
   .bb-sidebar.is-collapsed .bb-sidebar-brand-row > .bb-sidebar-label { display: none; }
   .bb-sidebar.is-collapsed .bb-sidebar-header > .ml-auto { display: none; }
-  .bb-sidebar.is-collapsed .bb-sidebar-logo { width: 38px; height: 38px; margin: 0 auto; }
+  .bb-sidebar.is-collapsed .bb-sidebar-logo-button { margin: 0 auto; }
+  .bb-sidebar.is-collapsed .bb-sidebar-logo { width: 38px; height: 38px; }
   .bb-sidebar.is-collapsed .bb-sidebar-link { display: flex; justify-content: center; align-items: center; gap: 0; padding-left: 0; padding-right: 0; }
   .bb-sidebar.is-collapsed .bb-sidebar-link > .bb-sidebar-label,
-  .bb-sidebar.is-collapsed .bb-sidebar-collapse > .bb-sidebar-label,
   .bb-sidebar.is-collapsed .bb-sidebar-logout > .bb-sidebar-label { display: none; }
 }
 /* Soft blue selection with enough contrast against the navy sidebar. */
@@ -72,7 +71,6 @@
 .bb-sidebar-link.is-active { background: #c3d5ed; border-color: #d2e1f4; color: #163755; font-weight: 600; box-shadow: 0 2px 5px #071b3215; }
 .bb-sidebar-link.is-active::before { content: ''; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 0 3px 3px 0; background: #426d9f; }
 .bb-sidebar-link.is-active .bb-sidebar-icon { background: transparent; }
-.bb-sidebar-collapse { color: #94abc7; font-size: 11px; }
 .bb-sidebar-logout { color: #e0e7f1; border-color: #ffffff0d; background: #ffffff04; }
 .bb-sidebar-logout:hover { background: #ffffff0b; color: white; }
 .bb-sidebar-helper { min-width: 160px; padding: 12px 16px; border-radius: 10px; border-color: #dce5ef; box-shadow: 0 8px 24px #112a4620, 0 1px 4px #112a460a; }

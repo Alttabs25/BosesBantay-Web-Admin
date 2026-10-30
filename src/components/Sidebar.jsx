@@ -2,7 +2,7 @@ import './Sidebar.css'
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink } from 'react-router-dom'
-import { ChevronLeft, LogOut, X } from 'lucide-react'
+import { LogOut, X } from 'lucide-react'
 import { NAV_ITEMS } from '../config/navigation'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
@@ -48,7 +48,19 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
       >
         <div className="bb-sidebar-header flex items-center justify-between gap-2 px-4 py-6">
           <div className="bb-sidebar-brand-row flex min-w-0 items-center gap-2">
-            <img src="/logo-icon.png" alt="BosesBantay logo" className="bb-sidebar-logo h-10 w-10 shrink-0 object-contain" />
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              aria-label={collapsed ? 'Expand menu' : 'Collapse menu'}
+              aria-expanded={!collapsed}
+              onMouseEnter={event => showHelper(event, 'Expand menu')}
+              onMouseLeave={hideHelper}
+              onFocus={event => showHelper(event, 'Expand menu')}
+              onBlur={hideHelper}
+              className="bb-sidebar-logo-button block shrink-0 rounded-lg"
+            >
+              <img src="/logo-icon.png" alt="BosesBantay logo" className="bb-sidebar-logo h-10 w-10 object-contain" />
+            </button>
             <div className="bb-sidebar-label"><span className="bb-sidebar-brand block truncate text-sm font-bold tracking-wide">BOSESBANTAY</span></div>
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-1">
@@ -59,7 +71,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
         </div>
 
         <nav onScroll={hideHelper} aria-label="Main navigation" className="bb-sidebar-nav flex-1 space-y-1 overflow-y-auto px-3">
-          {visibleItems.map(({ label, path, icon: Icon }, index) => (
+          {visibleItems.map(({ label, path, icon: Icon }) => (
             <NavLink
               key={path}
               to={path}
@@ -83,7 +95,6 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
         </nav>
 
         <div className="bb-sidebar-footer p-4">
-          <button type="button" onClick={onToggleCollapse} aria-label={collapsed ? 'Expand menu' : 'Collapse menu'} aria-expanded={!collapsed} onMouseEnter={event => showHelper(event, 'Expand menu')} onMouseLeave={hideHelper} onFocus={event => showHelper(event, 'Expand menu')} onBlur={hideHelper} className="bb-sidebar-collapse hidden lg:flex"><ChevronLeft size={18} className={collapsed ? 'rotate-180' : ''} /><span className="bb-sidebar-label">Collapse menu</span></button>
           <button
             onClick={handleLogout}
             onMouseEnter={event => showHelper(event, "Log out")} onMouseLeave={hideHelper} onFocus={event => showHelper(event, "Log out")} onBlur={hideHelper}
