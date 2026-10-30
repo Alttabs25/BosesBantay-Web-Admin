@@ -1,3 +1,4 @@
+import './KnowledgeBase.css'
 import { useRef, useState } from 'react'
 import {
   UploadCloud,
@@ -7,6 +8,7 @@ import {
   Eye,
   Trash2,
   Archive,
+  ChevronRight,
   FileText,
   AlertCircle,
   CheckCircle2,
@@ -252,261 +254,120 @@ export default function KnowledgeBase() {
   const pendingApprovalCount = documents.filter(
     (d) => d.officialStatus === 'Naghihintay ng Pag-apruba' && d.status !== 'Retired'
   ).length
+  const publishedCount = documents.filter(
+    (document) => document.officialStatus === 'Opisyal' && document.status !== 'Retired',
+  ).length
+  const archivedCount = documents.filter(
+    (document) => document.status === 'Retired' || document.officialStatus === 'Naka-retire',
+  ).length
+  const documentMetrics = [
+    { value: 'all', label: 'Lahat ng dokumento', count: documents.length, tone: 'blue' },
+    { value: 'approved', label: 'Published', count: publishedCount, tone: 'green' },
+    { value: 'pending', label: 'Naghihintay', count: pendingApprovalCount, tone: 'amber' },
+    { value: 'retired', label: 'Archived', count: archivedCount, tone: 'slate' },
+  ]
 
   return (
-    <div className="space-y-4">
-      {/* Top Header & Test Bench Trigger */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <FileText className="h-5 w-5 text-bb-blue" />
-            Knowledge Base & Document Management
-          </h2>
-          <p className="mt-0.5 text-xs text-gray-500 max-w-2xl">
-            Upload, beripikahin ang format, at pamahalaan ang mga opisyal na ordinansa at rekisito upang manatiling tumpak ang kaalaman ng Barangay-Bot.
-          </p>
-        </div>
-
-        {/* Barangay-Bot Test Bench Button */}
-        <button
-          onClick={() => setTestBenchOpen(true)}
-          className="flex items-center gap-2 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-3.5 py-2 text-xs font-semibold text-white transition-all active:scale-[0.98] cursor-pointer shrink-0"
-        >
-          <Bot className="h-4 w-4 text-white" />
-          <span>I-test ang Barangay-Bot</span>
-        </button>
-      </div>
+    <div className="knowledge-page">
+      <section className="knowledge-metric-grid" aria-label="Buod ng document library">
+        {documentMetrics.map((metric) => (
+          <button
+            type="button"
+            key={metric.value}
+            onClick={() => setActiveTab(metric.value)}
+            aria-pressed={activeTab === metric.value}
+            className={`knowledge-metric tone-${metric.tone} ${activeTab === metric.value ? 'is-active' : ''}`}
+          >
+            <span><i aria-hidden="true" />{metric.label}</span>
+            <strong>{metric.count}</strong>
+          </button>
+        ))}
+      </section>
 
       {/* Main Grid: Document Table & Upload Form */}
-      <div className="flex flex-col gap-4 lg:flex-row items-start">
+      <div className={`knowledge-workspace ${canUpload ? 'has-upload' : ''}`}>
         {/* Document List & Filters */}
-        <div className="flex-1 min-w-0 space-y-3 w-full">
+        <section className="knowledge-registry">
           {/* Controls Bar: Search & Status Tabs */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            {/* Filter Tabs */}
-            <div className="flex flex-wrap items-center gap-1.5 bg-gray-50/50 rounded-xl p-1.5">
-              {[
-                {
-                  value: 'all',
-                  label: 'Lahat',
-                  count: documents.length,
-                  activeClass: 'bg-bb-blue text-white shadow-sm',
-                },
-                {
-                  value: 'approved',
-                  label: 'Published',
-                  count: documents.filter((d) => d.officialStatus === 'Opisyal' && d.status !== 'Retired').length,
-                  activeClass: 'bg-green-600 text-white shadow-sm',
-                },
-                {
-                  value: 'pending',
-                  label: 'Naghihintay',
-                  count: pendingApprovalCount,
-                  activeClass: 'bg-orange-500 text-white shadow-sm',
-                },
-                {
-                  value: 'retired',
-                  label: 'Archived',
-                  count: documents.filter((d) => d.status === 'Retired' || d.officialStatus === 'Naka-retire').length,
-                  activeClass: 'bg-gray-500 text-white shadow-sm',
-                },
-              ].map((pill) => {
-                const isActive = activeTab === pill.value
-
-                return (
-                  <button
-                    key={pill.value}
-                    onClick={() => setActiveTab(pill.value)}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${isActive
-                      ? `${pill.activeClass} scale-102`
-                      : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-                      }`}
-                  >
-                    <span>{pill.label}</span>
-                    <span
-                      className={`rounded-full px-1.5 py-0.2 text-[10px] ${isActive
-                        ? 'bg-white/20 text-white'
-                        : 'bg-gray-100 text-gray-500 border border-gray-200/50'
-                        }`}
-                    >
-                      {pill.count}
-                    </span>
-                  </button>
-                )
-              })}
+          <div className="knowledge-registry-toolbar">
+            <div>
+              <p className="knowledge-registry-kicker">Official reference library</p>
+              <h2>Document registry <span>{filteredDocuments.length} / {documents.length}</span></h2>
             </div>
 
-            {/* Search Input */}
-            <div className="relative w-full sm:w-48 xl:w-56">
-              <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Maghanap ng dokumento..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-white pl-8 pr-2.5 py-1.5 text-xs focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-              />
+            <div className="knowledge-registry-actions">
+              {/* Search Input */}
+              <div className="knowledge-search">
+                <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Maghanap ng dokumento..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 bg-white pl-8 pr-2.5 py-2 text-xs focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setTestBenchOpen(true)}
+                className="knowledge-test-button"
+              >
+                <Bot className="h-4 w-4" />
+                <span className="hidden xl:inline">I-test ang Barangay-Bot</span>
+                <span className="xl:hidden">I-test</span>
+              </button>
             </div>
           </div>
 
-          {/* Table Container */}
-          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xs">
-            <div className="max-h-[calc(100vh-230px)] overflow-x-auto overflow-y-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                  <tr>
-                    <th className="px-3 py-2">Dokumento at Ordinansa</th>
-                    <th className="px-2 py-2">Format / Laki</th>
-                    <th className="px-2 py-2">Kategorya</th>
-                    <th className="px-2 py-2">Petsa</th>
-                    <th className="px-2 py-2">Ingestion</th>
-                    <th className="px-2 py-2">Status</th>
-                    <th className="px-3 py-2 text-right">Aksyon</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredDocuments.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
-                        Walang nahanap na dokumento para sa filter na ito.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredDocuments.map((doc) => (
-                      <tr
-                        key={doc.id || doc.title}
-                        className="hover:bg-gray-50/70 transition-colors"
-                      >
-                        <td className="px-3 py-2">
-                          <div className="font-semibold text-gray-800 max-w-[160px] sm:max-w-[190px] xl:max-w-[220px] truncate text-xs" title={doc.title}>
-                            {doc.title}
-                          </div>
-                          <div className="text-[10px] text-gray-500 flex items-center gap-1 mt-0.5">
-                            <span className="font-mono text-bb-blue font-medium truncate max-w-[150px]">
-                              {doc.ordinanceNo || 'Walang Ordinance No.'}
-                            </span>
-                          </div>
-                        </td>
-
-                        <td className="px-2 py-2 whitespace-nowrap">
-                          <div className="flex items-center gap-1">
-                            <span
-                              className={`rounded px-1 py-0.2 text-[9px] font-bold ${doc.fileFormat === 'DOCX'
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'bg-red-100 text-red-700'
-                                }`}
-                            >
-                              {doc.fileFormat ?? 'PDF'}
-                            </span>
-                            <span className="text-[10px] text-gray-400">{doc.fileSize ?? '1.2 MB'}</span>
-                          </div>
-                        </td>
-
-                        <td className="px-2 py-2">
-                          <span className="text-gray-600 block max-w-[100px] truncate text-[11px]" title={doc.category}>
-                            {doc.category || 'Ordinansa'}
-                          </span>
-                        </td>
-
-                        <td className="px-2 py-2 text-gray-500 whitespace-nowrap text-[11px]">
-                          {doc.dateUploaded}
-                        </td>
-
-                        <td className="px-2 py-2 whitespace-nowrap">
-                          <Pill color={STATUS_COLOR[doc.status] ?? 'gray'} solid={false}>
-                            {doc.status === 'Fully Indexed' ? 'Indexed' : doc.status === 'Pending' ? 'Not Indexed' : doc.status}
-                          </Pill>
-                        </td>
-
-                        <td className="px-2 py-2 whitespace-nowrap">
-                          <Pill color={OFFICIAL_COLOR[doc.officialStatus] ?? 'gray'}>
-                            {doc.officialStatus === 'Opisyal' ? 'Published' : doc.officialStatus === 'Naghihintay ng Pag-apruba' ? 'Pending' : 'Archived'}
-                          </Pill>
-                        </td>
-
-                        <td className="px-3 py-2 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1">
-                            {/* View / Detail Button */}
-                            <button
-                              onClick={() => setSelectedDoc(doc)}
-                              title="Tingnan ang detalye at mga seksyon"
-                              className="rounded-full p-1 text-gray-400 hover:text-bb-blue hover:bg-blue-50 border border-transparent hover:border-blue-200/60 transition-all cursor-pointer"
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                            </button>
-
-                            {/* System Administrator Ingest Button */}
-                            {isAdmin && (doc.status === 'Pending' || doc.status === 'Indexing') && (
-                              <button
-                                onClick={() => handleTriggerIngest(doc)}
-                                title="I-proseso at i-index ang dokumento"
-                                className="flex items-center gap-1 rounded-md bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-xs hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-2 py-0.5 text-[11px] font-semibold text-white transition-all active:scale-[0.98] cursor-pointer"
-                              >
-                                <Zap className="h-3 w-3 text-white" />
-                                <span>Ingest</span>
-                              </button>
-                            )}
-
-                            {/* Punong Barangay Approve / Publish Button */}
-                            {canApprove &&
-                              doc.officialStatus !== 'Opisyal' &&
-                              doc.status !== 'Retired' && (
-                                <button
-                                  onClick={() => setPendingApproveDoc(doc)}
-                                  title="Aprubahan bilang Opisyal na Dokumento"
-                                  className="flex items-center gap-1 rounded-md bg-emerald-600 hover:bg-emerald-700 shadow-xs hover:shadow px-2 py-0.5 text-[11px] font-semibold text-white transition-all active:scale-[0.98] cursor-pointer"
-                                >
-                                  <ShieldCheck className="h-3 w-3 text-white" />
-                                  <span>Publish</span>
-                                </button>
-                              )}
-
-                            {/* Retire Button (Admin / Secretary / Captain) */}
-                            {canDelete && doc.status !== 'Retired' && (
-                              <button
-                                onClick={() => setPendingRetireDoc(doc)}
-                                title="I-retire ang dokumento (hindi na magagamit ng chatbot)"
-                                className="rounded-full p-1 text-gray-400 hover:text-amber-700 hover:bg-amber-50 border border-transparent hover:border-amber-200/60 transition-all cursor-pointer"
-                              >
-                                <Archive className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-
-                            {/* Hard Delete Button (System Administrator Custodial Role) */}
-                            {canDelete && (
-                              <button
-                                onClick={() => setPendingDeleteDoc(doc)}
-                                title="Tanggalin ang file mula sa database (Hard Delete)"
-                                className="rounded-full p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200/60 transition-all cursor-pointer"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+          <div className="knowledge-document-list max-h-[calc(100vh-245px)] overflow-y-auto">
+            {filteredDocuments.length === 0 && <div className="knowledge-empty-state"><FileText size={24} /><h3>Walang nahanap na dokumento</h3><p>Subukan ang ibang search term o status filter.</p></div>}
+            {filteredDocuments.map((doc) => {
+              const format = doc.fileFormat ?? 'PDF'
+              const ingestionLabel = doc.status === 'Fully Indexed' ? 'Indexed' : doc.status === 'Pending' ? 'Not Indexed' : doc.status
+              const officialLabel = doc.officialStatus === 'Opisyal' ? 'Published' : doc.officialStatus === 'Naghihintay ng Pag-apruba' ? 'Pending' : 'Archived'
+              return <article key={doc.id || doc.title} className="knowledge-document-card">
+                <div className="knowledge-document-main">
+                  <span className={`knowledge-file-icon format-${format.toLowerCase()}`} aria-hidden="true"><FileText size={20} /><small>{format}</small></span>
+                  <div className="knowledge-document-identity">
+                    <button type="button" onClick={() => setSelectedDoc(doc)}>{doc.title}</button>
+                    <span>{doc.ordinanceNo || 'Walang Ordinance No.'}</span>
+                  </div>
+                  <div className="knowledge-document-statuses">
+                    <Pill color={STATUS_COLOR[doc.status] ?? 'gray'} solid={false}>{ingestionLabel}</Pill>
+                    <Pill color={OFFICIAL_COLOR[doc.officialStatus] ?? 'gray'}>{officialLabel}</Pill>
+                  </div>
+                </div>
+                <dl className="knowledge-document-facts">
+                  <div><dt>Kategorya</dt><dd>{doc.category || 'Ordinansa'}</dd></div>
+                  <div><dt>Petsa ng upload</dt><dd>{doc.dateUploaded || 'Hindi nakatala'}</dd></div>
+                  <div><dt>File</dt><dd>{format} <span>/</span> {doc.fileSize ?? '1.2 MB'}</dd></div>
+                </dl>
+                <footer className="knowledge-document-footer">
+                  <button type="button" onClick={() => setSelectedDoc(doc)} className="knowledge-view-action"><Eye size={14} /> Tingnan ang detalye <ChevronRight size={14} /></button>
+                  <div className="knowledge-card-actions">
+                    {isAdmin && (doc.status === 'Pending' || doc.status === 'Indexing') && <button type="button" onClick={() => handleTriggerIngest(doc)} className="is-primary"><Zap size={13} /> Ingest</button>}
+                    {canApprove && doc.officialStatus !== 'Opisyal' && doc.status !== 'Retired' && <button type="button" onClick={() => setPendingApproveDoc(doc)} className="is-publish"><ShieldCheck size={13} /> Publish</button>}
+                    {canDelete && doc.status !== 'Retired' && <button type="button" onClick={() => setPendingRetireDoc(doc)} title="I-retire ang dokumento"><Archive size={14} /><span className="sr-only">I-retire</span></button>}
+                    {canDelete && <button type="button" onClick={() => setPendingDeleteDoc(doc)} title="Tanggalin ang dokumento" className="is-danger"><Trash2 size={14} /><span className="sr-only">Tanggalin</span></button>}
+                  </div>
+                </footer>
+              </article>
+            })}
           </div>
-        </div>
+        </section>
 
         {/* Upload Panel (Authorized Secretary and Admin) */}
         {canUpload && (
           <form
             onSubmit={handleSubmit}
-            className="w-full space-y-2.5 rounded-xl border border-gray-200 bg-white p-3.5 shadow-xs lg:w-72 xl:w-80 shrink-0"
+            className="knowledge-upload-panel w-full space-y-2.5 shrink-0"
           >
-            <div className="border-b border-gray-100 pb-2">
-              <h3 className="font-bold text-gray-900 text-xs flex items-center gap-1.5">
-                <UploadCloud className="h-4 w-4 text-bb-blue" />
-                Mag-upload ng Dokumento
-              </h3>
-              <p className="text-[10px] text-gray-500 mt-0.5">
+            <div className="knowledge-upload-heading">
+              <span aria-hidden="true"><UploadCloud className="h-4 w-4" /></span>
+              <div><h3>Mag-upload ng Dokumento</h3>
+              <p>
                 Para sa kaalaman ng Barangay-Bot at archival.
-              </p>
+              </p></div>
             </div>
 
             {/* Compliance Warning Notice */}
@@ -515,6 +376,8 @@ export default function KnowledgeBase() {
               <span><strong>Paalala:</strong> Text-searchable PDF o DOCX lamang.</span>
             </div>
 
+            <section className="knowledge-form-stage">
+              <div className="knowledge-stage-heading"><span>01</span><div><h4>Document details</h4><p>Pangalan at klasipikasyon ng opisyal na record.</p></div></div>
             {/* Document Title */}
             <label className="block">
               <span className="mb-0.5 block text-[11px] font-semibold text-gray-700">
@@ -576,8 +439,11 @@ export default function KnowledgeBase() {
                 className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs placeholder:text-gray-400 focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue resize-none"
               />
             </label>
+            </section>
 
             {/* Drag and Drop Box */}
+            <section className="knowledge-form-stage">
+              <div className="knowledge-stage-heading"><span>02</span><div><h4>Source file</h4><p>Piliin ang searchable document na ii-index.</p></div></div>
             <div
               onClick={() => inputRef.current?.click()}
               onDragOver={(e) => {
@@ -627,8 +493,11 @@ export default function KnowledgeBase() {
                 onChange={(e) => handleFileSelection(e.target.files?.[0] ?? null)}
               />
             </div>
+            </section>
 
             {/* Full Document Content / Extracted Text Box */}
+            <section className="knowledge-form-stage">
+              <div className="knowledge-stage-heading"><span>03</span><div><h4>AI-ready content</h4><p>Suriin ang text na gagamitin ng Barangay-Bot.</p></div></div>
             <label className="block">
               <span className="mb-0.5 flex items-center justify-between text-[11px] font-semibold text-gray-700">
                 <span>Nilalaman ng Dokumento (AI Text Chunks)</span>
@@ -646,10 +515,11 @@ export default function KnowledgeBase() {
                 className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs placeholder:text-gray-400 focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue resize-y font-sans"
               />
             </label>
+            </section>
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-2 text-xs font-semibold text-white transition-all active:scale-[0.98] cursor-pointer"
+              className="knowledge-submit-button"
             >
               <UploadCloud className="h-3.5 w-3.5 text-white" />
               <span>Isumite para sa Ingestion</span>
