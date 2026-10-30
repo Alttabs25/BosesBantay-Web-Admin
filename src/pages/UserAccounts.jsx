@@ -1,3 +1,4 @@
+import './UserAccounts.css'
 import { useMemo, useState, useEffect } from 'react'
 import {
   CheckCircle2,
@@ -18,6 +19,7 @@ import {
   Copy,
   MoreVertical,
   Eye,
+  Users,
 } from 'lucide-react'
 import Pill from '../components/Pill'
 import SearchInput from '../components/SearchInput'
@@ -581,59 +583,77 @@ export default function UserAccounts() {
   const showResidents = !isAdmin || activeTab === 'residents'
   const showAdminAccounts = isAdmin && activeTab === 'admin'
   const showModuleAccess = isAdmin && activeTab === 'modules'
+  const residentMetrics = [
+    { value: 'All', label: 'Lahat ng account', count: users.length, tone: 'blue' },
+    { value: 'Active', label: 'Aktibo', count: users.filter((account) => (account.status || 'Active') === 'Active').length, tone: 'green' },
+    { value: 'Pending', label: 'Naghihintay', count: users.filter((account) => account.status === 'Pending').length, tone: 'amber' },
+    { value: 'Suspended', label: 'Suspendido', count: users.filter((account) => account.status === 'Suspended').length, tone: 'red' },
+    { value: 'Deactivated', label: 'Deaktibo', count: users.filter((account) => account.status === 'Deactivated').length, tone: 'slate' },
+  ]
+  const adminReadyCount = accounts.filter((account) => !account.mustChangePassword).length
+  const temporaryPasswordCount = accounts.length - adminReadyCount
+  const enabledModuleCount = ASSIGNABLE_MODULES.reduce(
+    (total, module) => total + ASSIGNABLE_MODULE_ROLES.filter((role) => roleModuleAccess[role]?.[module.key]).length,
+    0,
+  )
 
   return (
-    <div>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900">
+    <div className="user-accounts-page">
+      <section className="account-command-bar">
+        <div className="account-command-copy">
+          <span className="account-command-icon" aria-hidden="true"><ShieldCheck size={22} /></span>
+          <div>
+            <p className="account-command-kicker">Identity & access workspace</p>
+            <h2>
             {showAdminAccounts
               ? 'Mga Admin Portal Account'
               : showModuleAccess
                 ? 'Pamamahagi ng Access sa Module'
                 : 'Mga Account ng Resident'}
-          </h2>
-          <p className="mt-0.5 text-sm text-gray-500">
+            </h2>
+            <p>
             {showAdminAccounts
               ? 'Mga account na maaaring mag-login sa Command Center na ito.'
               : showModuleAccess
                 ? 'Piliin kung aling mga module ang makikita at ma-a-access ng bawat tungkulin (role).'
                 : 'Suriin ang mga nakarehistro sa mobile app at i-manage ang kanilang governance approval.'}
-          </p>
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="account-command-actions">
           {isAdmin && (
-            <div className="flex rounded-lg border border-gray-200 bg-gray-50/50 p-0.5 shadow-xs">
+            <nav className="account-section-nav" aria-label="Mga seksyon ng user account">
               <button
+                type="button"
                 onClick={() => setActiveTab('residents')}
-                className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all duration-150 ${
-                  activeTab === 'residents' ? 'bg-bb-blue text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
-                }`}
+                aria-current={activeTab === 'residents' ? 'page' : undefined}
+                className={activeTab === 'residents' ? 'is-active' : ''}
               >
-                Mga Residente
+                <Users size={15} /> <span>Mga Residente</span>
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab('admin')}
-                className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all duration-150 ${
-                  activeTab === 'admin' ? 'bg-bb-blue text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
-                }`}
+                aria-current={activeTab === 'admin' ? 'page' : undefined}
+                className={activeTab === 'admin' ? 'is-active' : ''}
               >
-                Admin Portal
+                <ShieldCheck size={15} /> <span>Admin Portal</span>
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab('modules')}
-                className={`rounded-md px-3.5 py-1.5 text-xs font-semibold transition-all duration-150 ${
-                  activeTab === 'modules' ? 'bg-bb-blue text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
-                }`}
+                aria-current={activeTab === 'modules' ? 'page' : undefined}
+                className={activeTab === 'modules' ? 'is-active' : ''}
               >
-                Module Access
+                <SlidersHorizontal size={15} /> <span>Module Access</span>
               </button>
-            </div>
+            </nav>
           )}
           {isAdmin && activeTab === 'residents' && (
             <button
+              type="button"
               onClick={() => setAddingAccount(true)}
-              className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-4 py-2 text-sm font-semibold text-white transition-all active:scale-[0.98]"
+              className="account-primary-action"
             >
               <Plus size={16} />
               Magdagdag ng Resident
@@ -641,15 +661,16 @@ export default function UserAccounts() {
           )}
           {showAdminAccounts && (
             <button
+              type="button"
               onClick={() => setAddingAdminAccount(true)}
-              className="flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark px-4 py-2 text-sm font-semibold text-white transition-all active:scale-[0.98]"
+              className="account-primary-action"
             >
               <Plus size={16} />
               Gumawa ng Admin Account
             </button>
           )}
         </div>
-      </div>
+      </section>
 
       {isCaptain && pendingRequests.length > 0 && (
         <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50 p-4">
@@ -694,48 +715,34 @@ export default function UserAccounts() {
 
       {showResidents && (
         <>
-          <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="w-full max-w-md">
+          <section className="account-metric-grid" aria-label="Buod ng mga resident account">
+            {residentMetrics.map((metric) => (
+              <button
+                type="button"
+                key={metric.value}
+                onClick={() => setStatusFilter(metric.value)}
+                aria-pressed={statusFilter === metric.value}
+                className={`account-metric tone-${metric.tone} ${statusFilter === metric.value ? 'is-active' : ''}`}
+              >
+                <span className="account-metric-label"><i aria-hidden="true" />{metric.label}</span>
+                <strong>{metric.count}</strong>
+              </button>
+            ))}
+          </section>
+
+          <section className="account-registry-panel">
+            <div className="account-registry-toolbar">
+              <div>
+                <p className="account-registry-eyebrow">Resident registry</p>
+                <p className="account-registry-count"><strong>{filtered.length}</strong> sa {users.length} account</p>
+              </div>
+              <div className="account-search-wrap">
               <SearchInput value={query} onChange={setQuery} placeholder="Hanapin ang pangalan, phone, o ID..." />
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5 bg-gray-50/50 rounded-xl p-1.5">
-              {[
-                { value: 'All', label: 'Lahat', activeClass: 'bg-bb-blue text-white shadow-sm' },
-                { value: 'Active', label: 'Aktibo', activeClass: 'bg-green-600 text-white shadow-sm' },
-                { value: 'Pending', label: 'Naghihintay', activeClass: 'bg-orange-500 text-white shadow-sm' },
-                { value: 'Suspended', label: 'Suspendido', activeClass: 'bg-red-600 text-white shadow-sm' },
-                { value: 'Deactivated', label: 'Deaktibo', activeClass: 'bg-gray-500 text-white shadow-sm' }
-              ].map((pill) => {
-                const count = pill.value === 'All' 
-                  ? users.length 
-                  : users.filter(u => (u.status || 'Active') === pill.value).length
-                const isActive = statusFilter === pill.value
-
-                return (
-                  <button
-                    key={pill.value}
-                    onClick={() => setStatusFilter(pill.value)}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
-                      isActive
-                        ? `${pill.activeClass} scale-102`
-                        : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-                    }`}
-                  >
-                    <span>{pill.label}</span>
-                    <span className={`rounded-full px-1.5 py-0.2 text-[10px] ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500 border border-gray-200/50'
-                    }`}>
-                      {count}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="mt-4 min-h-[320px] max-h-[calc(100vh-360px)] overflow-auto rounded-lg border border-gray-200 pb-20">
-            <table className="w-full text-left text-sm">
+          <div className="account-table-shell min-h-[320px] max-h-[calc(100vh-390px)] overflow-auto pb-20">
+            <table className="account-registry-table w-full text-left text-sm">
               <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                 <tr>
                   <th className="px-4 py-3 font-semibold">User ID</th>
@@ -887,55 +894,45 @@ export default function UserAccounts() {
               </tbody>
             </table>
           </div>
+          </section>
         </>
       )}
 
       {showAdminAccounts && (
         <>
-          <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="w-full max-w-md">
+          <section className="account-metric-grid account-metric-grid-admin" aria-label="Buod ng mga admin account">
+            <div className="account-metric tone-blue"><span className="account-metric-label"><i aria-hidden="true" />Lahat ng admin</span><strong>{accounts.length}</strong></div>
+            <div className="account-metric tone-green"><span className="account-metric-label"><i aria-hidden="true" />Handa nang gamitin</span><strong>{adminReadyCount}</strong></div>
+            <div className="account-metric tone-amber"><span className="account-metric-label"><i aria-hidden="true" />Temporary password</span><strong>{temporaryPasswordCount}</strong></div>
+          </section>
+
+          <section className="account-registry-panel">
+            <div className="account-registry-toolbar">
+              <div>
+                <p className="account-registry-eyebrow">Command Center directory</p>
+                <p className="account-registry-count"><strong>{filteredAdminAccounts.length}</strong> sa {accounts.length} admin</p>
+              </div>
+              <div className="account-admin-tools">
+                <div className="account-search-wrap">
               <SearchInput
                 value={adminQuery}
                 onChange={setAdminQuery}
                 placeholder="Hanapin ang pangalan, email, role, o ID..."
               />
+                </div>
+                <label className="account-role-filter">
+                  <span>Role</span>
+                  <select value={adminRoleFilter} onChange={(event) => setAdminRoleFilter(event.target.value)}>
+                    {ADMIN_ROLE_FILTERS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5 bg-gray-50/50 rounded-xl p-1.5">
-              {ADMIN_ROLE_FILTERS.map((pill) => {
-                const count = pill.value === 'All'
-                  ? accounts.length
-                  : accounts.filter((a) => matchesRoleFilter(a.role, pill.value)).length
-                const isActive = adminRoleFilter === pill.value
-
-                return (
-                  <button
-                    key={pill.value}
-                    onClick={() => setAdminRoleFilter(pill.value)}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer ${
-                      isActive
-                        ? `${pill.activeClass} scale-102`
-                        : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-                    }`}
-                  >
-                    <span>{pill.label}</span>
-                    <span
-                      className={`rounded-full px-1.5 py-0.2 text-[10px] ${
-                        isActive
-                          ? 'bg-white/20 text-white'
-                          : 'bg-gray-100 text-gray-500 border border-gray-200/50'
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="mt-4 min-h-[320px] max-h-[calc(100vh-360px)] overflow-auto rounded-lg border border-gray-200 pb-20">
-            <table className="w-full text-left text-sm">
+          <div className="account-table-shell min-h-[320px] max-h-[calc(100vh-390px)] overflow-auto pb-20">
+            <table className="account-registry-table w-full text-left text-sm">
               <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Admin ID</th>
@@ -1061,12 +1058,18 @@ export default function UserAccounts() {
               </tbody>
             </table>
           </div>
+          </section>
         </>
       )}
 
       {showModuleAccess && (
-        <div className="mt-4">
-          <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-700">
+        <div className="account-access-workspace">
+          <div className="account-access-summary">
+            <div><span>Mga module</span><strong>{ASSIGNABLE_MODULES.length}</strong></div>
+            <div><span>Mga tungkulin</span><strong>{ASSIGNABLE_MODULE_ROLES.length}</strong></div>
+            <div><span>Aktibong pahintulot</span><strong>{enabledModuleCount}</strong></div>
+          </div>
+          <div className="account-access-note">
             <SlidersHorizontal size={15} className="mt-0.5 shrink-0" />
             <span>
               Palaging naka-on ang Dashboard at Profile Management para sa lahat ng tungkulin. Ang mga naka-off na
@@ -1074,8 +1077,8 @@ export default function UserAccounts() {
             </span>
           </div>
 
-          <div className="mt-3 max-h-[calc(100vh-320px)] overflow-auto rounded-lg border border-gray-300">
-            <table className="w-full border-collapse text-left text-sm">
+          <div className="account-access-matrix max-h-[calc(100vh-390px)] overflow-auto">
+            <table className="account-registry-table w-full border-collapse text-left text-sm">
               <thead className="sticky top-0 z-10 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                 <tr>
                   <th className="border-b border-r border-gray-300 px-4 py-3 font-semibold">Module</th>
