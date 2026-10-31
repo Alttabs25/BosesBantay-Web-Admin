@@ -1,3 +1,4 @@
+import FilterPopup from '../components/FilterPopup'
 import './UserAccounts.css'
 import { useMemo, useState, useEffect } from 'react'
 import {
@@ -734,7 +735,7 @@ export default function UserAccounts() {
             <div className="account-registry-toolbar">
               <div>
                 <p className="account-registry-eyebrow">Resident registry</p>
-                <p className="account-registry-count"><strong>{filtered.length}</strong> sa {users.length} account</p>
+                <p className="account-registry-count"><strong>{filtered.length}</strong> sa {users.length} account</p><FilterPopup title="Filter resident accounts" resultNoun="accounts" count={filtered.length} onReset={() => setStatusFilter('All')}><label><span>Status</span><select value={statusFilter} onChange={event => setStatusFilter(event.target.value)}>{['All','Active','Pending','Suspended','Deactivated'].map(status => <option key={status}>{status}</option>)}</select></label></FilterPopup>
               </div>
               <div className="account-search-wrap">
               <SearchInput value={query} onChange={setQuery} placeholder="Hanapin ang pangalan, phone, o ID..." />
@@ -920,14 +921,14 @@ export default function UserAccounts() {
                 placeholder="Hanapin ang pangalan, email, role, o ID..."
               />
                 </div>
-                <label className="account-role-filter">
+                <FilterPopup title="Filter admin accounts" resultNoun="accounts" count={filteredAdminAccounts.length} onReset={() => setAdminRoleFilter('All')}>                <label >
                   <span>Role</span>
                   <select value={adminRoleFilter} onChange={(event) => setAdminRoleFilter(event.target.value)}>
                     {ADMIN_ROLE_FILTERS.map((option) => (
                       <option key={option.value} value={option.value}>{option.label}</option>
                     ))}
                   </select>
-                </label>
+                </label></FilterPopup>
               </div>
             </div>
 

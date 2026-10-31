@@ -1,3 +1,7 @@
+import { isServiceComplaint, isBlotterReport } from '../lib/reportType'
+export { isServiceComplaint, isBlotterReport } from '../lib/reportType'
+import BlotterFilterFields from '../components/BlotterFilterFields'
+import FilterPopup from '../components/FilterPopup'
 import { blotterProgress } from '../lib/blotterProgress'
 import ServiceComplaintWorkspace from '../components/ServiceComplaintWorkspace'
 import ScopedBlotterWorkspace from '../components/ScopedBlotterWorkspace'
@@ -45,14 +49,6 @@ function reportKey(report) {
 
 function hasReportValue(value) {
   return value !== null && value !== undefined && String(value).trim() !== '' && value !== 'N/A' && value !== 'Hindi Alam'
-}
-
-export function isServiceComplaint(report) {
-  return report?.reportType === 'service_complaint' || report?.sourceTable === 'service_complaints'
-}
-
-export function isBlotterReport(report) {
-  return report?.reportType === 'blotter' || report?.sourceTable === 'pre_blotters'
 }
 
 // Keep these exports for existing consumers; source metadata determines the view.
@@ -113,7 +109,10 @@ export default function DigitalBlotter({ reportType = 'blotter' }) {
   const uniqueReports = useMemo(() => {
     if (!Array.isArray(blotterReports)) return []
     const map = new Map()
-    ;[...blotterReports, ...(serviceComplaints || [])].forEach((report) => {
+    const pageReports = isComplaintScreen
+      ? [...blotterReports, ...(serviceComplaints || [])].filter(isServiceComplaint)
+      : blotterReports.filter(isBlotterReport)
+    pageReports.forEach((report) => {
       const reference = report.id || report.ref
       if (!reference) return
       const idKey = reportKey(report)
@@ -122,7 +121,7 @@ export default function DigitalBlotter({ reportType = 'blotter' }) {
       }
     })
     return Array.from(map.values())
-  }, [blotterReports, serviceComplaints])
+  }, [blotterReports, serviceComplaints, isComplaintScreen])
 
   const [query, setQuery] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('all')
@@ -282,26 +281,17 @@ export default function DigitalBlotter({ reportType = 'blotter' }) {
         <p className="shrink-0 text-sm font-semibold tabular-nums text-gray-700"><span className="text-bb-blue">{filtered.length}</span> / {currentTypeReports.length} ulat</p>
         <div className="flex min-w-0 flex-wrap items-center gap-2 sm:justify-end">
           <div className="min-w-[180px] flex-1 sm:w-64 sm:flex-none"><SearchInput value={query} onChange={setQuery} placeholder="Hanapin ang ulat o lokasyon" /></div>
-          <button type="button" onClick={() => setFiltersOpen((open) => !open)} aria-expanded={filtersOpen} aria-controls="report-filters" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:border-bb-blue/50 hover:bg-blue-50 hover:text-bb-blue">
-            <SlidersHorizontal size={16} /> Mga filter{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+          <button type="button" onClick={() => setFiltersOpen((open) => !open)} aria-expanded={filtersOpen} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:border-bb-blue/50 hover:bg-blue-50 hover:text-bb-blue">
+            <SlidersHorizontal size={16} /> Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
           </button>
           {!isComplaintScreen && canCreateBlotter && <button type="button" onClick={() => setIsCreateModalOpen(true)} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-bb-blue px-3 py-2 text-sm font-semibold text-white hover:bg-bb-blue-dark"><Plus size={16} /> Magdagdag</button>}
         </div>
       </div>
 
-      {filtersOpen && <div id="report-filters" className="mt-3 rounded-xl border border-gray-200 bg-white p-3">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Paliitin ang resulta</h3>
-          {activeFilterCount > 0 && <button type="button" onClick={clearFilters} className="text-xs font-semibold text-bb-blue hover:underline">I-clear ang mga filter</button>}
-        </div>
-        <p className="mb-3 text-xs text-gray-500">Pumili ng status, kategorya, petsa, o pagkakasunod ng mga ulat.</p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="block"><span className="mb-1 block text-xs font-semibold text-gray-500">Status</span><select value={selectedStatus} onChange={(event) => setSelectedStatus(event.target.value)} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue">{STATUS_GROUPS.filter(({ value }) => (isComplaintScreen || !['spam','out_of_scope'].includes(value)) && (value !== 'other' || statusCounts.other > 0) && (!isComplaintScreen || !['scheduled', 'escalated', 'needs_schedule', 'needs_outcome'].includes(value))).map(({ value, label }) => <option key={value} value={value}>{label} ({value === 'all' ? currentTypeReports.length : statusCounts[value]})</option>)}</select></label>
-          <label className="block"><span className="mb-1 block text-xs font-semibold text-gray-500">Kategorya</span><select value={selectedCategory} onChange={(event) => setSelectedCategory(event.target.value)} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"><option value="all">Lahat ng kategorya</option>{categories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
-          <label className="block"><span className="mb-1 block text-xs font-semibold text-gray-500">Saklaw ng petsa</span><select value={dateRange} onChange={(event) => setDateRange(event.target.value)} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"><option value="all">Lahat ng petsa</option><option value="7">Huling 7 araw</option><option value="30">Huling 30 araw</option><option value="90">Huling 90 araw</option></select></label>
-          <label className="block"><span className="mb-1 block text-xs font-semibold text-gray-500">Pagkakasunod</span><select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"><option value="newest">Pinakabago</option><option value="oldest">Pinakaluma</option></select></label>
-        </div>
-      </div>}
+      <FilterPopup trigger={false} open={filtersOpen} onClose={() => setFiltersOpen(false)} title={isComplaintScreen ? 'Filter service complaints' : 'Filter blotter reports'} resultNoun={isComplaintScreen ? 'complaints' : 'reports'} maxWidth="max-w-2xl" count={filtered.length} onReset={clearFilters}>
+        <BlotterFilterFields variant={isComplaintScreen ? 'complaint' : 'blotter'} status={selectedStatus} onStatus={setSelectedStatus} counts={statusCounts} total={currentTypeReports.length} category={selectedCategory} onCategory={setSelectedCategory} categories={categories} dateRange={dateRange} onDateRange={setDateRange} sort={sortOrder} onSort={setSortOrder} />
+      </FilterPopup>
+
       </>}
 
       {isComplaintScreen && serviceComplaintsError && (

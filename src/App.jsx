@@ -1,3 +1,5 @@
+import Services from './pages/Services'
+import BotWorkspace from './pages/BotWorkspace'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Login from './pages/Login'
 import ForgotPassword from './pages/ForgotPassword'
@@ -10,7 +12,6 @@ import Dashboard from './pages/Dashboard'
 import GISCommandCenter from './pages/GISCommandCenter'
 import DigitalBlotter from './pages/DigitalBlotter'
 import UserAccounts from './pages/UserAccounts'
-import KnowledgeBase from './pages/KnowledgeBase'
 import Alerts from './pages/Alerts'
 import Reports from './pages/Reports'
 import AuditLogs from './pages/AuditLogs'
@@ -86,11 +87,13 @@ function App() {
             </RoleGuard>
           }
         />
+        <Route path="/services" element={<RoleGuard module="knowledgeBase"><Services /></RoleGuard>} />
+        <Route path="/chatbot-settings" element={<RoleGuard module="knowledgeBase"><Navigate to="/knowledge-base?view=chat" replace /></RoleGuard>} />
         <Route
           path="/knowledge-base"
           element={
             <RoleGuard module="knowledgeBase">
-              <KnowledgeBase />
+              <BotWorkspace />
             </RoleGuard>
           }
         />

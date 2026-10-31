@@ -1,0 +1,34 @@
+.admin-page-header { display:flex; align-items:center; justify-content:space-between; gap:20px; height:76px; flex-shrink:0; padding:0 27px; background:#174b78; color:#f7fbff; border-bottom:1px solid #ffffff12; position:relative; z-index:20; }
+.admin-header-heading { display:flex; align-items:center; gap:12px; min-width:0; }
+.admin-header-titles { min-width:0; }
+.admin-header-context { display:flex; align-items:center; gap:6px; color:#b6cbdf; font-size:11px; line-height:17px; margin-bottom:3px; }
+.admin-header-context > svg { color:#83a5c3; }
+.admin-page-header h1 { margin:0; font-size:24px; line-height:31px; font-weight:600; letter-spacing:-.4px; color:#f7fbff; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.admin-menu-button { display:none; align-items:center; justify-content:center; width:40px; height:40px; flex-shrink:0; padding:8px; border:1px solid #ffffff26; border-radius:8px; color:#ecf5ff; background:#ffffff08; cursor:pointer; }
+.admin-header-account { display:flex; align-items:center; gap:12px; min-width:0; flex-shrink:0; padding:6px 8px 6px 15px; border-left:1px solid #ffffff20; border-radius:0 8px 8px 0; color:#fff; transition:background-color .12s; }
+.admin-header-account:hover { background:#ffffff08; }
+.admin-header-avatar { display:flex; align-items:center; justify-content:center; width:42px; height:42px; flex-shrink:0; overflow:hidden; border-radius:50%; border:2px solid #ffffff36; background:#ffffff10; color:#e2effb; }
+.admin-header-avatar img { width:100%; height:100%; object-fit:cover; }
+.admin-header-user { display:block; min-width:0; max-width:220px; }
+.admin-header-user strong { display:block; font-size:15px; font-weight:600; line-height:22px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.admin-header-user > span { display:block; margin-top:2px; font-size:12px; line-height:19px; color:#c5d9e9; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.admin-account-chevron { color:#b8cede; margin-left:4px; }
+.admin-page-header a:focus-visible,.admin-page-header button:focus-visible { outline:2px solid #d6eaff; outline-offset:3px; }
+@media(max-width:1023px) { .admin-menu-button { display:flex; } }
+@media(max-width:639px) { .admin-page-header { height:68px; padding:0 15px; gap:12px; }.admin-header-context { font-size:10px; gap:4px; margin-bottom:2px; }.admin-header-context > span:first-child,.admin-header-context > svg { display:none; }.admin-page-header h1 { font-size:19px; line-height:27px; }.admin-header-user,.admin-account-chevron { display:none; }.admin-header-account { padding:3px 0 3px 10px; }.admin-header-avatar { width:38px; height:38px; } }
+/* Cleaner header hierarchy and readable account details. */
+.admin-page-header { height:76px; padding:0 28px; background:#194d79; border-bottom-color:#ffffff16; }
+.admin-header-context { margin-bottom:3px; font-size:12px; line-height:18px; color:#b9cee1; }
+.admin-page-header h1 { font-size:25px; line-height:32px; font-weight:600; letter-spacing:-.35px; }
+.admin-header-account { padding:6px 0 6px 20px; gap:13px; }
+.admin-header-avatar { width:43px; height:43px; border:1px solid #ffffff50; }
+.admin-header-user strong { font-size:16px; line-height:23px; }
+.admin-header-user > span { font-size:13px; line-height:20px; color:#d0e1ef; }
+.admin-account-chevron { opacity:.7; }
+@media(max-width:639px) { .admin-page-header { height:68px; padding:0 15px; }.admin-header-context { font-size:11px; line-height:16px; }.admin-page-header h1 { font-size:20px; line-height:28px; }.admin-header-account { padding:3px 0 3px 11px; }.admin-header-avatar { width:38px; height:38px; } }
+.admin-page-header h1 { font-size:26px; line-height:34px; color:#fff; }
+.admin-header-context { font-size:13px; line-height:19px; color:#d0e0ee; }
+.admin-header-user strong { font-size:17px; line-height:24px; color:#fff; }
+.admin-header-user > span { font-size:14px; line-height:21px; color:#deebf5; }
+.admin-account-chevron { color:#d5e4f1; opacity:1; }
+@media(max-width:639px) { .admin-page-header h1 { font-size:21px; line-height:29px; }.admin-header-context { font-size:12px; line-height:17px; } }

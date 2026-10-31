@@ -1,0 +1,79 @@
+.shared-filter-trigger {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 42px; padding: 9px 14px; border: 1px solid #d6dfe9;
+  border-radius: 8px; background: white; color: #344a63; font-size: 14px;
+  font-weight: 600; cursor: pointer;
+}
+.shared-filter-trigger:hover { background: #f5f8fc; border-color: #afc4da; }
+.shared-filter-fields {
+  display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px;
+  max-height: 60vh; overflow-y: auto; padding: 4px 2px 26px;
+}
+.shared-filter-fields > label,.shared-filter-fields > div { min-width: 0; }
+.shared-filter-fields > :only-child { grid-column: 1/-1; }
+.shared-filter-fields label { display: block; }
+.shared-filter-fields label > span {
+  display: block; color: #475569; margin-bottom: 9px;
+  font-size: 13px; font-weight: 600; line-height: 1.5;
+}
+.shared-filter-fields select,.shared-filter-fields input {
+  display: block; width: 100%; min-height: 46px; padding: 10px 12px;
+  border: 1px solid #dce3ec; border-radius: 8px; background: #fafbfd;
+  color: #25364a; font-size: 15px; line-height: 1.5; box-shadow: none;
+  transition: border-color .15s, background-color .15s;
+}
+.shared-filter-fields select:hover,.shared-filter-fields input:hover { border-color: #b6c7d9; background: white; }
+.shared-filter-fields select:focus,.shared-filter-fields input:focus { background: white; border-color: #538bc5; outline: 2px solid #dceafb; outline-offset: 1px; }
+.shared-filter-popup footer {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding-top: 18px; border-top: 1px solid #edf1f5;
+}
+.shared-filter-popup footer button {
+  min-height: 44px; padding: 10px 18px; border-radius: 8px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.shared-filter-reset { color: #64748b; background: transparent; border: 0; }
+.shared-filter-reset:hover { background: #f3f6fa; color: #33465d; }
+.shared-filter-view { background: #215c95; color: white; margin-left: auto; min-width: 145px; }
+.shared-filter-view:hover { background: #194d7e; }
+.shared-filter-popup :focus-visible,.shared-filter-trigger:focus-visible { outline: 2px solid #538bc5; outline-offset: 2px; }
+.shared-filter-fields .report-custom-dates { grid-column: 1/-1; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media(max-width:639px) {
+  .shared-filter-fields { grid-template-columns: minmax(0,1fr); gap: 20px; padding-bottom: 22px; }
+  .shared-filter-view { min-width: 130px; }
+}
+.shared-filter-description { font-size: 13px; line-height: 1.6; color: #64748b; margin: 0 0 20px; }
+.shared-filter-status { grid-column: 1/-1; min-width: 0; padding: 0; border: 0; }
+.shared-filter-status legend { font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 10px; }
+.shared-filter-choice-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.shared-filter-fields .shared-filter-choice-grid label { display: flex; align-items: center; gap: 9px; padding: 11px 12px; min-height: 46px; border: 1px solid #e1e7ef; border-radius: 8px; cursor: pointer; }
+.shared-filter-fields .shared-filter-choice-grid input { width: 16px; min-height: 16px; height: 16px; margin: 0; padding: 0; accent-color: #215c95; flex-shrink: 0; box-shadow: none; }
+.shared-filter-fields .shared-filter-choice-grid label > span { flex: 1; font-size: 13px; font-weight: 500; margin: 0; }
+.shared-filter-choice-grid small { color: #64748b; font-size: 12px; font-variant-numeric: tabular-nums; }
+.shared-filter-choice-grid label:has(input:checked) { border-color: #a8c5e4; background: #f0f6fd; }
+.shared-filter-choice-grid label:hover { background: #f7f9fc; }
+@media(max-width:639px) { .shared-filter-choice-grid { grid-template-columns: minmax(0,1fr); } }
+.shared-filter-fields > .blotter-filter-layout { grid-column: 1/-1; display: grid; grid-template-columns: minmax(0,1.2fr) minmax(0,1fr); gap: 24px; }
+.blotter-filter-progress { min-width: 0; }
+.blotter-filter-progress fieldset { border: 0; padding: 0; min-width: 0; }
+.blotter-filter-progress fieldset + fieldset { margin-top: 22px; }
+.blotter-filter-progress legend { font-size: 13px; font-weight: 650; color: #475569; margin-bottom: 10px; }
+.shared-filter-fields .blotter-filter-options label { display: flex; align-items: center; gap: 9px; padding: 10px; border: 1px solid transparent; border-radius: 7px; min-height: 42px; cursor: pointer; }
+.shared-filter-fields .blotter-filter-options input { width: 16px; height: 16px; min-height: 16px; padding: 0; margin: 0; flex-shrink: 0; accent-color: #215c95; }
+.shared-filter-fields .blotter-filter-options label > span { flex: 1; font-weight: 500; margin: 0; font-size: 13px; }
+.blotter-filter-options small { font-size: 12px; color: #64748b; font-variant-numeric: tabular-nums; }
+.blotter-filter-options label:has(input:checked) { background: #edf5ff; border-color: #bcd3eb; }
+.blotter-filter-options label:has(input:disabled) { opacity: .45; cursor: not-allowed; }
+.blotter-filter-options label:hover { background: #f5f8fc; }
+.blotter-filter-scope { padding-left: 22px; border-left: 1px solid #e7edf4; }
+.blotter-filter-scope > label + label { margin-top: 22px; }
+.blotter-filter-scope .blotter-filter-sort { padding-top: 22px; border-top: 1px solid #edf1f6; }
+@media(max-width:639px) {
+ .shared-filter-fields > .blotter-filter-layout { grid-template-columns: minmax(0,1fr); }
+ .blotter-filter-scope { padding: 20px 0 0; border-left: 0; border-top: 1px solid #e7edf4; }
+}
+.shared-filter-popup footer .shared-filter-reset { display: inline-flex; align-items: center; justify-content: center; min-width: 88px; min-height: 44px; padding: 10px 16px; background: #f0f4f9; border: 1px solid #c6d3e2; color: #344a63; border-radius: 8px; font-weight: 600; }
+.shared-filter-popup footer .shared-filter-reset:hover { background: #e4ecf6; border-color: #a7bdd5; color: #215c95; }
+.shared-filter-trigger { gap:8px; }
+.shared-filter-trigger[data-active] { background:#edf4fd; border-color:#9bb9d7; color:#215c95; }
+.shared-filter-count { display:grid; place-items:center; min-width:18px; height:18px; padding:0 4px; border-radius:5px; background:#dceafb; color:#215c95; font-size:10px; font-variant-numeric:tabular-nums; }

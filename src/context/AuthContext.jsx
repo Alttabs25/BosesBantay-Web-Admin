@@ -59,7 +59,8 @@ export function AuthProvider({ children }) {
 
   // Set up auth state listener
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setTimeout(async () => {
       if (session?.user) {
         // Fetch matching profile details
         const { data: profile, error } = await supabase
@@ -104,6 +105,7 @@ export function AuthProvider({ children }) {
         setAccounts([])
       }
       setLoading(false)
+      }, 0)
     })
 
     return () => {

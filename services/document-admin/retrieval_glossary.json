@@ -1,0 +1,11 @@
+{
+  "shorthand": {"d2":"dito","kc":"kasi","pls":"please","pano":"paano","mgkano":"magkano","nsa":"nasaan","pde":"puwede","anu":"ano"},
+  "concepts": [
+    {"english":"complaint report","tagalog":"reklamo sumbong","aliases":["reklamo","sumbong","complaint","ireport","i-report"]},
+    {"english":"fee payment","tagalog":"bayad babayaran magkano","aliases":["bayad","babayaran","magkano","fee","payment"]},
+    {"english":"requirements documents","tagalog":"kailangan dokumento","aliases":["requirements","requirement","kailangan","dokumento"]},
+    {"english":"noise disturbance","tagalog":"ingay maingay nakakaistorbo","aliases":["ingay","maingay","noise","nakakaistorbo"]},
+    {"english":"office hours schedule","tagalog":"oras bukas iskedyul","aliases":["office hours","oras","bukas","iskedyul","schedule"]},
+    {"english":"barangay clearance","tagalog":"barangay clearance","aliases":["clearance"]}
+  ]
+}

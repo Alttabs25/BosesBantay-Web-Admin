@@ -1,0 +1,31 @@
+--- a/chat.py
++++ b/chat.py
+@@ -232,10 +232,11 @@
+     try:
+         preferences = load_settings()
+         schema = deepcopy(OUTPUT_SCHEMA)
+-        if feedback and feedback.get('response_mode') == 'concise':
+-            schema['properties']['kind']['enum'] = ['answer','missing_information','refusal','topics']
+-            schema['properties']['steps']['maxItems'] = 0
+-            schema['properties']['overview']['maxLength'] = 0
++        concise = bool(feedback and feedback.get('response_mode') == 'concise')
++        if concise:
++            claim_schema = {'type':'object','properties':{'text':{'type':'string','minLength':1,'maxLength':800},'source_ids':{'type':'array','items':{'type':'string','enum':[source_id(p) for p in passages]},'minItems':1,'maxItems':5}},'required':['text','source_ids'],'additionalProperties':False}
++            schema = {'type':'object','properties':{'kind':{'type':'string','enum':['answer','missing_information','refusal']},'claims':{'type':'array','items':claim_schema,'maxItems':4},'related_questions':{'type':'array','items':claim_schema,'maxItems':2},'conflicts':OUTPUT_SCHEMA['properties']['conflicts']},'required':['kind','claims','related_questions','conflicts'],'additionalProperties':False}
++            payload['output_instructions'] = 'Use this concise schema instead of the general guide schema: claims are 1-4 direct, natural sentences answering the question. Each claim has text without citation markers and source_ids selecting ONLY its supporting passages. Related questions use the same shape; omit if unnecessary. Never put menu/navigation text in claims. For refusal or missing_information return empty claims and related_questions. The code formats citations. Do not invent unsupported remedies or translate awkwardly word-for-word.'
+         stream = models.chat(model=config.CHAT_MODEL,
+                              messages=[{"role": "system", "content": SYSTEM_PROMPT + "\nResponse preferences: " + style_instruction(preferences)},
+                                        {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
+@@ -250,7 +251,11 @@
+                 completed = True
+         if not completed or not ''.join(output).strip():
+             raise ValueError("generation_did_not_finish")
+-        return ''.join(output).strip()
++        raw = ''.join(output).strip()
++        if concise:
++            from concise_response import render_claims
++            return render_claims(raw, passages, feedback.get('response_language','english'))
++        return raw
+     except Exception as error:
+         runtime_logger().exception('generation_failed attempt=%d', 2 if feedback and 'validation_errors' in feedback else 1)
+         raise ChatFailure(f"Answer generation did not finish ({type(error).__name__}). Retry.") from None

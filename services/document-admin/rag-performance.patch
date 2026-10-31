@@ -1,0 +1,157 @@
+--- a/config.py
++++ b/config.py
+@@ -26,3 +26,9 @@
+         raise ValueError("Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in rag-bot/.env.")
+     if not SUPABASE_URL.startswith("https://"):
+         raise ValueError("SUPABASE_URL must use HTTPS.")
++
++# Bounded performance controls; no retrieval-answer caching.
++EMBED_KEEP_ALIVE = os.getenv("EMBED_KEEP_ALIVE", "5m")
++EMBED_BATCH_SIZE = max(1, min(64, int(os.getenv("EMBED_BATCH_SIZE", "16"))))
++QUERY_CACHE_SIZE = max(0, min(1024, int(os.getenv("QUERY_CACHE_SIZE", "128"))))
++QUERY_CACHE_TTL = max(0, min(3600, int(os.getenv("QUERY_CACHE_TTL", "300"))))
+--- a/chat.py
++++ b/chat.py
+@@ -15,7 +15,10 @@
+ from supabase import create_client
+ import config
+ from keyword_search import keyword_rows
++from embedding_cache import QueryEmbeddingCache
+ from citations import citation_errors, source_id, sources_block, UNVERIFIED, CONFLICT, REFUSAL
++
++_query_embeddings = QueryEmbeddingCache(config.QUERY_CACHE_SIZE, config.QUERY_CACHE_TTL)
+ 
+ UNKNOWN = "I don't know based on the documents."
+ SYSTEM_PROMPT = """You are a friendly, guide-focused Barangay Assistant. Answer only from the supplied document passages, never outside knowledge.
+@@ -61,23 +64,37 @@
+         raise ValueError("Enter a question between 1 and 4,000 characters.")
+     if not isinstance(top_k, int) or not 1 <= top_k <= 100 or not math.isfinite(threshold) or not -1 <= threshold <= 1:
+         raise ValueError("Use TOP_K between 1 and 100 and a finite similarity threshold between -1 and 1.")
++    retrieval_started = time.perf_counter()
++    keyword_started = time.perf_counter()
+     try:
+         rows = keyword_rows(question, database, config.DOCUMENTS_TABLE, top_k)
+     except Exception as error:
+         runtime_logger().exception('keyword_lookup_failed')
+         raise ChatFailure(f"Document lookup failed ({type(error).__name__}). Check Supabase and retry.") from None
++    runtime_logger().info('retrieval_keyword_ms=%.1f candidates=%d', (time.perf_counter() - keyword_started) * 1000, len(rows))
+     if not rows:
+         try:
+-            response = models.embed(model=config.EMBED_MODEL,
+-                                    input="search_query: " + question.strip(), truncate=False, keep_alive="0s")
+-            vector = response.embeddings[0]
+-            if len(vector) != config.EMBED_DIMENSIONS or not all(math.isfinite(v) for v in vector) or not any(vector):
+-                raise ValueError("invalid_embedding")
++            embed_started = time.perf_counter()
++            def embed_question():
++                response = models.embed(model=config.EMBED_MODEL,
++                    input="search_query: " + question.strip(), truncate=False, keep_alive=config.EMBED_KEEP_ALIVE)
++                vector = response.embeddings[0]
++                if len(vector) != config.EMBED_DIMENSIONS or not all(isinstance(v, (int,float)) and not isinstance(v,bool) and math.isfinite(v) for v in vector) or not any(vector):
++                    raise ValueError('invalid_embedding')
++                return vector
++            # Only the production client shares embeddings across requests.
++            if type(models) is Client:
++                vector, cache_hit = _query_embeddings.get_or_create((config.OLLAMA_HOST, config.EMBED_MODEL, config.EMBED_DIMENSIONS, question.strip()), embed_question)
++            else:
++                vector, cache_hit = embed_question(), False
++            runtime_logger().info('retrieval_embedding_ms=%.1f cache_hit=%s', (time.perf_counter() - embed_started) * 1000, cache_hit)
+         except Exception as error:
+             runtime_logger().exception('question_embedding_failed')
+             raise ChatFailure(f"Question embedding failed ({type(error).__name__}). Check Ollama and retry.") from None
+         try:
++            lookup_started = time.perf_counter()
+             rows = database.rpc(config.MATCH_FUNCTION, {"query_embedding": vector, "match_count": min(top_k * 5, 100)}).execute().data
++            runtime_logger().info('retrieval_vector_ms=%.1f candidates=%d', (time.perf_counter() - lookup_started) * 1000, len(rows))
+         except Exception as error:
+             runtime_logger().exception('document_lookup_failed')
+             raise ChatFailure(f"Document lookup failed ({type(error).__name__}). Check Supabase and retry.") from None
+@@ -110,6 +127,7 @@
+             seen.add(row['id'])
+             if len(passages) == top_k:
+                 break
++        runtime_logger().info('retrieval_total_ms=%.1f passages=%d', (time.perf_counter() - retrieval_started) * 1000, len(passages))
+         return tuple(passages)
+     except Exception as error:
+         runtime_logger().exception('retrieved_records_invalid')
+--- a/ingest.py
++++ b/ingest.py
+@@ -6,6 +6,8 @@
+ import math
+ import re
+ import sys
++import time
++from chat_runtime import runtime_logger
+ from pathlib import Path
+ 
+ from ollama import Client
+@@ -14,7 +16,7 @@
+ import config
+ 
+ BATCH_SIZE = 50
+-EMBED_BATCH_SIZE = 8
++EMBED_BATCH_SIZE = config.EMBED_BATCH_SIZE
+ 
+ 
+ class IngestFailure(Exception):
+@@ -93,7 +95,7 @@
+         try:
+             result = models.embed(model=config.EMBED_MODEL,
+                                   input=["search_document: " + row["content"] for row in batch],
+-                                  truncate=False, keep_alive="0s")
++                                  truncate=False, keep_alive=config.EMBED_KEEP_ALIVE)
+         except Exception as error:
+             raise IngestFailure("Ollama embedding failed (" + type(error).__name__ +
+                                 "). Check Ollama and model availability; existing rows retained.") from None
+@@ -122,8 +124,11 @@
+         print(f"SKIP {path.name}: no extractable text. Existing rows retained; scans need OCR.")
+         return 0
+     print(f"{path.name}: {len(rows)} chunks, embedding...")
++    embedding_started = time.perf_counter()
+     embed_rows(rows, models)
++    runtime_logger().info('ingest_embedding_ms=%.1f chunks=%d batch_size=%d', (time.perf_counter() - embedding_started) * 1000, len(rows), EMBED_BATCH_SIZE)
+     written = 0
++    save_started = time.perf_counter()
+     try:
+         database.table(config.DOCUMENTS_TABLE).delete().eq("metadata->>source", path.name).execute()
+         for offset in range(0, len(rows), BATCH_SIZE):
+@@ -134,6 +139,7 @@
+         raise IngestFailure(f"Supabase replacement failed ({type(error).__name__}); "
+                             f"{written}/{len(rows)} rows confirmed. Replacement is not atomic; "
+                             "fix connectivity and rerun this file to replace any partial rows.") from None
++    runtime_logger().info('ingest_database_ms=%.1f chunks=%d', (time.perf_counter() - save_started) * 1000, written)
+     print(f"OK {path.name}: {written} rows inserted.")
+     return written
+ 
+--- /dev/null
++++ b/embedding_cache.py
+@@ -0,0 +1,29 @@
++"""Bounded, short-lived cache of vectors only; retrieval always reads fresh rows."""
++from collections import OrderedDict
++import hashlib
++import threading
++import time
++
++class QueryEmbeddingCache:
++    def __init__(self, capacity=128, ttl=300, clock=time.monotonic):
++        self.capacity, self.ttl, self.clock = capacity, ttl, clock
++        self.values = OrderedDict()
++        self.lock = threading.Lock()
++
++    def get_or_create(self, key, create):
++        digest = hashlib.sha256(repr(key).encode()).digest()
++        now = self.clock()
++        with self.lock:
++            expired = [key for key, (expires, _) in self.values.items() if expires <= now]
++            for key in expired: del self.values[key]
++            if digest in self.values:
++                expires, vector = self.values[digest]
++                self.values.move_to_end(digest)
++                return list(vector), True
++        vector = create()  # Failed requests are never cached.
++        if self.capacity > 0 and self.ttl > 0:
++            with self.lock:
++                self.values[digest] = (self.clock() + self.ttl, tuple(vector))
++                self.values.move_to_end(digest)
++                while len(self.values) > self.capacity: self.values.popitem(last=False)
++        return list(vector), False

@@ -1,0 +1,39 @@
+--- a/chat.py
++++ b/chat.py
+@@ -77,6 +77,24 @@
+ 
+ 
+ def retrieve(question, database, models, top_k=None, threshold=None):
++    from retrieval_pipeline import query_variants, rank_passages
++    preferences=load_settings()
++    limit=preferences['top_k'] if top_k is None else top_k
++    if not isinstance(question,str) or not question.strip() or len(question)>4000:
++        raise ValueError('Enter a question between 1 and 4,000 characters.')
++    if not isinstance(limit,int) or not 1<=limit<=100:
++        raise ValueError('Invalid retrieval limit')
++    variants=query_variants(question)
++    if len(variants)==1:
++        return _retrieve_query(variants[0],database,models,top_k,threshold)
++    started=time.perf_counter()
++    ranked=[_retrieve_query(variant,database,models,min(max(limit,10),30),threshold) for variant in variants]
++    selected=rank_passages(ranked,question,limit)
++    runtime_logger().info('query_plan variants=%d candidates=%d selected=%d duration_ms=%.1f',len(variants),sum(len(rows) for rows in ranked),len(selected),(time.perf_counter()-started)*1000)
++    return tuple(Passage(index+1,p.content,p.source,p.page,p.similarity,p.source_id,p.stored_answers) for index,p in enumerate(selected))
++
++
++def _retrieve_query(question, database, models, top_k=None, threshold=None):
+     preferences = load_settings()
+     top_k = preferences['top_k'] if top_k is None else top_k
+     threshold = preferences['threshold'] if threshold is None else threshold
+--- a/session_chat.py
++++ b/session_chat.py
+@@ -69,7 +69,8 @@
+             state = store.reset(session_id)
+             decision = MenuDecision('menu', opening(state, kb), language=state.language)
+         else:
+-            decision = handle_message(safe_message, state, kb)
++            from retrieval_pipeline import normalize_message
++            decision = handle_message(normalize_message(safe_message), state, kb)
+         if decision.kind == 'answer':
+             if database is None and database_factory is not None:
+                 database = database_factory()

@@ -1,3 +1,4 @@
+import FilterPopup from '../components/FilterPopup'
 import './AuditLogs.css'
 import { useEffect, useMemo, useState } from 'react'
 import { Activity, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Search, ShieldCheck, Users } from 'lucide-react'
@@ -55,7 +56,7 @@ export default function AuditLogs() {
         <div className="audit-registry-title"><span><ShieldCheck size={20} /></span><div><p>Read-only compliance trail</p><h2>Activity Registry <small>{filtered.length} / {auditLog.length}</small></h2></div></div>
         <div className="audit-registry-tools">
           <label className="audit-search"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Hanapin ang actor, role, o aksyon..." /></label>
-          <select value={toneFilter} onChange={(event) => setToneFilter(event.target.value)} aria-label="I-filter ang audit logs"><option value="all">Lahat ng activity</option><option value="attention">Kailangang suriin</option><option value="green">Matagumpay</option><option value="blue">Regular activity</option><option value="red">Critical activity</option></select>
+          <FilterPopup title="Filter audit logs" resultNoun="entries" count={filtered.length} onReset={() => setToneFilter('all')}><label><span>Activity type</span>          <select value={toneFilter} onChange={(event) => setToneFilter(event.target.value)} aria-label="I-filter ang audit logs"><option value="all">Lahat ng activity</option><option value="attention">Kailangang suriin</option><option value="green">Matagumpay</option><option value="blue">Regular activity</option><option value="red">Critical activity</option></select></label></FilterPopup>
         </div>
       </header>
 

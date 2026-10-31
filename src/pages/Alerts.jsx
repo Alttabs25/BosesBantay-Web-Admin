@@ -1,3 +1,4 @@
+import FilterPopup from '../components/FilterPopup'
 import './Alerts.css'
 import { useState } from 'react'
 import { Bell, Clock, Info, Search, Send, ShieldAlert, Trash2, Users } from 'lucide-react'
@@ -135,8 +136,7 @@ export default function Alerts() {
           <div><p>Dispatch archive</p><h2>Mga Naipadalang Abiso <span>{filteredHistory.length} / {roleHistory.length}</span></h2></div>
           <div className="alert-registry-tools">
             <label className="alert-search"><Search size={14} /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Hanapin ang abiso..." /></label>
-            <select value={filterType} onChange={(event) => setFilterType(event.target.value)} aria-label="I-filter ayon sa uri"><option value="All">Lahat ng uri</option>{FILTER_TYPES.map((type) => <option key={type}>{type}</option>)}</select>
-            <select value={filterLevel} onChange={(event) => setFilterLevel(event.target.value)} aria-label="I-filter ayon sa antas"><option value="All">Lahat ng antas</option>{ALERT_LEVELS.map((item) => <option key={item}>{item}</option>)}</select>
+            <FilterPopup title="Filter notifications" resultNoun="notifications" count={filteredHistory.length} onReset={() => { setFilterType('All'); setFilterLevel('All') }}><label><span>Notice type</span>            <select value={filterType} onChange={(event) => setFilterType(event.target.value)} aria-label="I-filter ayon sa uri"><option value="All">Lahat ng uri</option>{FILTER_TYPES.map((type) => <option key={type}>{type}</option>)}</select></label><fieldset className="shared-filter-status"><legend>Alert level</legend><div className="shared-filter-choice-grid">{['All', ...ALERT_LEVELS].map(level => <label key={level}><input type="radio" name="notice-alert-filter" checked={filterLevel === level} onChange={() => setFilterLevel(level)} /><span>{level === 'All' ? 'All levels' : level}</span><small>{roleHistory.filter(alert => level === 'All' || alert.level === level).length}</small></label>)}</div></fieldset></FilterPopup>
           </div>
         </header>
 

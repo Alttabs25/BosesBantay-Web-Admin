@@ -1,0 +1,82 @@
+--- a/ingest.py
++++ b/ingest.py
+@@ -59,7 +59,7 @@
+             for number, page in enumerate(reader.pages, 1)]
+ 
+ 
+-def prepare_rows(path, answers=None):
++def prepare_rows(path, answers=None, chunk_size=None, chunk_overlap=None):
+     if not path.name.strip():
+         raise IngestFailure("A source filename is required.")
+     answers = [] if answers is None else answers
+@@ -75,9 +75,11 @@
+             raise IngestFailure('Invalid stored answer: supply questions, language, and an exact source excerpt without citation markers or links.')
+     rows = []
+     for page, text in load_units(path):
+-        for content in chunk_text(text):
++        for content in chunk_text(text, size=config.CHUNK_SIZE if chunk_size is None else chunk_size, overlap=config.CHUNK_OVERLAP if chunk_overlap is None else chunk_overlap):
+             metadata = {"source": path.name, "chunk_index": len(rows),
+-                        "embedding_model": config.EMBED_MODEL, "active": True}
++                        "embedding_model": config.EMBED_MODEL, "active": True,
++                        "chunk_size_chars": config.CHUNK_SIZE if chunk_size is None else chunk_size,
++                        "chunk_overlap_chars": config.CHUNK_OVERLAP if chunk_overlap is None else chunk_overlap}
+             if page is not None:
+                 metadata["page"] = page
+             matching = [entry for entry in answers if entry['answer'] in content]
+@@ -111,10 +113,10 @@
+             row["embedding"] = vector
+ 
+ 
+-def ingest_file(path, database, models, answers=None):
++def ingest_file(path, database, models, answers=None, chunk_size=None, chunk_overlap=None):
+     # Finish extraction and embeddings before deleting an existing file's index.
+     try:
+-        rows = prepare_rows(path, answers=answers)
++        rows = prepare_rows(path, answers=answers, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+     except IngestFailure:
+         raise
+     except Exception as error:
+--- a/upload_documents.py
++++ b/upload_documents.py
+@@ -38,14 +38,14 @@
+     return filename
+ 
+ 
+-def preview_upload(filename: str, data: bytes) -> UploadPreview:
++def preview_upload(filename: str, data: bytes, options=None) -> UploadPreview:
+     """Validate and extract without saving to docs, embedding or database access."""
+     filename = validate_upload(filename, data)
+     try:
+         with TemporaryDirectory() as directory:
+             source = Path(directory) / filename
+             source.write_bytes(data)
+-            rows = prepare_rows(source)
++            rows = prepare_rows(source, **(options or {}))
+     except IngestFailure:
+         raise
+     except Exception as error:
+@@ -57,13 +57,13 @@
+                          "\n\n".join(r['content'] for r in rows)[:2000])
+ 
+ 
+-def ingest_upload(filename: str, data: bytes, database, models, docs_dir=None) -> int:
++def ingest_upload(filename: str, data: bytes, database, models, docs_dir=None, options=None) -> int:
+     """Save and index one new file. Inject clients to reuse this in another UI.
+ 
+     Existing filenames are rejected. The existing ingestion backend is not atomic;
+     a database insert failure can leave partial rows requiring manual cleanup.
+     """
+-    preview = preview_upload(filename, data)
++    preview = preview_upload(filename, data, **({"options": options} if options else {}))
+     directory = Path(docs_dir) if docs_dir is not None else config.DOCS_DIR
+     directory.mkdir(parents=True, exist_ok=True)
+     target = directory / preview.filename
+@@ -86,7 +86,7 @@
+             try:
+                 with target.open("xb") as stream:
+                     stream.write(data)
+-                return ingest_file(target, database, models)
++                return ingest_file(target, database, models, **(options or {}))
+             except IngestFailure:
+                 target.unlink(missing_ok=True)
+                 raise

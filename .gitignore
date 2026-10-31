@@ -29,3 +29,9 @@ dist-ssr
 !.env.example
 !.env.*.example
 scratch/
+# Python adapter artifacts
+__pycache__/
+*.py[cod]
+
+# Local server-to-server capability; never expose or commit
+services/document-admin/.private/

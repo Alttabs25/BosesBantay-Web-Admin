@@ -2,7 +2,7 @@ import './Sidebar.css'
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink } from 'react-router-dom'
-import { LogOut, X } from 'lucide-react'
+import { LogOut, X, PanelLeftClose } from 'lucide-react'
 import { NAV_ITEMS } from '../config/navigation'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
@@ -25,7 +25,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
 
   const visibleItems = NAV_ITEMS.filter((item) => hasDynamicModuleAccess(user?.role, item.module))
 
-  const groupFor = path => ['/dashboard','/gis','/complaints','/blotter'].includes(path) ? 'Workspace' : ['/reports','/audit'].includes(path) ? 'Reports & activity' : path === '/profile' ? 'Account' : 'Management'
+  const groups = ['Workspace','Management','Reports & account'].map(label=>({label,items:visibleItems.filter(item=>item.group===label)})).filter(group=>group.items.length)
   const handleLogout = () => {
     addAuditEntry('Logout', { color: 'blue' })
     logout()
@@ -61,9 +61,9 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
             >
               <img src="/logo-icon.png" alt="BosesBantay logo" className="bb-sidebar-logo h-10 w-10 object-contain" />
             </button>
-            <div className="bb-sidebar-label"><span className="bb-sidebar-brand block truncate text-sm font-bold tracking-wide">BOSESBANTAY</span></div>
+            <div className="bb-sidebar-label"><span className="bb-sidebar-brand">BosesBantay</span><span className="bb-sidebar-subtitle">Administration</span></div>
           </div>
-          <div className="ml-auto flex shrink-0 items-center gap-1">
+          <div className="ml-auto flex shrink-0 items-center gap-1"><button type="button" className="bb-sidebar-collapse" onClick={onToggleCollapse} aria-label="Collapse navigation"><PanelLeftClose size={17}/></button>
             <button type="button" onClick={onClose} className="text-white/70 hover:text-white lg:hidden" aria-label="Close menu">
               <X size={20} />
             </button>
@@ -71,13 +71,13 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
         </div>
 
         <nav onScroll={hideHelper} aria-label="Main navigation" className="bb-sidebar-nav flex-1 space-y-1 overflow-y-auto px-3">
-          {visibleItems.map(({ label, path, icon: Icon }) => (
+          {groups.map(group=><section className="bb-nav-section" key={group.label} aria-label={group.label}><h2 className="bb-sidebar-group">{group.label}</h2>{group.items.map(({ label, path, icon: Icon }) => (
             <NavLink
               key={path}
               to={path}
               onClick={() => { hideHelper(); onClose() }}
-              onMouseEnter={event => showHelper(event, label, groupFor(path))} onMouseLeave={hideHelper}
-              onFocus={event => showHelper(event, label, groupFor(path))} onBlur={hideHelper}
+              onMouseEnter={event => showHelper(event, label, group.label)} onMouseLeave={hideHelper}
+              onFocus={event => showHelper(event, label, group.label)} onBlur={hideHelper}
               aria-describedby={helper?.label === label ? 'sidebar-navigation-helper' : undefined}
               aria-label={label}
               className={({ isActive }) =>
@@ -91,7 +91,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
               <span className="bb-sidebar-icon"><Icon size={20} strokeWidth={1.75} /></span>
               <span className="bb-sidebar-label truncate">{label}</span>
             </NavLink>
-          ))}
+          ))}</section>)}
         </nav>
 
         <div className="bb-sidebar-footer p-4">

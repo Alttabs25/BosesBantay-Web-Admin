@@ -1,0 +1,83 @@
+--- a/menu_flow.py
++++ b/menu_flow.py
+@@ -218,12 +218,25 @@
+         query = message
+         if state.selected_topic and not best_matches([find_topic(kb, state)], message):
+             query += '\nCurrent topic: ' + localized(find_topic(kb, state)['name'], state.language)
++        chosen_detail = next((item for item in kb['details'] if item['id'] == state.selected_detail), None)
++        if chosen_detail and is_context_followup(message):
++            query += '\nCurrent detail: ' + localized(chosen_detail['name'], state.language)
+     else:
+         name = localized(find_topic(kb, state)['name'], state.language)
+         chosen = detail or next((d for d in kb['details'] if d['id'] == state.selected_detail), None)
+         query = localized(kb['detail_query'], state.language).format(topic=name, detail=localized(chosen['name'], state.language)) if chosen else localized(kb['overview_query'], state.language).format(topic=name)
+     mode = 'guide' if (detail and detail['mode'] == 'guide') or any(phrase_in(x, message) for x in kb['step_triggers']) else 'concise'
+     return MenuDecision('answer', query=query, language=state.language, mode=mode)
++
++
++def is_context_followup(message):
++    text = normalized(message)
++    # Conversational references only, never file-specific facts or answers.
++    if re.fullmatch(r'(?:(?:can you|could you|please|paki) )?(?:explain|elaborate|clarify|explain more|tell me more|more details|what next|whats next|ano pa|why|bakit|bakit naman|bakit ganon|bakit ganoon|paliwanag|paliwanag pa|pakilinaw|linawin|dagdag detalye)(?: (?:please|po|naman|pa|about that|on that))?', text):
++        return True
++    references = r'\b(?:that|those|this|it|them|ito|iyan|yan|iyon|yun|niyan|nito|noon|ganyan|ganon|ganoon|doon|dun|nabanggit|sinabi)\b'
++    followup = r'\b(?:why|how|what if|what about|explain|clarify|elaborate|mean|means|bakit|paano|ibig sabihin|paliwanag|linawin|kung|pwede|puwede)\b'
++    return bool(re.search(references, text) and re.search(followup, text))
+ 
+ 
+ def handle_message(message, state, kb=None):
+@@ -287,13 +300,20 @@
+     if explicit_topics:
+         new_category, new_topic = explicit_topics[0]
+         if (topic and new_topic['id'] != topic['id']) or (len(text.split()) >= 2 and text not in {alias for c in kb['categories'] for alias in aliases(c)}):
+-            return answer_decision(message, state, kb, new_topic, category=new_category)
++            matched_details = best_matches(kb['details'], message)
++            return answer_decision(message, state, kb, new_topic, detail=matched_details[0] if matched_details else None, direct=True, category=new_category)
+     details = best_matches(kb['details'], message, whole=True)
+     if details and topic:
+         return answer_decision(message, state, kb, topic, details[0])
+     if text in {normalized(x) for x in kb['commands']['details']} and topic:
+         push(state); state.current_step = 'detail'
+         return MenuDecision('menu', detail_menu(kb, state), language=state.language)
++
++    if category and not topic and is_context_followup(message):
++        return MenuDecision('menu', topic_menu(kb, state), language=state.language)
++    if topic and is_context_followup(message):
++        selected_detail = next((item for item in kb['details'] if item['id'] == state.selected_detail), None)
++        return answer_decision(message, state, kb, topic, detail=selected_detail, direct=True)
+ 
+     all_topics = [(c, t) for c in kb['categories'] for t in c['topics']]
+     topic_matches = best_matches([t for _,t in all_topics], message)
+--- a/menu_chat.py
++++ b/menu_chat.py
+@@ -4,7 +4,7 @@
+ from chat import ChatEvent, UNKNOWN, stream_answer
+ from chat_runtime import runtime_logger
+ from guide_schema import FRIENDLY_ERROR
+-from menu_flow import load_kb, localized, remember_answer, category_menu, push
++from menu_flow import load_kb, localized, remember_answer, category_menu, push, find_topic, detail_menu
+ 
+ 
+ def stream_menu_answer(decision, state, database=None, models=None, kb=None, session_context=None):
+@@ -27,10 +27,17 @@
+                 'tagalog': 'Paumanhin po, wala akong mahanap na impormasyong iyan sa mga available na file. Kumpirmahin po sa Barangay Hall.',
+                 'taglish': 'Sorry po, hindi ko mahanap ang information na iyan sa available files. Paki-confirm sa Barangay Hall.',
+             }
+-            push(state)
+-            state.current_step = 'categories'
+-            state.selected_category = state.selected_topic = state.selected_detail = None
+-            answer = missing[decision.language] + '\n\n' + category_menu(kb, state)
++            topic = find_topic(kb, state)
++            if topic and (state.history or state.last_answer_topic_id):
++                name = localized(topic['name'], decision.language)
++                label = {'english': f"I couldn't verify that detail about {name} in the available files. You may confirm it with the Barangay Hall. Which part would you like to check?", 'tagalog': f'Wala akong makitang suportadong detalye tungkol dito sa {name}. Maaaring kumpirmahin sa Barangay Hall. Aling bahagi ang gusto ninyong linawin?', 'taglish': f'Hindi ko ma-verify ang detail na iyon tungkol sa {name}. Puwedeng i-confirm sa Barangay Hall. Aling part ang gusto ninyong i-check?'}[decision.language]
++                state.current_step = 'detail'
++                answer = label + '\n\n' + detail_menu(kb, state)
++            else:
++                push(state)
++                state.current_step = 'categories'
++                state.selected_category = state.selected_topic = state.selected_detail = None
++                answer = missing[decision.language] + '\n\n' + category_menu(kb, state)
+             yield ChatEvent('text', answer)
+             yield ChatEvent('done')
+             return
