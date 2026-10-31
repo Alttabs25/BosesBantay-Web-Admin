@@ -1,0 +1,12 @@
+--- a/chat.py
++++ b/chat.py
+@@ -245,6 +245,9 @@
+             break
+         except (ValueError, ValidationError, TypeError):
+             runtime_logger().exception('structured_response_parse_failed attempt=%d', attempt+1)
++            if attempt == 0:
++                feedback = {**base, 'validation_errors': ['The previous output did not match the response schema. For kind=answer use answer text and steps=[]; only kind=guide may contain steps. Return all required fields with their correct types.']}
++                continue
+             if last_safe_guide is not None:
+                 response = last_safe_guide
+                 break

@@ -1,8 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { MapContainer, TileLayer, Marker, useMap, useMapEvent } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, CircleMarker, useMap, useMapEvent } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet.heat'
+import './GISCommandCenter.css'
+import { incidentTypeColors } from '../lib/incidentTypeColor'
+import { heatmapZoomOptions } from '../lib/heatmapScale'
+import ReportEvidenceGallery from '../components/ReportEvidenceGallery'
+import PinsFilterDialog from '../components/PinsFilterDialog'
+import GISHeatmapAnalysis from '../components/GISHeatmapAnalysis'
 import {
   MapPin,
   Clock,
@@ -10,13 +16,9 @@ import {
   Search,
   Loader2,
   X,
-  Flame,
-  MapIcon,
   CheckCircle2,
   XCircle,
   Trash2,
-  Inbox,
-  Info,
   SlidersHorizontal,
   User,
 } from 'lucide-react'
@@ -41,6 +43,13 @@ import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { can } from '../config/permissions'
+
+function hasValidCoordinates(incident) {
+  if (incident.lat == null || incident.lng == null || String(incident.lat).trim() === '' || String(incident.lng).trim() === '') return false
+  const lat = Number(incident.lat)
+  const lng = Number(incident.lng)
+  return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180
+}
 
 const SEVERITY_OPTIONS = SEVERITY_FILTERS.slice(1)
 const SEVERITY_PILL_COLOR = { Mataas: 'red', Katamtaman: 'orange', Mababa: 'green' }
@@ -70,7 +79,7 @@ function severityIcon(severity, { dimmed = false, selected = false } = {}) {
   return L.divIcon({
     className: '',
     html: selected
-      ? `<div style="position:relative;width:52px;height:62px;pointer-events:none"><div style="position:absolute;left:6px;top:32px;width:40px;height:40px;border-radius:50%;background:radial-gradient(circle,rgba(${r},${g},${b},.5),rgba(${r},${g},${b},0) 72%)"></div><svg style="position:absolute;left:0;top:0;filter:drop-shadow(0 0 5px rgba(${r},${g},${b},.65))" width="52" height="36" viewBox="0 0 52 36" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><defs><linearGradient id="${arrowGradientId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="white"/><stop offset=".55" stop-color="#f4f9ff"/><stop offset="1" stop-color="${color}"/></linearGradient></defs><path d="M26 3v27m-9-9 9 9 9-9" stroke="white" stroke-width="8"/><path d="M26 3v27m-9-9 9 9 9-9" stroke="url(#${arrowGradientId})" stroke-width="4"/></svg>${marker}</div>`
+      ? `<div style="position:relative;width:52px;height:62px;pointer-events:none"><div style="position:absolute;left:6px;top:32px;width:40px;height:40px;border-radius:50%;background:radial-gradient(circle,rgba(${r},${g},${b},.5),rgba(${r},${g},${b},0) 72%)"></div><svg class="gis-pin-arrow" style="position:absolute;left:0;top:0;filter:drop-shadow(0 0 5px rgba(${r},${g},${b},.65))" width="52" height="36" viewBox="0 0 52 36" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><defs><linearGradient id="${arrowGradientId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="white"/><stop offset=".55" stop-color="#f4f9ff"/><stop offset="1" stop-color="${color}"/></linearGradient></defs><path d="M26 3v27m-9-9 9 9 9-9" stroke="white" stroke-width="8"/><path d="M26 3v27m-9-9 9 9 9-9" stroke="url(#${arrowGradientId})" stroke-width="4"/></svg>${marker}</div>`
       : `<div style="box-sizing:border-box;background:${color};width:${size}px;height:${size}px;border-radius:50%;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4);opacity:${dimmed ? 0.35 : 1}"></div>`,
     iconSize: selected ? [52, 62] : [size, size],
     iconAnchor: selected ? [26, 50] : [size / 2, size / 2],
@@ -127,30 +136,50 @@ function hexToRgb(hex) {
   return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 }
 }
 
-function severityGradient(hex) {
+function severityGradient(hex, muted = false) {
   const { r, g, b } = hexToRgb(hex)
-  const rgba = (a) => `rgba(${r},${g},${b},${a})`
-  return { 0.15: rgba(0), 0.4: rgba(0.45), 0.7: rgba(0.75), 1: rgba(1) }
+  const tint = amount => `rgb(${Math.round(r + (255 - r) * amount)},${Math.round(g + (255 - g) * amount)},${Math.round(b + (255 - b) * amount)})`
+  // Keep severity hues vivid: a saturated core and a luminous inner highlight.
+  if (muted) return { 0.05: tint(.65), 0.25: tint(.3), 0.6: hex, 1: tint(.12) }
+  const high = Math.max(r, g, b)
+  const low = Math.min(r, g, b)
+  const vivid = [r, g, b].map(channel => Math.round(35 + (channel - low) / Math.max(1, high - low) * 220))
+  const core = `rgb(${vivid.join(',')})`
+  const glow = `rgb(${vivid.map(channel => Math.round(channel + (255 - channel) * .22)).join(',')})`
+  return { 0.05: tint(.55), 0.18: tint(.15), 0.32: core, 0.65: core, 1: glow }
 }
 
-function HeatmapLayer({ pointsBySeverity }) {
+function HeatmapLayer({ pointsBySeverity, typeColors = false, colors }) {
   const map = useMap()
   useEffect(() => {
     const layers = Object.entries(pointsBySeverity)
       .filter(([, points]) => points.length)
-      .map(([severity, points]) =>
-        L.heatLayer(points, {
-          radius: 30,
-          blur: 24,
-          maxZoom: 17,
-          max: 1,
-          gradient: severityGradient(SEVERITY_META[severity]?.color ?? '#888'),
-        }).addTo(map),
-      )
-    return () => {
-      layers.forEach((layer) => map.removeLayer(layer))
+      .map(([severity, points]) => L.heatLayer(points, {
+        ...heatmapZoomOptions(map.getZoom(), map.getCenter().lat),
+        max: 3,
+        minOpacity: 0.36,
+        gradient: severityGradient(typeColors ? colors[severity] : SEVERITY_META[severity]?.color ?? '#888', typeColors),
+      }).addTo(map))
+    // Avoid stretching the old heat canvas during Leaflet's animated zoom.
+    const hide = () => map.getContainer().classList.add('gis-heat-zooming')
+    let frame
+    let revealFrame
+    const update = () => {
+      layers.forEach(layer => layer.setOptions(heatmapZoomOptions(map.getZoom(), map.getCenter().lat)))
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => { revealFrame = requestAnimationFrame(() => map.getContainer().classList.remove('gis-heat-zooming')) })
     }
-  }, [map, pointsBySeverity])
+    map.on('zoomstart', hide)
+    map.on('zoomend moveend', update)
+    return () => {
+      cancelAnimationFrame(frame)
+      cancelAnimationFrame(revealFrame)
+      map.off('zoomstart', hide)
+      map.off('zoomend moveend', update)
+      map.getContainer().classList.remove('gis-heat-zooming')
+      layers.forEach(layer => map.removeLayer(layer))
+    }
+  }, [map, pointsBySeverity, typeColors, colors])
   return null
 }
 
@@ -160,6 +189,7 @@ export default function GISCommandCenter() {
   const {
     incidents,
     blotterReports,
+    serviceComplaints,
     addIncident,
     replaceIncident,
     unmapIncidentLocation,
@@ -180,8 +210,12 @@ export default function GISCommandCenter() {
   const [severity, setSeverity] = useState(SEVERITY_FILTERS[0])
   const [dateRange, setDateRange] = useState(DATE_RANGES[0])
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [guideOpen, setGuideOpen] = useState(false)
   const [incidentQuery, setIncidentQuery] = useState('')
+  const [incidentSort, setIncidentSort] = useState('newest')
+  const [heatColorMode, setHeatColorMode] = useState('type')
+  const [heatFiltersOpen, setHeatFiltersOpen] = useState(false)
+  const [heatSeverities, setHeatSeverities] = useState([])
+  const [heatTypes, setHeatTypes] = useState([])
   const [selectedRef, setSelectedRef] = useState(null)
 
   const [mode, setMode] = useState('view') // 'view' | 'create' | 'edit'
@@ -193,6 +227,19 @@ export default function GISCommandCenter() {
   const [searching, setSearching] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [pendingAction, setPendingAction] = useState(null) // { type: 'approve' | 'reject' | 'delete' | 'unmap', incident }
+
+  const panelsRef = useRef(null)
+  useLayoutEffect(() => {
+    const panels = panelsRef.current
+    if (!panels) return
+    const resize = () => {
+      const height = Math.max(380, window.innerHeight - panels.getBoundingClientRect().top - 16)
+      panels.style.setProperty('--gis-available-height', `${height}px`)
+    }
+    resize()
+    window.addEventListener('resize', resize)
+    return () => window.removeEventListener('resize', resize)
+  }, [view, mode, filtersOpen])
 
   const mapRef = useRef(null)
   const listRef = useRef(null)
@@ -210,10 +257,7 @@ export default function GISCommandCenter() {
       (i) =>
         isVerifiedReport(i.status) &&
         (i.is_mapped === true || i.isMapped === true || i.mapStatus === 'Approved') &&
-        i.lat != null &&
-        i.lng != null &&
-        !isNaN(i.lat) &&
-        !isNaN(i.lng),
+        hasValidCoordinates(i),
     )
   }, [incidents])
 
@@ -260,13 +304,16 @@ export default function GISCommandCenter() {
     return filterableIncidents.filter((incident) => {
       if (query && ![incident.ref, incident.title, incident.classification, incident.location]
         .some((value) => String(value ?? '').toLocaleLowerCase().includes(query))) return false
+      if (view === 'heatmap') {
+        return (!heatSeverities.length || heatSeverities.includes(incident.severity)) && (!heatTypes.length || heatTypes.includes(incident.classification))
+      }
       if (classification !== ALL_CLASSIFICATIONS && incident.classification !== classification) {
         return false
       }
       if (severity !== SEVERITY_FILTERS[0] && incident.severity !== severity) return false
       return true
     })
-  }, [filterableIncidents, incidentQuery, classification, severity])
+  }, [filterableIncidents, incidentQuery, classification, severity, view, heatSeverities, heatTypes])
 
   function selectSeverity(nextSeverity) {
     setSeverity(nextSeverity)
@@ -292,6 +339,8 @@ export default function GISCommandCenter() {
   ].filter(Boolean).length
 
   function clearFilters() {
+    setHeatSeverities([])
+    setHeatTypes([])
     setClassification(ALL_CLASSIFICATIONS)
     setIntervalFilter(TIME_INTERVALS[0])
     setSeverity(SEVERITY_FILTERS[0])
@@ -299,19 +348,31 @@ export default function GISCommandCenter() {
     setIncidentQuery('')
   }
 
+  const typeColorMap = useMemo(() => incidentTypeColors(mappedIncidents.map(i => i.classification || 'Not classified')), [mappedIncidents])
+  const colorHeatByType = heatColorMode === 'type'
   const heatPointsBySeverity = useMemo(() => {
-    const grouped = { Mataas: [], Katamtaman: [], Mababa: [] }
-    filtered.forEach((i) => {
-      if (grouped[i.severity]) grouped[i.severity].push([i.lat, i.lng, 1])
+    const grouped = {}
+    filtered.forEach(i => {
+      if (!SEVERITY_META[i.severity]) return
+      const key = colorHeatByType ? (i.classification || 'Not classified') : i.severity
+      ;(grouped[key] ||= []).push([Number(i.lat), Number(i.lng), 1])
     })
     return grouped
-  }, [filtered])
+  }, [filtered, colorHeatByType])
 
   function focusIncident(incident) {
+    // Re-selecting an active report highlights its marker without moving the map.
+    if (selectedRef === incident.ref) return
     setSelectedRef(incident.ref)
-    if (mapRef.current && incident.lat != null && incident.lng != null) {
-      const zoom = Math.max(mapRef.current.getZoom(), 18)
-      mapRef.current.flyTo([Number(incident.lat), Number(incident.lng)], zoom, { duration: 0.35 })
+    if (mapRef.current && hasValidCoordinates(incident)) {
+      const map = mapRef.current
+      const target = L.latLng(Number(incident.lat), Number(incident.lng))
+      const zoom = Math.max(map.getZoom(), 18)
+      const offset = map.latLngToContainerPoint(target).distanceTo(map.latLngToContainerPoint(map.getCenter()))
+      if (offset > 12 || map.getZoom() < 18) {
+        map.stop()
+        map.flyTo(target, zoom, { duration: 0.35 })
+      }
     }
   }
 
@@ -502,6 +563,7 @@ export default function GISCommandCenter() {
   }
 
   function requestApprove(incident) {
+    if (!hasValidCoordinates(incident)) { showToast('This report has no valid map location. Confirm its coordinates before approval.', 'error'); return }
     setPendingAction({ type: 'approve', incident })
   }
 
@@ -598,61 +660,28 @@ export default function GISCommandCenter() {
   const otherIncidents = isFormMode ? mappedIncidents.filter((i) => i.ref !== draft.ref) : filtered
   const visibleIncidents = view === 'pending' ? pendingIncidents : filtered
   const selectedIncident = visibleIncidents.find((incident) => incident.ref === selectedRef)
-  const severityGroups = [...SEVERITY_FILTERS.slice(1), 'Hindi natukoy']
-    .map((level) => ({
-      level,
-      items: filtered.filter((incident) =>
-        level === 'Hindi natukoy'
-          ? !SEVERITY_FILTERS.slice(1).includes(incident.severity)
-          : incident.severity === level,
-      ),
-    }))
-    .filter((group) => group.items.length > 0)
+  const selectedPhotoPaths = useMemo(() => {
+    if (!selectedIncident) return []
+    const linked = [...blotterReports, ...(serviceComplaints || [])].find(report =>
+      (selectedIncident.ref && (report.ref === selectedIncident.ref || report.id === selectedIncident.ref)) ||
+      (selectedIncident.blotterId != null && report.blotterId != null && String(report.blotterId) === String(selectedIncident.blotterId)),
+    )
+    return [...new Set([
+      ...(Array.isArray(selectedIncident.photoPaths) ? selectedIncident.photoPaths : []),
+      ...(Array.isArray(linked?.photoPaths) ? linked.photoPaths : []),
+      ...(typeof selectedIncident.image_url === 'string' ? [selectedIncident.image_url] : []),
+    ].filter(path => typeof path === 'string' && path.trim()))]
+  }, [selectedIncident, blotterReports, serviceComplaints])
+  const severityGroups = [{ level: 'Incidents', items: [...filtered].sort((a,b) => {
+    const first = Date.parse(a.dateISO) || 0
+    const second = Date.parse(b.dateISO) || 0
+    return incidentSort === 'newest' ? second - first : first - second
+  }) }]
 
   return (
-    <div>
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-gray-200 pb-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900">GIS Command Center</h2>
-          <p className="mt-1 text-sm text-gray-500">Mga insidente sa Barangay Milagrosa</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => setGuideOpen((open) => !open)} aria-expanded={guideOpen} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-600 hover:border-blue-200 hover:bg-blue-50">
-            <Info size={16} /> Gabay
-          </button>
-          {mode === 'view' && canCreate && (
-          <button
-            onClick={startCreate}
-            className="flex items-center gap-1.5 rounded-lg bg-bb-blue px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-bb-blue-dark"
-          >
-            <Plus size={16} />
-            Mag-mapa ng insidente
-          </button>
-          )}
-        </div>
-      </div>
-
-      {(guideOpen || isFormMode) && <div className="rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-bb-blue">
-          {isFormMode ? 'Pagmamapa ng insidente' : view === 'pending' ? 'Pag-apruba ng lokasyon' : 'Paano gamitin'}
-        </p>
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-700">
-          {(isFormMode
-            ? ['1. Piliin ang ulat kung mayroon', '2. Itakda ang pin sa mapa', '3. Suriin at i-save']
-            : view === 'pending'
-              ? ['1. Pumili ng naghihintay', '2. Suriin ang ulat at lokasyon', '3. Aprubahan o tanggihan']
-              : ['1. Hanapin ang insidente', '2. Piliin sa listahan o mapa', '3. Suriin at aksyunan']
-          ).map((step, index) => (
-            <span key={step} className="flex items-center gap-3">
-              {index > 0 && <span className="hidden text-blue-300 sm:inline" aria-hidden="true">→</span>}
-              {step}
-            </span>
-          ))}
-        </div>
-      </div>}
-
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+    <div className={`gis-workspace ${isFormMode ? "gis-editing" : "gis-browsing"} ${view === 'heatmap' ? 'gis-analysis-mode' : ''}`}>
+      <div className="gis-toolbar" aria-label="GIS controls">
+        <div className="gis-toolbar-views">
           {mode === 'view' && (
             <div role="tablist" aria-label="Tingnan ang mapa" className="flex max-w-full overflow-x-auto rounded-xl border border-gray-200 bg-gray-50 p-1 shadow-xs">
               <button
@@ -663,8 +692,7 @@ export default function GISCommandCenter() {
                   view === 'pins' ? 'bg-bb-blue text-white shadow-xs' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
               >
-                <MapIcon size={13} />
-                Mga pin ({mappedIncidents.length})
+                Pins <span className="gis-tab-count">{mappedIncidents.length}</span>
               </button>
               <button
                 role="tab"
@@ -674,7 +702,6 @@ export default function GISCommandCenter() {
                   view === 'heatmap' ? 'bg-bb-blue text-white shadow-xs' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 }`}
               >
-                <Flame size={13} />
                 Heatmap
               </button>
               {canApprove && (
@@ -686,24 +713,38 @@ export default function GISCommandCenter() {
                     view === 'pending' ? 'bg-bb-blue text-white shadow-xs' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                   }`}
                 >
-                  <Inbox size={13} />
-                  Para aprubahan ({pendingIncidents.length})
+                    Pending approval <span className="gis-tab-count">{pendingIncidents.length}</span>
                 </button>
               )}
             </div>
           )}
         </div>
+        <div className="gis-toolbar-actions">
         {mode === 'view' && view !== 'pending' && (
+          <div className="flex items-center gap-2">
+          {view === 'pins' && (activeFilterCount > 0 || incidentQuery) && <button type="button" onClick={clearFilters} className="gis-reset-button">Clear filters</button>}
           <button
             type="button"
-            onClick={() => setFiltersOpen((open) => !open)}
-            aria-expanded={filtersOpen}
-            aria-controls="gis-filters"
+            onClick={() => view === 'heatmap' ? setHeatFiltersOpen(open => !open) : setFiltersOpen(open => !open)}
+            aria-expanded={view === 'heatmap' ? heatFiltersOpen : filtersOpen}
+            aria-controls={view === 'heatmap' ? 'gis-overview-filters' : 'gis-filters'}
             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:border-bb-blue/50 hover:bg-blue-50 hover:text-bb-blue"
           >
-            <SlidersHorizontal size={16} /> Mga filter{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+            <SlidersHorizontal size={16} /> Filters{view === 'heatmap' ? ((heatSeverities.length + heatTypes.length + Number(dateRange !== DATE_RANGES[0]) + Number(interval !== TIME_INTERVALS[0]) + Number(Boolean(incidentQuery))) > 0 ? ` (${heatSeverities.length + heatTypes.length + Number(dateRange !== DATE_RANGES[0]) + Number(interval !== TIME_INTERVALS[0]) + Number(Boolean(incidentQuery))})` : '') : activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
           </button>
+          </div>
         )}
+
+          {mode === 'view' && canCreate && (
+          <button
+            onClick={startCreate}
+            className="flex items-center gap-1.5 rounded-lg bg-bb-blue px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-bb-blue-dark"
+          >
+            <Plus size={16} />
+            Map incident
+          </button>
+          )}
+        </div>
       </div>
 
       {isFormMode && (
@@ -713,99 +754,18 @@ export default function GISCommandCenter() {
         </p>
       )}
 
-      {view === 'heatmap' && !isFormMode && (
-        <div className="mt-1 flex flex-wrap items-center gap-4 text-xs text-gray-500">
-          <span>Kulay ng heatmap ayon sa kalubhaan:</span>
-          {SEVERITY_OPTIONS.map((s) => (
-            <span key={s} className="flex items-center gap-1.5">
-              <span
-                className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: SEVERITY_META[s].color }}
-              />
-              {s} ({SEVERITY_META[s].label})
-            </span>
-          ))}
-        </div>
-      )}
+      <PinsFilterDialog open={mode === 'view' && view === 'pins' && filtersOpen} onClose={() => setFiltersOpen(false)}
+        severity={severity} onSeverity={selectSeverity} classification={classification} onClassification={selectClassification}
+        dateRange={dateRange} onDateRange={setDateRange} dateRanges={DATE_RANGES}
+        interval={interval} onInterval={setIntervalFilter} incidents={mappedIncidents} candidates={filterableIncidents}
+        classifications={availableClassifications} count={filtered.length} onReset={clearFilters} />
 
-      {mode === 'view' && view !== 'pending' && filtersOpen && (
-        <div id="gis-filters" className="mt-3 rounded-xl border border-gray-200 bg-white p-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Paliitin ang resulta</h3>
-            {activeFilterCount > 0 && <button type="button" onClick={clearFilters} className="text-xs font-semibold text-bb-blue hover:underline">I-clear ang mga filter</button>}
-          </div>
-          <p className="mb-3 text-xs text-gray-500">Ang mga pagpipilian ay batay sa mga insidenteng nasa napiling petsa at kalubhaan.</p>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-gray-500">
-                Klasipikasyon ng Insidente
-              </span>
-              <select
-                value={classification}
-                onChange={(e) => selectClassification(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-              >
-                <option>{ALL_CLASSIFICATIONS}</option>
-                {availableClassifications.map((c) => (
-                  <option key={c} value={c}>{c} ({filterableIncidents.filter((incident) => incident.classification === c && (severity === SEVERITY_FILTERS[0] || incident.severity === severity)).length})</option>
-                ))}
-              </select>
-            </label>
 
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-gray-500">
-                Interval ng Oras ng Araw
-              </span>
-              <select
-                value={interval}
-                onChange={(e) => setIntervalFilter(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-              >
-                {TIME_INTERVALS.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-gray-500">
-                Filter ng Kalubhaan
-              </span>
-              <select
-                value={severity}
-                onChange={(e) => selectSeverity(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-              >
-                <option value={SEVERITY_FILTERS[0]}>{SEVERITY_FILTERS[0]}</option>
-                {availableSeverities.map((s) => (
-                  <option key={s} value={s}>{s} ({filterableIncidents.filter((incident) => incident.severity === s).length})</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-gray-500">
-                Saklaw ng Petsa
-              </span>
-              <select
-                value={dateRange}
-                onChange={(e) => setDateRange(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-              >
-                {DATE_RANGES.map((r) => (
-                  <option key={r}>{r}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </div>
-      )}
-
-      <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,1fr)] xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1.15fr)]">
-        <div className="flex min-w-0 flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-sm lg:h-[clamp(460px,62vh,680px)]">
+      <div ref={panelsRef} className="gis-panels mt-3 grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,1fr)] xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1.15fr)]">
+        <div className="gis-map-panel flex min-w-0 flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-sm lg:h-[clamp(460px,62vh,680px)]">
           <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-1">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-              Mapa ng Milagrosa
+              {view === 'heatmap' ? 'Incident density' : 'Map'}
             </h3>
             {isFormMode && (
               <span className="flex items-center gap-1 text-xs font-medium text-bb-blue">
@@ -833,14 +793,25 @@ export default function GISCommandCenter() {
               <ClickCapture active={isFormMode} onPick={pickPosition} />
 
               {view === 'heatmap' && !isFormMode && (
-                <HeatmapLayer pointsBySeverity={heatPointsBySeverity} />
+                <>
+                  <HeatmapLayer pointsBySeverity={heatPointsBySeverity} typeColors={colorHeatByType} colors={typeColorMap} />
+                  {filtered.filter(incident => SEVERITY_META[incident.severity]).map(incident => (
+                    <CircleMarker
+                      key={`heat-center-${incident.ref}`}
+                      center={[Number(incident.lat), Number(incident.lng)]}
+                      radius={3}
+                      interactive={false}
+                      pathOptions={{ color: '#fff', weight: 1, opacity: 1, fillColor: colorHeatByType ? typeColorMap[incident.classification || 'Not classified'] : SEVERITY_META[incident.severity].color, fillOpacity: 1 }}
+                    />
+                  ))}
+                </>
               )}
 
               {(view === 'pins' || isFormMode) &&
                 otherIncidents.map((incident) => (
                   <Marker
                     key={incident.ref}
-                    position={[incident.lat, incident.lng]}
+                    position={[Number(incident.lat), Number(incident.lng)]}
                     icon={severityIcon(incident.severity, { dimmed: isFormMode, selected: incident.ref === selectedRef && !isFormMode })}
                     zIndexOffset={incident.ref === selectedRef ? 1000 : 0}
                     eventHandlers={isFormMode ? {} : { click: () => focusIncident(incident) }}
@@ -848,10 +819,10 @@ export default function GISCommandCenter() {
                 ))}
 
               {view === 'pending' && !isFormMode &&
-                pendingIncidents.map((incident) => (
+                pendingIncidents.filter(hasValidCoordinates).map((incident) => (
                   <Marker
                     key={incident.ref}
-                    position={[incident.lat, incident.lng]}
+                    position={[Number(incident.lat), Number(incident.lng)]}
                     icon={severityIcon(incident.severity, { selected: incident.ref === selectedRef })}
                     zIndexOffset={incident.ref === selectedRef ? 1000 : 0}
                     eventHandlers={{ click: () => focusIncident(incident) }}
@@ -874,47 +845,73 @@ export default function GISCommandCenter() {
               )}
             </MapContainer>
           </div>
+
         </div>
 
-        <div className="flex min-w-0 w-full flex-col rounded-xl border border-gray-200 p-4 lg:h-[clamp(460px,62vh,680px)] xl:grid xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] xl:gap-3 xl:border-0 xl:p-0">
-          <div className={`min-h-0 min-w-0 flex-col lg:flex-1 xl:flex-none xl:rounded-2xl xl:border xl:border-gray-200 xl:bg-white xl:p-4 xl:shadow-sm ${isFormMode ? 'hidden' : 'flex'}`}>
-          {mode === 'view' && view !== 'pending' && (
+        <div className="gis-side-workspace flex min-w-0 w-full flex-col rounded-xl border border-gray-200 p-4 lg:h-[clamp(460px,62vh,680px)] xl:grid xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] xl:gap-3 xl:border-0 xl:p-0">
+          {view === 'heatmap' && !isFormMode && <GISHeatmapAnalysis
+            incidents={filtered}
+            typeColors={typeColorMap}
+            filtersOpen={heatFiltersOpen}
+            onFiltersOpen={setHeatFiltersOpen}
+            colorMode={heatColorMode}
+            onColorMode={setHeatColorMode}
+            total={mappedIncidents.length}
+            severity={severity}
+            classification={classification}
+            onClassification={selectClassification}
+            dateRange={dateRange}
+            interval={interval}
+            onInterval={setIntervalFilter}
+            onDateRange={setDateRange}
+            dateRanges={DATE_RANGES}
+            typeCounts={Object.entries(filterableIncidents.filter(i => (!heatSeverities.length || heatSeverities.includes(i.severity)) && (!incidentQuery.trim() || [i.ref, i.title, i.classification, i.location].some(value => String(value ?? '').toLowerCase().includes(incidentQuery.trim().toLowerCase())))).reduce((counts, i) => { if (i.classification) counts[i.classification] = (counts[i.classification] || 0) + 1; return counts }, {})).sort((a,b) => a[0].localeCompare(b[0]))}
+            severityCounts={Object.fromEntries(SEVERITY_OPTIONS.map(level => [level, filterableIncidents.filter(i => i.severity === level && (!heatTypes.length || heatTypes.includes(i.classification)) && (!incidentQuery.trim() || [i.ref, i.title, i.classification, i.location].some(value => String(value ?? '').toLowerCase().includes(incidentQuery.trim().toLowerCase())))).length]))}
+            dateCounts={Object.fromEntries(DATE_RANGES.map(range => [range, mappedIncidents.filter(i => inDateRange(i.dateISO, range) && inInterval(i.dateISO, interval) && (!heatSeverities.length || heatSeverities.includes(i.severity)) && (!heatTypes.length || heatTypes.includes(i.classification)) && (!incidentQuery.trim() || [i.ref, i.title, i.classification, i.location].some(value => String(value ?? '').toLowerCase().includes(incidentQuery.trim().toLowerCase())))).length]))}
+            selectedSeverities={heatSeverities}
+            selectedTypes={heatTypes}
+            onSelectedSeverities={setHeatSeverities}
+            onSelectedTypes={setHeatTypes}
+            onSeverity={selectSeverity}
+            onClear={clearFilters}
+            query={incidentQuery}
+            onQuery={setIncidentQuery}
+          />}
+          <div className={`gis-incident-panel min-h-0 min-w-0 flex-col lg:flex-1 xl:flex-none xl:rounded-2xl xl:border xl:border-gray-200 xl:bg-white xl:p-4 xl:shadow-sm ${isFormMode || view === 'heatmap' ? 'hidden' : 'flex'}`} >
+          {mode === 'view' && view === 'pins' && (
             <>
               <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
-                <h3 className="text-sm font-bold text-gray-900">Mga Insidente</h3>
+                <h3 className="text-sm font-bold text-gray-900">Incidents</h3>
                 <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">{filtered.length}</span>
               </div>
 
+              <label className="gis-sort-control"><span>Sort</span><select value={incidentSort} onChange={event => setIncidentSort(event.target.value)}><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select></label>
               <label className="relative mb-3 block shrink-0">
                 <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="search"
                   value={incidentQuery}
                   onChange={(event) => setIncidentQuery(event.target.value)}
-                  placeholder="Hanapin ang ulat o lokasyon"
+                  placeholder="Search reference or location"
                   aria-label="Hanapin ang insidente"
-                  className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-bb-blue focus:bg-white"
+                  className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-10 text-sm outline-none focus:border-bb-blue focus:bg-white"
                 />
+                {incidentQuery && <button type="button" className="gis-clear-search" onClick={() => setIncidentQuery('')} aria-label="Clear search"><X size={16} /></button>}
               </label>
+              {(activeFilterCount > 0 || incidentQuery) && <div className="gis-results-bar"><span>{filtered.length} matching incidents</span></div>}
 
               <div
                 ref={listRef}
-                className="space-y-3 scroll-smooth lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1"
+                className="gis-incident-list space-y-3 scroll-smooth lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1"
               >
                 {filtered.length === 0 && (
                   <div className="rounded-lg border border-dashed border-gray-300 p-4 text-center text-sm text-gray-500">
                     <p>{mappedIncidents.length === 0 ? 'Wala pang naka-mapang insidente.' : 'Walang tumutugma sa hinahanap mo.'}</p>
-                    {mappedIncidents.length > 0 && (incidentQuery || activeFilterCount > 0) && (
-                      <button type="button" onClick={clearFilters} className="mt-2 font-semibold text-bb-blue hover:underline">Ipakita ang lahat</button>
-                    )}
+
                   </div>
                 )}
                 {severityGroups.map(({ level, items }) => (
-                  <section key={level} aria-label={`Kalubhaan: ${level}`}>
-                    <div className="mb-2 flex items-center justify-between border-b border-gray-100 pb-1.5">
-                      <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-gray-600"><span className="h-2 w-2 rounded-full" style={{ background: SEVERITY_META[level]?.color || '#888' }} />Kalubhaan: {level}</h4>
-                      <span className="text-xs text-gray-400">{items.length}</span>
-                    </div>
+                  <section key={level} aria-label="Incident results">
                     <div className="space-y-2">
                       {items.map((incident) => (
                         <button
@@ -927,33 +924,32 @@ export default function GISCommandCenter() {
                             ? 'border-bb-blue bg-blue-50 shadow-sm ring-1 ring-bb-blue/40'
                             : 'border-gray-200 bg-white hover:border-bb-blue/70 hover:bg-blue-50/50 hover:shadow-sm'}`}
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <span className="block text-[11px] font-semibold text-gray-400">{incident.ref}</span>
-                              <span className="block truncate text-sm font-semibold text-gray-900">{incident.classification || incident.title}</span>
-                            </div>
-                            <Pill color={SEVERITY_PILL_COLOR[incident.severity] || 'gray'} solid>{incident.severity || 'Hindi natukoy'}</Pill>
+                          <div className="gis-card-topline">
+                            <span className="gis-card-reference">{incident.ref}</span>
+                            <Pill color={SEVERITY_PILL_COLOR[incident.severity] || 'gray'} solid>{SEVERITY_META[incident.severity]?.label || 'Not recorded'}</Pill>
                           </div>
-                          <span className="mt-1 block truncate text-xs text-gray-500">{incident.location || 'Walang nakatalang lokasyon'}</span>
+                          <span className="gis-incident-title">{incident.classification || incident.title}</span>
+                          <span className="gis-card-address"><MapPin size={14} aria-hidden="true" /><span className="gis-incident-location" title={incident.location || undefined}>{incident.location || 'No location recorded'}</span></span>
                         </button>
                       ))}
                     </div>
                   </section>
                 ))}
               </div>
+
             </>
           )}
 
           {mode === 'view' && view === 'pending' && (
             <>
               <h3 className="mb-3 shrink-0 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                Naghihintay ng Pag-apruba ({pendingIncidents.length})
+                Pending approval ({pendingIncidents.length})
               </h3>
 
-              <div ref={listRef} className="space-y-3 scroll-smooth lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
+              <div ref={listRef} className="gis-incident-list space-y-3 scroll-smooth lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
                 {pendingIncidents.length === 0 && (
                   <p className="rounded-lg border border-dashed border-gray-300 p-4 text-center text-xs text-gray-400">
-                    Walang insidenteng naghihintay ng pag-apruba.
+                    All caught up. No locations are waiting for approval.
                   </p>
                 )}
                 {pendingIncidents.map((incident) => (
@@ -968,8 +964,9 @@ export default function GISCommandCenter() {
                       : 'border-gray-200 bg-white hover:border-bb-blue/70 hover:bg-blue-50/50 hover:shadow-sm'}`}
                   >
                     <span className="block text-[11px] font-semibold text-gray-400">{incident.ref}</span>
-                    <span className="block truncate text-sm font-semibold text-gray-900">{incident.classification || incident.title}</span>
-                    <span className="mt-1 block truncate text-xs text-gray-500">{incident.location || 'Walang nakatalang lokasyon'}</span>
+                    <span className="gis-incident-title block text-sm font-semibold text-gray-900">{incident.classification || incident.title}</span>
+                    <span className="gis-incident-location mt-1 block text-xs text-gray-500">{incident.location || 'Walang nakatalang lokasyon'}</span>
+                    {!hasValidCoordinates(incident) && <span className="gis-missing-pin">Location needs confirmation</span>}
                   </button>
                 ))}
               </div>
@@ -978,13 +975,13 @@ export default function GISCommandCenter() {
 
           </div>
 
-          <div className={`min-w-0 xl:overflow-y-auto xl:rounded-2xl xl:border xl:border-gray-200 xl:bg-white xl:p-4 xl:shadow-sm ${isFormMode ? 'hidden' : ''}`}>
+          <div className={`gis-details-panel min-w-0 xl:overflow-y-auto xl:rounded-2xl xl:border xl:border-gray-200 xl:bg-white xl:p-4 xl:shadow-sm ${isFormMode || view === 'heatmap' ? 'hidden' : ''}`} >
           {mode === 'view' && !selectedIncident && (
             <div className="mt-3 rounded-lg border border-dashed border-blue-200 bg-blue-50/40 px-4 py-6 text-center xl:mt-0">
-              <h3 className="text-sm font-semibold text-gray-800">Detalye ng insidente</h3>
+              <h3 className="text-sm font-semibold text-gray-800">Incident details</h3>
               <p className="mt-2 text-xs leading-relaxed text-gray-600">{visibleIncidents.length > 0
-                ? 'Pumili ng insidente sa listahan o i-click ang pin sa mapa para makita ang detalye at mga aksyon.'
-                : 'Wala pang insidenteng maipapakita sa napiling view.'}</p>
+                ? 'Select a report or map pin.'
+                : view === 'pending' ? 'No locations are waiting for approval.' : 'No incidents match this view.'}</p>
             </div>
           )}
 
@@ -992,29 +989,33 @@ export default function GISCommandCenter() {
             <section className="mt-3 shrink-0 rounded-xl border border-blue-200 bg-blue-50/40 p-3 lg:max-h-[52%] lg:overflow-y-auto xl:mt-0 xl:max-h-none xl:overflow-visible xl:border-0 xl:bg-transparent xl:p-0" aria-label="Detalye ng napiling insidente">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-bb-blue">Napiling insidente · {selectedIncident.ref}</p>
-                  <h3 className="mt-0.5 text-sm font-bold text-gray-900">{selectedIncident.title || selectedIncident.classification}</h3>
+                  <p className="gis-detail-reference"><strong>{selectedIncident.ref}</strong></p>
+                  <h3 className="gis-detail-title mt-0.5 text-sm font-bold text-gray-900">{selectedIncident.title || selectedIncident.classification}</h3>
                 </div>
                 <Pill color={SEVERITY_PILL_COLOR[selectedIncident.severity] || 'gray'} solid>
-                  {selectedIncident.severity || 'Hindi natukoy'}
+                  {SEVERITY_META[selectedIncident.severity]?.label || 'Not recorded'}
                 </Pill>
               </div>
               <p className="mt-2 text-sm leading-relaxed text-gray-700">{selectedIncident.excerpt || 'Walang nakatalang buod.'}</p>
+              {hasValidCoordinates(selectedIncident)
+                ? <button type="button" className="gis-locate-button" onClick={() => focusIncident(selectedIncident)}><MapPin size={16} /> Locate on map</button>
+                : <p className="gis-location-warning">No valid map coordinates are recorded. Location approval is unavailable until the pin is confirmed.</p>}
               <dl className="mt-3 space-y-2 border-t border-blue-100 pt-3">
-                <div><dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Uri</dt><dd className="mt-0.5 text-sm font-medium text-gray-800">{selectedIncident.classification || 'Hindi natukoy'}</dd></div>
-                <div><dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Lokasyon</dt><dd className="mt-0.5 break-words text-sm font-medium text-gray-800">{selectedIncident.location || 'Hindi nakatala'}</dd></div>
-                <div><dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Petsa at oras</dt><dd className="mt-0.5 text-sm font-medium text-gray-800">{formatDisplayDateTime(selectedIncident.dateISO)}</dd></div>
+                <div><dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Classification</dt><dd className="mt-0.5 text-sm font-medium text-gray-800">{selectedIncident.classification || 'Hindi natukoy'}</dd></div>
+                <div><dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Location</dt><dd className="mt-0.5 break-words text-sm font-medium text-gray-800">{selectedIncident.location || 'Hindi nakatala'}</dd></div>
+                <div><dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Date and time</dt><dd className="mt-0.5 text-sm font-medium text-gray-800">{formatDisplayDateTime(selectedIncident.dateISO)}</dd></div>
                 <div><dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Status</dt><dd className="mt-0.5 text-sm font-medium text-gray-800">{getStatusLabel(selectedIncident.status)}</dd></div>
               </dl>
-              {((view === 'pending' && canApprove) || (view !== 'pending' && canUpdate)) && <div className="mt-3 flex flex-wrap gap-2 border-t border-blue-100 pt-3">
+              {selectedPhotoPaths.length > 0 && <section className="gis-incident-photos" aria-label="Report photos"><h4>Photos <span>{selectedPhotoPaths.length}</span></h4><ReportEvidenceGallery key={selectedIncident.ref} compact paths={selectedPhotoPaths} reportId={selectedIncident.ref} /></section>}
+              {((view === 'pending' && canApprove) || (view !== 'pending' && canUpdate)) && <div className="gis-detail-actions mt-3 flex flex-wrap gap-2 border-t border-blue-100 pt-3">
                 {view === 'pending' ? (
                   canApprove && <>
-                    <button type="button" onClick={() => requestApprove(selectedIncident)} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">Aprubahan</button>
-                    <button type="button" onClick={() => requestReject(selectedIncident)} className="rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50">Tanggihan</button>
+                    <button type="button" disabled={!hasValidCoordinates(selectedIncident)} onClick={() => requestApprove(selectedIncident)} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">Approve location</button>
+                    <button type="button" onClick={() => requestReject(selectedIncident)} className="rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50">Reject location</button>
                   </>
                 ) : (
                   <>
-                    {canUpdate && <button type="button" onClick={() => requestUnmap(selectedIncident)} className="ml-auto text-xs font-semibold text-amber-800 hover:underline">Alisin sa Mapa</button>}
+                    {canUpdate && <button type="button" onClick={() => requestUnmap(selectedIncident)} className="ml-auto text-xs font-semibold text-amber-800 hover:underline">Remove from map</button>}
                   </>
                 )}
               </div>}

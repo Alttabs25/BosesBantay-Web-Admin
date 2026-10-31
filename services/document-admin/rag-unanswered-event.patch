@@ -1,0 +1,10 @@
+--- a/menu_chat.py
++++ b/menu_chat.py
+@@ -39,6 +39,7 @@
+                 state.selected_category = state.selected_topic = state.selected_detail = None
+                 answer = missing[decision.language] + '\n\n' + category_menu(kb, state)
+             yield ChatEvent('text', answer)
++            yield ChatEvent('unanswered')
+             yield ChatEvent('done')
+             return
+         # The generator enforces concise prose. Do not truncate a validated

@@ -1,0 +1,11 @@
+.bot-workspace-toolbar { display:flex; align-items:center; justify-content:space-between; padding-bottom:16px; margin-bottom:18px; border-bottom:1px solid #e1e8ef; }
+.bot-workspace-toolbar [role=tablist] { display:flex; gap:4px; padding:4px; background:#f1f4f8; border:1px solid #e1e7ef; border-radius:10px; max-width:100%; }
+.bot-workspace-toolbar [role=tab] { min-height:40px; padding:9px 16px; border:1px solid transparent; border-radius:7px; font-size:14px; font-weight:550; color:#64748b; cursor:pointer; white-space:nowrap; }
+.bot-workspace-toolbar [role=tab]:hover { background:#e7edf5; color:#344a63; }
+.bot-workspace-toolbar [role=tab][aria-selected=true] { background:white; border-color:#d8e2ee; color:#174e87; font-weight:650; box-shadow:0 1px 3px #1836530c; }
+.bot-workspace-toolbar button:focus-visible { outline:2px solid #538bc5; outline-offset:2px; }
+.bot-workspace > [hidden] { display:none; }
+@media(max-width:639px) { .bot-workspace-toolbar [role=tab] { font-size:13px; padding:9px 11px; } }
+/* Larger workspace tabs without changing their structure. */
+.bot-workspace-toolbar [role=tab] { font-size:15px; line-height:23px; padding:9px 17px; }
+@media(max-width:639px) { .bot-workspace-toolbar [role=tab] { font-size:14px; padding:9px 13px; } }

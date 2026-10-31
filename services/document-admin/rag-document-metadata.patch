@@ -1,0 +1,45 @@
+--- a/ingest.py
++++ b/ingest.py
+@@ -59,7 +59,7 @@
+             for number, page in enumerate(reader.pages, 1)]
+ 
+ 
+-def prepare_rows(path, answers=None, chunk_size=None, chunk_overlap=None):
++def prepare_rows(path, answers=None, chunk_size=None, chunk_overlap=None, document_metadata=None):
+     if not path.name.strip():
+         raise IngestFailure("A source filename is required.")
+     answers = [] if answers is None else answers
+@@ -73,6 +73,12 @@
+                 or not isinstance(entry['answer'], str) or not entry['answer'].strip()
+                 or re.search(r'\[\d+\]|https?://', entry['answer'])):
+             raise IngestFailure('Invalid stored answer: supply questions, language, and an exact source excerpt without citation markers or links.')
++    allowed_metadata = {'document_title': 180, 'document_type': 120, 'reference_number': 120, 'summary': 1000}
++    if document_metadata is not None:
++        if not isinstance(document_metadata, dict) or set(document_metadata) - set(allowed_metadata):
++            raise IngestFailure('Invalid document detail fields.')
++        if any(not isinstance(value, str) or len(value) > allowed_metadata[key] for key, value in document_metadata.items()):
++            raise IngestFailure('Document detail fields exceed their supported limits.')
+     rows = []
+     for page, text in load_units(path):
+         for content in chunk_text(text, size=config.CHUNK_SIZE if chunk_size is None else chunk_size, overlap=config.CHUNK_OVERLAP if chunk_overlap is None else chunk_overlap):
+@@ -80,6 +86,7 @@
+                         "embedding_model": config.EMBED_MODEL, "active": True,
+                         "chunk_size_chars": config.CHUNK_SIZE if chunk_size is None else chunk_size,
+                         "chunk_overlap_chars": config.CHUNK_OVERLAP if chunk_overlap is None else chunk_overlap}
++            metadata.update(document_metadata or {})
+             if page is not None:
+                 metadata["page"] = page
+             matching = [entry for entry in answers if entry['answer'] in content]
+@@ -113,10 +120,10 @@
+             row["embedding"] = vector
+ 
+ 
+-def ingest_file(path, database, models, answers=None, chunk_size=None, chunk_overlap=None):
++def ingest_file(path, database, models, answers=None, chunk_size=None, chunk_overlap=None, document_metadata=None):
+     # Finish extraction and embeddings before deleting an existing file's index.
+     try:
+-        rows = prepare_rows(path, answers=answers, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
++        rows = prepare_rows(path, answers=answers, chunk_size=chunk_size, chunk_overlap=chunk_overlap, document_metadata=document_metadata)
+     except IngestFailure:
+         raise
+     except Exception as error:

@@ -1,0 +1,79 @@
+--- a/config.py
++++ b/config.py
+@@ -28,7 +28,7 @@
+         raise ValueError("SUPABASE_URL must use HTTPS.")
+ 
+ # Bounded performance controls; no retrieval-answer caching.
+-EMBED_KEEP_ALIVE = os.getenv("EMBED_KEEP_ALIVE", "5m")
++EMBED_KEEP_ALIVE = os.getenv("EMBED_KEEP_ALIVE", "30m")
+ EMBED_BATCH_SIZE = max(1, min(64, int(os.getenv("EMBED_BATCH_SIZE", "16"))))
+-QUERY_CACHE_SIZE = max(0, min(1024, int(os.getenv("QUERY_CACHE_SIZE", "128"))))
+-QUERY_CACHE_TTL = max(0, min(3600, int(os.getenv("QUERY_CACHE_TTL", "300"))))
++QUERY_CACHE_SIZE = max(0, min(1024, int(os.getenv("QUERY_CACHE_SIZE", "256"))))
++QUERY_CACHE_TTL = max(0, min(3600, int(os.getenv("QUERY_CACHE_TTL", "1800"))))
+--- a/keyword_search.py
++++ b/keyword_search.py
+@@ -4,6 +4,9 @@
+ query. Without that migration the query works, but may scan a large table.
+ """
+ import re
++import time
++from functools import lru_cache
++from chat_runtime import runtime_logger
+ from difflib import SequenceMatcher
+ 
+ STOP = set('a an the is are what how much do does of for to in on and or please po ang ng mga sa ano magkano paano ba yung i need want'.split())
+@@ -11,6 +14,25 @@
+ 
+ def words(text):
+     return [w for w in re.findall(r'[^\W_]+', text.casefold()) if len(w) >= 3 and w not in STOP][:20]
++
++
++@lru_cache(maxsize=512)
++def chunk_vocabulary(content):
++    return frozenset(w for w in re.findall(r'[^\W_]+', content.casefold()) if len(w) >= 3) | frozenset(words(content))
++
++
++def best_similarity(token, vocabulary):
++    if token in vocabulary:
++        return 1.0
++    best = 0.0
++    for word in vocabulary:
++        # Length and quick_ratio are upper bounds: pruning preserves exact ranks.
++        if 2 * min(len(token), len(word)) / (len(token) + len(word)) <= best:
++            continue
++        matcher = SequenceMatcher(None, token, word)
++        if matcher.quick_ratio() > best:
++            best = max(best, matcher.ratio())
++    return best
+ 
+ 
+ def keyword_rows(question, database, table, top_k=5):
+@@ -21,21 +43,22 @@
+     # small spelling errors, while coverage below prevents broad keyword hits.
+     patterns = list(dict.fromkeys(t[:4] if len(t) > 5 else t for t in tokens))
+     query = ','.join('content.ilike.*' + t + '*' for t in patterns)
++    lookup_started = time.perf_counter()
+     rows = database.table(table).select('id,content,metadata').or_(query).or_(
+         'metadata->>active.is.null,metadata->>active.eq.true').order('id').limit(100).execute().data
+     if not isinstance(rows, list):
+         raise ValueError('invalid_keyword_records')
++    runtime_logger().info('keyword_database_ms=%.1f candidates=%d', (time.perf_counter()-lookup_started)*1000, len(rows))
++    rank_started = time.perf_counter()
+     ranked = []
+     for row in rows:
+         metadata = row.get('metadata') or {}
+         if metadata.get('active', True) is not True:
+             continue
+-        vocabulary = set(words(row['content']))
+-        # Full chunk vocabulary, not the bounded question-token list.
+-        vocabulary.update(w for w in re.findall(r'[^\W_]+', row['content'].casefold()) if len(w) >= 3)
+-        matches = [max((1.0 if t == w else SequenceMatcher(None, t, w).ratio()
+-                        for w in vocabulary), default=0) for t in tokens]
++        vocabulary = chunk_vocabulary(row['content'])
++        matches = [best_similarity(token, vocabulary) for token in tokens]
+         coverage = sum(s >= .86 for s in matches) / len(tokens)
+         if coverage >= .8:
+             ranked.append({**row, 'similarity': sum(matches) / len(matches)})
++    runtime_logger().info('keyword_ranking_ms=%.1f accepted=%d', (time.perf_counter()-rank_started)*1000, len(ranked))
+     return sorted(ranked, key=lambda r: (-r['similarity'], r['id']))[:top_k]

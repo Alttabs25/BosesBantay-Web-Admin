@@ -1,0 +1,22 @@
+--- a/chat.py
++++ b/chat.py
+@@ -315,7 +315,7 @@
+             if last_safe_guide is not None:
+                 response = last_safe_guide
+                 break
+-            yield ChatEvent('text', UNVERIFIED[language] if attempt else FRIENDLY_ERROR[language])
++            yield ChatEvent('text', FRIENDLY_ERROR[language])
+             yield ChatEvent('done')
+             return
+         if response.kind == 'missing_information':
+--- a/test_chat.py
++++ b/test_chat.py
+@@ -83,7 +83,7 @@
+         db, models = clients([row()])
+         with patch('chat._draft_answer', return_value='not JSON') as generate:
+             events = list(stream_answer('How?', db, models))
+-        self.assertEqual(generate.call_count, 1)
++        self.assertEqual(generate.call_count, 2)
+         self.assertIn("couldn't prepare", ''.join(e.text for e in events))
+         self.assertNotIn('Traceback', ''.join(e.text for e in events))
+ 

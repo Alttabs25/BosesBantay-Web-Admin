@@ -1,3 +1,4 @@
+import FilterPopup from '../components/FilterPopup'
 import './Reports.css'
 import { useMemo, useState } from 'react'
 import { BarChart3, CalendarDays, Download, FileBarChart, FileSpreadsheet, Printer, SlidersHorizontal } from 'lucide-react'
@@ -92,9 +93,10 @@ export default function Reports() {
     <section className="report-builder-panel print:hidden">
       <header className="report-builder-heading"><span><SlidersHorizontal size={20} /></span><div><p>Report configuration</p><h2>Bumuo ng Records Summary</h2><small>Piliin ang saklaw bago i-generate ang opisyal na buod.</small></div></header>
       <div className="report-builder-body">
-        <label><span><CalendarDays size={14} /> Saklaw ng petsa</span><select value={dateRange} onChange={(event) => { setDateRange(event.target.value); setGenerated(false) }}>{DATE_RANGES.map((range) => <option key={range}>{range}</option>)}</select></label>
+        <FilterPopup title="Report scope" actionLabel="Use this scope" description="Choose which incidents to include in the summary." onReset={() => { setDateRange(DATE_RANGES[0]); setClassification(ALL_CLASSIFICATIONS); setStartDate(''); setEndDate(''); setGenerated(false) }}>        <label><span><CalendarDays size={14} /> Saklaw ng petsa</span><select value={dateRange} onChange={(event) => { setDateRange(event.target.value); setGenerated(false) }}>{DATE_RANGES.map((range) => <option key={range}>{range}</option>)}</select></label>
         <label><span><BarChart3 size={14} /> Uri ng insidente</span><select value={classification} onChange={(event) => { setClassification(event.target.value); setGenerated(false) }}>{classifications.map((item) => <option key={item}>{item}</option>)}</select></label>
         {dateRange === 'Custom Range' && <div className="report-custom-dates"><label><span>Mula</span><input type="date" value={startDate} onChange={(event) => { setStartDate(event.target.value); setGenerated(false) }} /></label><label><span>Hanggang</span><input type="date" value={endDate} onChange={(event) => { setEndDate(event.target.value); setGenerated(false) }} /></label></div>}
+</FilterPopup>
         <button type="button" onClick={handleGenerate} className="report-generate-button"><FileBarChart size={17} /> Bumuo ng Report</button>
       </div>
     </section>

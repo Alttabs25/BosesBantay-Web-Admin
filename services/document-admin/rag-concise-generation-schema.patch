@@ -1,0 +1,26 @@
+--- a/chat.py
++++ b/chat.py
+@@ -1,5 +1,6 @@
+ """Reusable retrieval and streamed document chat, plus a local CLI."""
+ import argparse
++from copy import deepcopy
+ from dataclasses import dataclass
+ import json
+ import math
+@@ -230,10 +231,15 @@
+     started = time.perf_counter()
+     try:
+         preferences = load_settings()
++        schema = deepcopy(OUTPUT_SCHEMA)
++        if feedback and feedback.get('response_mode') == 'concise':
++            schema['properties']['kind']['enum'] = ['answer','missing_information','refusal','topics']
++            schema['properties']['steps']['maxItems'] = 0
++            schema['properties']['overview']['maxLength'] = 0
+         stream = models.chat(model=config.CHAT_MODEL,
+                              messages=[{"role": "system", "content": SYSTEM_PROMPT + "\nResponse preferences: " + style_instruction(preferences)},
+                                        {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
+-                             format=OUTPUT_SCHEMA, stream=True, think=config.CHAT_THINK,
++                             format=schema, stream=True, think=config.CHAT_THINK,
+                              options={"temperature": 0, "num_ctx": 8192, "num_predict": {"brief": 1200, "standard": 1500, "detailed": 2200}[preferences["length"]]}, keep_alive="2m")
+         for part in stream:
+             if part.message.content:
