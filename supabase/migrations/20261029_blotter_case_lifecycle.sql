@@ -1,7 +1,10 @@
 -- Additive case event store. Existing tables and their policies are not altered.
 -- Each meeting has a stable UUID; minutes, verification, reschedules and corrections
 -- are separate append-only events. All writes go through one transactional RPC.
-create table public.bb_blotter_events (
+-- This table was deployed before its migration was recorded in every environment.
+-- Keep the migration replay-safe so Preview can reconcile that schema history
+-- without replacing the existing table, rows, or RLS configuration.
+create table if not exists public.bb_blotter_events (
   id uuid primary key default gen_random_uuid(),
   source_table text not null check (source_table in ('reports','pre_blotters')),
   reference_no text not null,
@@ -15,13 +18,13 @@ create table public.bb_blotter_events (
   request_id uuid not null unique,
   unique(source_table, reference_no, sequence)
 );
-create index bb_blotter_events_case_idx on public.bb_blotter_events(source_table,reference_no,sequence);
-create index bb_blotter_events_meeting_idx on public.bb_blotter_events((payload->>'meeting_id')) where payload ? 'meeting_id';
+create index if not exists bb_blotter_events_case_idx on public.bb_blotter_events(source_table,reference_no,sequence);
+create index if not exists bb_blotter_events_meeting_idx on public.bb_blotter_events((payload->>'meeting_id')) where payload ? 'meeting_id';
 alter table public.bb_blotter_events enable row level security;
 revoke all on public.bb_blotter_events from anon, authenticated;
 grant select on public.bb_blotter_events to authenticated;
 
-create function public.bb_case_can_read(p_source text,p_ref text) returns boolean
+create or replace function public.bb_case_can_read(p_source text,p_ref text) returns boolean
 language sql stable security definer set search_path = '' as $$
   select exists (
     select 1 from public.users u join public.roles r on r.role_id=u.role_id
@@ -30,9 +33,23 @@ language sql stable security definer set search_path = '' as $$
 $$;
 revoke all on function public.bb_case_can_read(text,text) from public;
 grant execute on function public.bb_case_can_read(text,text) to authenticated;
-create policy bb_case_staff_read on public.bb_blotter_events for select to authenticated using (public.bb_case_can_read(source_table,reference_no));
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_catalog.pg_policies
+    where schemaname = 'public'
+      and tablename = 'bb_blotter_events'
+      and policyname = 'bb_case_staff_read'
+  ) then
+    create policy bb_case_staff_read on public.bb_blotter_events
+      for select to authenticated
+      using (public.bb_case_can_read(source_table,reference_no));
+  end if;
+end;
+$$;
 
-create function public.bb_record_case_event(p_source text,p_ref text,p_kind text,p_payload jsonb,p_version bigint,p_request_id uuid)
+create or replace function public.bb_record_case_event(p_source text,p_ref text,p_kind text,p_payload jsonb,p_version bigint,p_request_id uuid)
 returns public.bb_blotter_events language plpgsql security definer set search_path = '' as $$
 declare
   v_actor uuid := auth.uid(); v_name text; v_role text; v_count bigint; v_stage text := 'review';
@@ -152,7 +169,7 @@ $$;
 revoke all on function public.bb_record_case_event(text,text,text,jsonb,bigint,uuid) from public;
 grant execute on function public.bb_record_case_event(text,text,text,jsonb,bigint,uuid) to authenticated;
 
-create view public.bb_blotter_registry with (security_invoker = true) as
+create or replace view public.bb_blotter_registry with (security_invoker = true) as
 with cases as (select source_table,reference_no,count(*) as event_count,max(created_at) as updated_at from public.bb_blotter_events group by source_table,reference_no),
 stages as (select distinct on(source_table,reference_no) source_table,reference_no,
  case kind when 'assessment' then case payload->>'route' when 'kp' then 'mediation' when 'documentation' then 'documentation' else 'referral' end when 'pangkat' then 'conciliation' when 'arbitration' then 'arbitration' when 'settlement' then 'settlement' when 'repudiation' then 'review' when 'referral' then 'referral' when 'disposition' then 'closed' when 'archive' then 'archived' end as stage
