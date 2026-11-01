@@ -195,7 +195,6 @@ export default function GISCommandCenter() {
     unmapIncidentLocation,
     setIncidentMapStatus,
     deleteIncident,
-    addAuditEntry,
   } = useData()
   const { showToast } = useToast()
 
@@ -540,10 +539,6 @@ export default function GISCommandCenter() {
       setSelectedRef(record.ref)
       setMode('view')
       setDraft(BLANK_DRAFT)
-      addAuditEntry(
-        wasCreate ? `Nagdagdag/Nag-mapa ng insidente ${record.ref}` : `Nag-update ng insidente ${record.ref}`,
-        { color: 'blue' },
-      )
       showToast(
         draft.existingReportId
           ? 'Na-mapa ang blotter report at naidagdag sa mapa.'
@@ -584,20 +579,16 @@ export default function GISCommandCenter() {
     const { type, incident } = pendingAction
     if (type === 'approve') {
       await setIncidentMapStatus(incident.ref, 'Approved')
-      addAuditEntry(`Na-apruba ang pin ${incident.ref} para sa pampublikong mapa`, { color: 'green' })
       showToast('Naaprubahan ang insidente — nakikita na ito sa mapa.')
     } else if (type === 'reject') {
       await setIncidentMapStatus(incident.ref, 'Rejected')
-      addAuditEntry(`Tinanggihan ang pin ${incident.ref} para sa mapa`, { color: 'orange' })
       showToast('Tinanggihan ang insidente — mananatili itong hindi nakikita sa mapa.')
     } else if (type === 'delete') {
       await deleteIncident(incident.ref)
-      addAuditEntry(`Binura ang insidente ${incident.ref}`, { color: 'red' })
       showToast('Nabura ang insidente.')
       if (selectedRef === incident.ref) setSelectedRef(null)
     } else if (type === 'unmap') {
       await unmapIncidentLocation(incident.ref)
-      addAuditEntry(`Inalis sa mapa ang insidente ${incident.ref}`, { color: 'orange' })
       showToast(`Inalis sa mapa ang insidente ${incident.ref}. Mananatili ito sa blotter.`)
       if (selectedRef === incident.ref) setSelectedRef(null)
     }

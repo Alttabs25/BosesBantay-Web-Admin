@@ -27,6 +27,7 @@ export default function Login() {
       const result = await login({ email: credential, password })
 
       if (!result.success) {
+        addAuditEntry('Failed login attempt', { actorName: 'Unverified sign-in', actorRole: 'Unauthenticated', eventType: 'login_failure', severity: 'warning', outcome: 'failure', after: { authentication_succeeded: false }, source: 'web-admin:login' })
         setError('Maling email o password.')
         setIsSubmitting(false)
         return
@@ -37,10 +38,15 @@ export default function Login() {
         sessionStorage.removeItem('2fa_verified')
       }
 
-      addAuditEntry(result.is2faDisabled ? 'Login' : 'Login Attempt', {
+      addAuditEntry(result.is2faDisabled ? 'Successful login' : 'Credentials accepted; second factor required', {
         actorName: result.user.name,
         actorRole: result.user.role,
-        color: 'blue',
+        severity: 'normal',
+        eventType: result.is2faDisabled ? 'login' : 'login_2fa_required',
+        targetTable: 'users',
+        targetKey: result.user.id,
+        after: { authentication_succeeded: true, second_factor_required: !result.is2faDisabled },
+        source: 'web-admin:login',
       })
 
       const targetPath = result.is2faDisabled
@@ -57,6 +63,7 @@ export default function Login() {
       })
     } catch (err) {
       console.error('Login error:', err)
+      addAuditEntry('Login service error', { actorName: 'Unverified sign-in', actorRole: 'Unauthenticated', eventType: 'login_service_error', severity: 'warning', outcome: 'failure', after: { authentication_succeeded: false, service_error: true }, source: 'web-admin:login' })
       setError('Nagkaroon ng problema sa pag-login. Pakisubukan muli.')
     } finally {
       setIsSubmitting(false)

@@ -5,6 +5,7 @@ import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import { chunkParagraphs } from '../lib/chunkDisplay'
 import { documentCache } from '../lib/documentStore'
+import { invalidateOverview } from '../lib/overviewCache'
 import DocumentUploadDialog from '../components/DocumentUploadDialog'
 import { documentRequest } from '../lib/documentAdmin'
 import FilterPopup from '../components/FilterPopup'
@@ -45,7 +46,7 @@ export default function KnowledgeBase() {
   async function refresh({ clearSources = false } = {}) {
     setError('')
     if(clearSources)documentCache.clearSources()
-    try { const rows = await documentCache.loadLibrary({force:true}); setDocuments(previous => JSON.stringify(previous) === JSON.stringify(rows) ? previous : rows) }
+    try { const cached=documentCache.library(); const rows = await documentCache.loadLibrary({force:true}); setDocuments(previous => JSON.stringify(previous) === JSON.stringify(rows) ? previous : rows); if(rows!==cached)invalidateOverview() }
     catch (failure) { setError(failure.message) }
     finally { setLoading(false) }
   }
@@ -74,7 +75,7 @@ export default function KnowledgeBase() {
       documentCache.setSourceActive(selected.filename, active)
       setChunks(previous=>previous.map(chunk=>({...chunk,metadata:{...chunk.metadata,active}})))
       setSelected({ ...selected, activeChunks: active ? selected.chunks : 0 })
-      addAuditEntry(`${active ? 'Activated' : 'Archived'} chatbot source: ${selected.filename}`, { color: active ? 'green' : 'orange' })
+      addAuditEntry(`${active ? 'Activated' : 'Archived'} chatbot source: ${selected.filename}`, { color: active ? 'green' : 'orange', eventType: active ? 'activate' : 'archive', targetTable: 'documents', targetKey: selected.filename, before: { active: !active, active_chunks: active ? 0 : selected.chunks }, after: { active, active_chunks: active ? selected.chunks : 0 } })
     } catch (failure) { setSourceError(failure.message); await refresh() }
     finally { setStatusBusy(false) }
   }
@@ -89,7 +90,7 @@ export default function KnowledgeBase() {
       {loading ? <p className="dm-empty" role="status">Loading indexed sources…</p> : !filtered.length ? <div className="dm-empty"><FileText size={28} /><h3>{error ? 'Unable to load the library' : documents.length ? 'No matching documents' : 'No indexed documents yet'}</h3><p>{documents.length ? 'Try another filename or clear your filters.' : 'Add a searchable PDF or UTF-8 TXT file to begin.'}</p></div> : <div className="dm-document-list"><div className="dm-list-heading" aria-hidden="true"><span>Document</span><span>Chunks</span><span>Status</span><span /></div>{filtered.map(doc=><DocumentRow key={doc.filename} doc={doc} onSelect={setSelected}/>)}</div>}
 
     </div>
-    {uploadOpen&&<DocumentUploadDialog open onClose={()=>setUploadOpen(false)} onIndexed={async result=>{if(result){setUploadOpen(false);showToast(`${result.filename} added successfully. Ready for Barangay Bot.`, 'success');addAuditEntry(`Indexed chatbot document: ${result.filename} (${result.chunks} chunks)`,{color:'green'})}await refresh()}} />}
+    {uploadOpen&&<DocumentUploadDialog open onClose={()=>setUploadOpen(false)} onIndexed={async result=>{if(result){setUploadOpen(false);showToast(`${result.filename} added successfully. Ready for Barangay Bot.`, 'success');addAuditEntry(`Indexed chatbot document: ${result.filename} (${result.chunks} chunks)`,{color:'green',eventType:'index',targetTable:'documents',targetKey:result.filename,after:{indexed:true,chunk_count:result.chunks}})}await refresh()}} />}
     <Modal open={Boolean(selected)} onClose={() => setSelected(null)} title={selected?.title || selected?.filename || 'Source preview'} maxWidth="max-w-3xl"><div className="dm-source"><div className="dm-source-metadata"><span>Source: {selected?.filename}</span>{selected?.category&&<span>{selected.category}</span>}{selected?.reference&&<span>Reference: {selected.reference}</span>}{selected?.summary&&<p>{selected.summary}</p>}</div>{canIndex && <div className="dm-source-actions"><span>{selected?.activeChunks ? 'Active chunks are available to chatbot lookup.' : 'This source is excluded from chatbot lookup.'}</span><button className="dm-secondary" type="button" disabled={statusBusy} onClick={toggleSource}>{statusBusy ? 'Saving…' : selected?.activeChunks ? 'Archive source' : 'Activate source'}</button></div>}{sourceLoading && <p role="status">Loading source chunks…</p>}{sourceError && <p className="dm-error" role="alert">{sourceError}</p>}{chunks.map((chunk,index) => <details key={chunk.id} open={index === 0}><summary><strong>Chunk {index + 1}</strong><span>{chunk.metadata?.page ? `Page ${chunk.metadata.page}` : 'Text file'} · {chunk.metadata?.active === false ? 'Inactive' : 'Active'}</span></summary><div className="dm-chunk-text">{chunkParagraphs(chunk.content).map((paragraph,index) => <p key={index}>{paragraph}</p>)}</div></details>)}</div></Modal>
   </div>
 }

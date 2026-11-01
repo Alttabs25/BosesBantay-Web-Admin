@@ -147,12 +147,18 @@ export default function TwoFactorAuth() {
         addAuditEntry('2FA Verification', {
           actorName: user.name,
           actorRole: user.role,
-          color: 'green',
+          severity: 'normal',
+          eventType: 'login_2fa_verified',
+          targetTable: 'users',
+          targetKey: user.id,
+          after: { second_factor_verified: true },
+          source: 'web-admin:2fa',
         })
 
         // Show cinematic transition before navigating
         setIsSuccessLoading(true)
       } else {
+        addAuditEntry('Failed two-factor verification attempt', { actorName: user.name, actorRole: user.role, eventType: 'login_2fa_failure', targetTable: 'users', targetKey: user.id, severity: 'warning', outcome: 'failure', after: { second_factor_verified: false }, source: 'web-admin:2fa' })
         setError('Maling code o expired na ito. Mangyaring subukan muli.')
         setCode(['', '', '', '', '', ''])
         isVerifying.current = false // Allow retry on failure

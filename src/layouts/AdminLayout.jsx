@@ -21,7 +21,7 @@ export default function AdminLayout() {
     localStorage.setItem('bb_sidebar_collapsed', String(sidebarCollapsed))
   }, [sidebarCollapsed])
 
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const { addAuditEntry } = useData()
   const { showToast } = useToast()
   const navigate = useNavigate()
@@ -48,11 +48,11 @@ export default function AdminLayout() {
     setShowWarning(false)
     localStorage.removeItem('bb_last_activity')
 
-    addAuditEntry('Auto Logout due to Session Inactivity Limit', { color: 'red' })
+    addAuditEntry('Auto logout due to session inactivity limit', { color: 'orange', eventType: 'logout_inactivity', targetTable: 'users', targetKey: user?.id, before: { session_active: true }, after: { session_active: false, reason: 'inactivity_timeout' } })
     await logout()
     showToast('Naka-sign out ka na dahil sa session limit / inactivity.', 'info')
     navigate('/login')
-  }, [logout, addAuditEntry, showToast, navigate])
+  }, [logout, addAuditEntry, showToast, navigate, user?.id])
 
   // Extend session
   const extendSession = () => {

@@ -147,7 +147,7 @@ def serve(root, port):
                     menu = load_kb()
                     return self.respond(200, {'greeting': menu['greeting'], 'closing': localized(menu['closing'], 'taglish'), 'categories': [{'id': item['id'], 'label': localized(item['name'],'english'), 'example': localized(item['example'],'english')} for item in menu['categories']]})
                 if self.command == 'GET' and self.path == '/chatbot/overview':
-                    status = service_status()
+                    status = {'ingestion': {'enabled':service_state['ingest_enabled'], 'busy':service_state['indexing']}}
                     try:
                         database = create_client(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY)
                         documents = summarize(source_rows(database, config.DOCUMENTS_TABLE))
@@ -156,7 +156,7 @@ def serve(root, port):
                     except Exception:
                         logger.exception('Knowledge coverage lookup failed')
                         coverage = {'available':False}
-                    return self.respond(200, {**status,'services':[item for item in status['services'] if item['id'] in {'ollama','api'}],'coverage':coverage,'unanswered':inbox.recent(),'scope':'Local web-admin chats only; last 30 days.'})
+                    return self.respond(200, {**status,'coverage':coverage,'unanswered':inbox.recent(),'scope':'Local web-admin chats only; last 30 days.'})
                 if self.command == 'GET' and self.path == '/services':
                     return self.respond(200, service_status())
                 if self.command == 'GET' and self.path == '/chatbot/settings':
@@ -229,7 +229,7 @@ def serve(root, port):
                                 category = next((item for item in menu['categories'] if item['id'] == state.selected_category), None)
                                 suggestions = [localized(item['name'],state.language) for item in category['topics']] if category else []
                             elif state.current_step == 'detail': suggestions = [localized(item['name'],state.language) for item in menu['details']]
-                        return self.respond(200, {'answer': answer, 'suggestions': suggestions, 'status': 'service_failure' if failed else ('answer' if sources else state.current_step), 'elapsed_ms': round((time.perf_counter()-started)*1000), 'language': state.language, 'sources': [{'id': source.number, 'filename': source.source, 'page': source.page, 'excerpt': source.content} for source in sources]})
+                        return self.respond(200, {'answer': answer, 'overview_changed': self.path == '/chatbot/message' and any(event.kind == 'unanswered' for event in events), 'suggestions': suggestions, 'status': 'service_failure' if failed else ('answer' if sources else state.current_step), 'elapsed_ms': round((time.perf_counter()-started)*1000), 'language': state.language, 'sources': [{'id': source.number, 'filename': source.source, 'page': source.page, 'excerpt': source.content} for source in sources]})
                     finally: LOCK.release()
                 if self.path == '/source':
                     name = payload.get('filename')

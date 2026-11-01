@@ -44,8 +44,16 @@ export default function ScopedBlotterWorkspace({ report, onFlagSpam }) {
     if (!review) { setReview(true); return }
     setSaving(true)
     try {
-      await updateBlotterReport(report.id, scopedPatch(action, draft, report, actor))
-      addAuditEntry(`${report.id}: ${titles[action]} — ${actor}`, { color: action === 'finalize' ? 'green' : 'blue' })
+      const patch = scopedPatch(action, draft, report, actor)
+      await updateBlotterReport(report.id, patch)
+      addAuditEntry(`${report.id}: ${titles[action]} — ${actor}`, {
+        color: action === 'finalize' ? 'green' : 'blue',
+        eventType: `blotter_${action}`,
+        targetTable: 'reports',
+        targetKey: report.referenceNo || report.reference_no || report.id,
+        before: { status: report.status, hearing_date: report.hearingDate || null, hearing_completed: Boolean(report.hearingCompleted) },
+        after: { status: patch.status || report.status, hearing_date: patch.hearingDate ?? report.hearingDate ?? null, hearing_completed: patch.hearingCompleted ?? Boolean(report.hearingCompleted), outcome_type: patch.outcome ? action : null },
+      })
       showToast('Na-save ang pagbabago sa report.')
       select('')
     } catch { setErrors(['Hindi na-save ang pagbabago. Nananatili ang iyong inilagay; pakisubukan muli.']); setReview(false) }

@@ -4,6 +4,7 @@ import { documentRequest } from '../lib/documentAdmin'
 import { chunkParagraphs } from '../lib/chunkDisplay'
 import { relatedTopicReply } from '../lib/relatedTopics'
 import BotOverview from '../components/BotOverview'
+import { invalidateOverview } from '../lib/overviewCache'
 import './BarangayChat.css'
 
 function InlineText({text}) {
@@ -18,7 +19,6 @@ export default function BarangayChat({active=true}) {
   const messagesRef=useRef(null)
   const busy=useRef(false)
   const initialized=useRef(false)
-  const [overviewRevision,setOverviewRevision]=useState(0)
   const [menu,setMenu]=useState(null)
   const [messages,setMessages]=useState([])
   const [input,setInput]=useState('')
@@ -32,9 +32,9 @@ export default function BarangayChat({active=true}) {
     if(busy.current)return
     busy.current=true;setSending(true);setError('')
     if(!retry)setMessages(previous=>[...previous,{role:'user',text:question}])
-    try{const result=await documentRequest('/chatbot/message',{question,session_id:session.current});const reply=relatedTopicReply(result.answer);setMessages(previous=>[...previous,{role:'assistant',text:reply.text,sources:result.sources||[],suggestions:[...new Set([...reply.topics,...(result.suggestions||[])])],related:reply.topics.length>0,failed:result.status==='service_failure'}])}
+    try{const result=await documentRequest('/chatbot/message',{question,session_id:session.current});if(result.overview_changed)invalidateOverview();const reply=relatedTopicReply(result.answer);setMessages(previous=>[...previous,{role:'assistant',text:reply.text,sources:result.sources||[],suggestions:[...new Set([...reply.topics,...(result.suggestions||[])])],related:reply.topics.length>0,failed:result.status==='service_failure'}])}
     catch(failure){setError(failure.message)}
-    finally{busy.current=false;setSending(false);setOverviewRevision(value=>value+1)}
+    finally{busy.current=false;setSending(false)}
   }
   function newChat(){if(busy.current)return;session.current=crypto.randomUUID();setMessages([]);setInput('');setError('')}
   function submit(event){event.preventDefault();if(!input.trim()||busy.current)return;const question=input.trim();setInput('');ask(question)}
@@ -46,5 +46,5 @@ export default function BarangayChat({active=true}) {
       {error&&<div className="barangay-chat-error" role="alert"><p>{error}</p><button type="button" onClick={()=>{const last=[...messages].reverse().find(message=>message.role==='user');if(last)ask(last.text,true)}}>Subukan muli</button></div>}
     </div>
     <div className="bb-composer-area"><form onSubmit={submit}><textarea aria-label="Tanong para sa Barangay Bot" placeholder="Pumili ng numero o magtanong…" value={input} onChange={event=>setInput(event.target.value)} maxLength={4000} rows={1} onKeyDown={event=>{if((event.ctrlKey||event.metaKey)&&event.key==='Enter')submit(event)}}/><button aria-label="Ipadala ang tanong" disabled={sending||!input.trim()}><ArrowUp size={20}/></button></form><p>Maaaring magkamali ang Barangay-Bot. Para sa opisyal na detalye, bisitahin o tawagan ang barangay hall.</p></div>
-  </section><BotOverview active={active} revision={overviewRevision} onAsk={ask} disabled={sending}/></div>
+  </section><BotOverview active={active} onAsk={ask} disabled={sending}/></div>
 }

@@ -75,7 +75,14 @@ export default function BlotterProcessPanel({ report, canConfirm, canManageInves
       if (action === 'session') patch.hearingCompleted = draft.attendance === 'Parehong panig ay dumalo' && draft.result === 'Naganap ang pag-uusap'
       if (closing) Object.assign(patch, { status: 'Nareselba', outcome: `${action === 'settlement' ? 'Settlement — Nagkaareglo' : 'Certificate to File Action (CFA)'}\nDokumento: ${draft.reference.trim()}\nOpisyal: ${officer.trim()}\nPetsa: ${displayDate(draft.actualDate)}\n${draft.notes.trim()}` })
       await updateBlotterReport(report.id, patch)
-      addAuditEntry(`${report.id}: ${ACTIONS[action]}`, { color: closing ? 'green' : 'blue' })
+      addAuditEntry(`${report.id}: ${ACTIONS[action]}`, {
+        color: closing ? 'green' : 'blue',
+        eventType: `blotter_${action}`,
+        targetTable: 'reports',
+        targetKey: report.referenceNo || report.reference_no || report.id,
+        before: { status: report.status, hearing_date: report.hearingDate || null, hearing_completed: Boolean(report.hearingCompleted) },
+        after: { status: closing ? 'Nareselba' : report.status, hearing_date: action === 'schedule' ? draft.date : report.hearingDate || null, hearing_completed: action === 'session' ? draft.attendance === 'Parehong panig ay dumalo' && draft.result === 'Naganap ang pag-uusap' : Boolean(report.hearingCompleted), outcome_type: closing ? action === 'settlement' ? 'settlement' : 'cfa' : null },
+      })
       showToast('Na-save ang tala at na-update ang proseso.')
       setDraft({ ...fresh(), action: closed ? 'followup' : canManageInvestigation ? 'schedule' : 'settlement' }); setReview(false)
     } catch (error) { console.error('Blotter process save failed:', error); setErrors(['Hindi na-save ang tala. Nananatili ang iyong inilagay; pakisubukan muli.']) }

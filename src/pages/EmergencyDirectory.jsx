@@ -82,13 +82,15 @@ export default function EmergencyDirectory() {
 
     if (editingContact) {
       // Update
-      await updateEmergencyContact(editingContact.id, formData)
-      addAuditEntry(`In-edit ang emergency contact: ${formData.agencyName}`, { color: 'blue' })
+      const saved = await updateEmergencyContact(editingContact.id, formData)
+      if (!saved?.success) { showToast('Hindi na-save ang pagbabago sa contact. Subukan muli.', 'error'); return }
+      addAuditEntry(`In-edit ang emergency contact: ${formData.agencyName}`, { color: 'blue', eventType: 'update', targetTable: 'emergency_contacts', targetId: saved.id, before: { category: editingContact.category, is_active: editingContact.isActive }, after: { agency_name: formData.agencyName, category: formData.category, is_active: formData.isActive } })
       showToast('Matagumpay na na-update ang contact.')
     } else {
       // Add
-      await addEmergencyContact(formData)
-      addAuditEntry(`Nagdagdag ng emergency contact: ${formData.agencyName}`, { color: 'green' })
+      const saved = await addEmergencyContact(formData)
+      if (!saved?.success) { showToast('Hindi naidagdag ang contact. Subukan muli.', 'error'); return }
+      addAuditEntry(`Nagdagdag ng emergency contact: ${formData.agencyName}`, { color: 'green', eventType: 'create', targetTable: 'emergency_contacts', targetId: saved.id, after: { agency_name: formData.agencyName, category: formData.category, is_active: formData.isActive } })
       showToast('Matagumpay na naidagdag ang contact.')
     }
     setIsModalOpen(false)
@@ -98,8 +100,9 @@ export default function EmergencyDirectory() {
   const handleConfirmDelete = async () => {
     if (!deletingId) return
     const target = emergencyContacts.find(c => c.id === deletingId)
-    await deleteEmergencyContact(deletingId)
-    addAuditEntry(`Tinanggal ang emergency contact: ${target?.agencyName || deletingId}`, { color: 'red' })
+    const deleted = await deleteEmergencyContact(deletingId)
+    if (!deleted?.success) { showToast('Hindi natanggal ang contact. Subukan muli.', 'error'); return }
+    addAuditEntry(`Tinanggal ang emergency contact: ${target?.agencyName || deletingId}`, { color: 'red', eventType: 'delete', targetTable: 'emergency_contacts', targetId: deleted.id, before: target ? { agency_name: target.agencyName, category: target.category, is_active: target.isActive } : null, after: null })
     showToast('Matagumpay na tinanggal ang contact.')
     setDeletingId(null)
   }
@@ -107,9 +110,10 @@ export default function EmergencyDirectory() {
   // Captain Authorization Toggle
   const handleTogglePublish = async (contact) => {
     const nextActive = !contact.isActive
-    await updateEmergencyContact(contact.id, { isActive: nextActive })
+    const saved = await updateEmergencyContact(contact.id, { isActive: nextActive })
+    if (!saved?.success) { showToast('Hindi na-save ang status ng contact. Subukan muli.', 'error'); return }
     const actionText = nextActive ? 'In-authorize / Inilathala' : 'Inalis ang paglathala sa'
-    addAuditEntry(`${actionText} ang emergency contact: ${contact.agencyName}`, { color: nextActive ? 'green' : 'orange' })
+    addAuditEntry(`${actionText} ang emergency contact: ${contact.agencyName}`, { color: nextActive ? 'green' : 'orange', eventType: nextActive ? 'publish' : 'unpublish', targetTable: 'emergency_contacts', targetId: saved.id, before: { is_active: contact.isActive }, after: { is_active: nextActive } })
     showToast(`${contact.agencyName} ay ${nextActive ? 'inilathala na sa mga residente.' : 'inilipat sa draft.'}`)
   }
 

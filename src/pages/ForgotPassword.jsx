@@ -48,7 +48,7 @@ export default function ForgotPassword() {
       showToast('Mali ang verification code o email.', 'error')
       return
     }
-    addAuditEntry(`Nag-reset ng password gamit ang forgot-password flow (${email})`, { color: 'blue' })
+    addAuditEntry('Password reset completed using the recovery flow', { color: 'blue', eventType: 'password_reset', targetTable: 'users', after: { recovery_completed: true, password_changed: true }, source: 'web-admin:password-recovery' })
     showToast('Na-reset ang password. Maaari ka nang mag-login.')
     navigate('/login')
   }
