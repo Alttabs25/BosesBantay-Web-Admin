@@ -905,3 +905,42 @@ button.audit-metric.tone-green[aria-pressed="true"] { background: #f0f7f1; }
   .audit-metric-grid .audit-metric small { font-size: 13px; line-height: 18px; }
   .audit-metric-grid .audit-metric strong { font-size: 28px; line-height: 34px; }
 }
+
+/* Keep dense audit values contained without sacrificing readable text. */
+.audit-table {
+  width: 100%;
+  min-width: 1320px;
+}
+.audit-table th,
+.audit-table td {
+  box-sizing: border-box;
+}
+.audit-table th:nth-child(1) { width: 6%; }
+.audit-table th:nth-child(2) { width: 16%; }
+.audit-table th:nth-child(3) { width: 14%; }
+.audit-table th:nth-child(4) { width: 27%; }
+.audit-table th:nth-child(5) { width: 13%; }
+.audit-table th:nth-child(6) { width: 9%; }
+.audit-table th:nth-child(7) { width: 9%; }
+.audit-table th:nth-child(8) { width: 6%; }
+.audit-table tbody td {
+  overflow: hidden;
+}
+.audit-time {
+  width: 100%;
+  max-width: 100%;
+  white-space: normal;
+}
+.audit-time span {
+  display: block;
+  overflow-wrap: normal;
+  white-space: normal;
+}
+.audit-user,
+.audit-user > span:last-child,
+.audit-origin,
+.audit-resource,
+.audit-action {
+  width: 100%;
+  max-width: 100%;
+}
