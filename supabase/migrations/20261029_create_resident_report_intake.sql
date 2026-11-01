@@ -1,6 +1,6 @@
 -- New canonical intake table for future mobile and admin integration.
 -- Existing reports, service_complaints, and pre_blotters are not changed.
-create table public.resident_report_intake (
+create table if not exists public.resident_report_intake (
   id uuid primary key default gen_random_uuid(),
   report_type text not null
     check (report_type in ('service_complaint', 'blotter')),
@@ -31,10 +31,10 @@ create table public.resident_report_intake (
   )
 );
 
-create index resident_report_intake_type_created_idx
+create index if not exists resident_report_intake_type_created_idx
   on public.resident_report_intake (report_type, created_at desc);
 
-create index resident_report_intake_user_created_idx
+create index if not exists resident_report_intake_user_created_idx
   on public.resident_report_intake (user_id, created_at desc);
 
 alter table public.resident_report_intake enable row level security;

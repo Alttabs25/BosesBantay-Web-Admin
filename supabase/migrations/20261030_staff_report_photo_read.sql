@@ -1,5 +1,13 @@
 -- Private, read-only access for the staff roles that can view digital reports.
 -- A photo must belong to a report visible to that staff member under report RLS.
+do $$
+begin
+if not exists (
+  select 1 from pg_catalog.pg_policies
+  where schemaname = 'storage'
+    and tablename = 'objects'
+    and policyname = 'Report staff read referenced photos'
+) then
 create policy "Report staff read referenced photos"
 on storage.objects for select to authenticated
 using (
@@ -24,3 +32,6 @@ using (
     )
   )
 );
+end if;
+end;
+$$;

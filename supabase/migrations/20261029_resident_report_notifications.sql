@@ -1,5 +1,5 @@
 -- Private resident event feed; existing report and notification tables retained.
-create table public.resident_report_notifications (
+create table if not exists public.resident_report_notifications (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null,
   report_source text not null check(report_source in ('reports','pre_blotters','service_complaints')),
@@ -15,13 +15,26 @@ create table public.resident_report_notifications (
   sender_name text,
   created_at timestamptz not null default now()
 );
-create index resident_report_notifications_inbox on public.resident_report_notifications(user_id,created_at desc,id desc);
+create index if not exists resident_report_notifications_inbox on public.resident_report_notifications(user_id,created_at desc,id desc);
 alter table public.resident_report_notifications enable row level security;
 revoke all on public.resident_report_notifications from anon,authenticated;
 grant select on public.resident_report_notifications to authenticated;
-create policy resident_own_report_notifications on public.resident_report_notifications for select to authenticated using (user_id=auth.uid());
+do $$
+begin
+  if not exists (
+    select 1 from pg_catalog.pg_policies
+    where schemaname = 'public'
+      and tablename = 'resident_report_notifications'
+      and policyname = 'resident_own_report_notifications'
+  ) then
+    create policy resident_own_report_notifications
+      on public.resident_report_notifications
+      for select to authenticated using (user_id=auth.uid());
+  end if;
+end;
+$$;
 
-create function public.notify_resident_report_change() returns trigger
+create or replace function public.notify_resident_report_change() returns trigger
 language plpgsql security definer set search_path='' as $$
 declare
   n jsonb := to_jsonb(new); o jsonb := case when tg_op='UPDATE' then to_jsonb(old) else '{}'::jsonb end;
@@ -66,8 +79,11 @@ begin
 end;
 $$;
 revoke all on function public.notify_resident_report_change() from public;
+drop trigger if exists resident_reports_notify on public.reports;
 create trigger resident_reports_notify after insert or update on public.reports for each row execute function public.notify_resident_report_change();
+drop trigger if exists resident_pre_blotters_notify on public.pre_blotters;
 create trigger resident_pre_blotters_notify after insert or update on public.pre_blotters for each row execute function public.notify_resident_report_change();
+drop trigger if exists resident_complaints_notify on public.service_complaints;
 create trigger resident_complaints_notify after insert or update on public.service_complaints for each row execute function public.notify_resident_report_change();
 do $$ begin
   if exists(select 1 from pg_publication where pubname='supabase_realtime') and not exists(select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='resident_report_notifications') then

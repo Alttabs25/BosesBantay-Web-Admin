@@ -1,5 +1,5 @@
 -- Additive service workflow. Existing report structures and policies stay intact.
-create table public.bb_service_events (
+create table if not exists public.bb_service_events (
  id uuid primary key default gen_random_uuid(),
  source_table text not null check(source_table in ('reports','service_complaints')),
  report_id text not null, user_id uuid, reference_no text not null,
@@ -9,14 +9,25 @@ create table public.bb_service_events (
  request_id uuid not null unique, transaction_id bigint not null default txid_current(),
  created_at timestamptz not null default clock_timestamp()
 );
-create index bb_service_events_report on public.bb_service_events(source_table,report_id,created_at desc);
+create index if not exists bb_service_events_report on public.bb_service_events(source_table,report_id,created_at desc);
 alter table public.bb_service_events enable row level security;
 revoke all on public.bb_service_events from anon, authenticated;
 grant select on public.bb_service_events to authenticated;
-create policy service_staff_read on public.bb_service_events for select to authenticated using (
- exists(select 1 from public.users u join public.roles r on r.role_id=u.role_id where u.id=auth.uid() and r.role_name in ('Barangay Secretary','Barangay Captain','Punong Barangay','System Administrator','Lupon Member','Lupong Tagapamayapa Member'))
-);
-create function public.save_service_complaint_action(p_source text,p_report_id text,p_action text,p_note text,p_request_id uuid,p_expected_last uuid default null)
+do $$
+begin
+ if not exists (
+  select 1 from pg_catalog.pg_policies
+  where schemaname = 'public'
+    and tablename = 'bb_service_events'
+    and policyname = 'service_staff_read'
+ ) then
+  create policy service_staff_read on public.bb_service_events for select to authenticated using (
+   exists(select 1 from public.users u join public.roles r on r.role_id=u.role_id where u.id=auth.uid() and r.role_name in ('Barangay Secretary','Barangay Captain','Punong Barangay','System Administrator','Lupon Member','Lupong Tagapamayapa Member'))
+  );
+ end if;
+end;
+$$;
+create or replace function public.save_service_complaint_action(p_source text,p_report_id text,p_action text,p_note text,p_request_id uuid,p_expected_last uuid default null)
 returns public.bb_service_events language plpgsql security definer set search_path='' as $$
 declare v_actor uuid:=auth.uid(); v_name text; v_role text; v_row jsonb; v_last public.bb_service_events; v_event public.bb_service_events; v_stage text; v_status text; v_title text;
 begin
@@ -58,7 +69,12 @@ begin
 end $$;
 revoke all on function public.save_service_complaint_action(text,text,text,text,uuid,uuid) from public;
 grant execute on function public.save_service_complaint_action(text,text,text,text,uuid,uuid) to authenticated;
-do $$ begin if exists(select 1 from pg_publication where pubname='supabase_realtime') then alter publication supabase_realtime add table public.bb_service_events; end if; end $$;
+do $$ begin
+ if exists(select 1 from pg_publication where pubname='supabase_realtime')
+   and not exists(select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='bb_service_events') then
+  alter publication supabase_realtime add table public.bb_service_events;
+ end if;
+end $$;
 
 -- The lifecycle save publishes exactly one notification per action.
 create or replace function public.notify_resident_report_change() returns trigger
