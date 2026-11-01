@@ -2,7 +2,7 @@ import FilterPopup from '../components/FilterPopup'
 import Modal from '../components/Modal'
 import './AuditLogs.css'
 import { useEffect, useMemo, useState } from 'react'
-import { Activity, AlertTriangle, ArrowDown, ArrowDownUp, ArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Search, Users, X } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowDownUp, ArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Search, X } from 'lucide-react'
 import { useData } from '../context/DataContext'
 
 const PAGE_SIZE = 15
@@ -126,7 +126,7 @@ export default function AuditLogs() {
   const attentionCount=auditLog.filter(log=>['critical','warning'].includes(severityFor(log.severity).key)).length
   const normalCount=auditLog.filter(log=>severityFor(log.severity).key==='normal').length
   const actorCount=new Set(auditLog.map(log=>log.actorName).filter(Boolean)).size
-  const metrics=[{value:'all',label:'All events',description:'Recorded admin activity',count:auditLog.length,tone:'blue',icon:Activity},{value:'attention',label:'Needs review',description:'Warnings and critical events',count:attentionCount,tone:'orange',icon:AlertTriangle},{value:'normal',label:'Normal activity',description:'Authorized admin actions',count:normalCount,tone:'green',icon:CheckCircle2}]
+  const metrics=[{value:'all',label:'All events',count:auditLog.length,tone:'blue'},{value:'attention',label:'Needs review',count:attentionCount,tone:'orange'},{value:'normal',label:'Normal activity',count:normalCount,tone:'green'}]
   const activeFilters=Object.entries(filters).filter(([,value])=>value)
   function setFilter(key,value){setFilters(previous=>({...previous,[key]:value}))}
   function toggleSort(key){setSort(previous=>previous.key===key?{key,direction:previous.direction==='asc'?'desc':'asc'}:{key,direction:key==='createdAt'?'desc':'asc'})}
@@ -137,8 +137,8 @@ export default function AuditLogs() {
 
   return <div className="audit-page">
     <section className="audit-metric-grid" aria-label="Audit log summary">
-      {metrics.map(({value,label,description,count,tone,icon:Icon})=><button type="button" key={value} onClick={()=>setFilter('severity',value==='all'?'':value==='attention'?'attention':value)} aria-pressed={(value==='all'&&!filters.severity)||(value==='attention'&&filters.severity==='attention')||(value==='normal'&&filters.severity==='normal')} className={`audit-metric tone-${tone}`}><div><p>{label}</p><strong>{count}</strong><small>{description}</small></div><span><Icon size={18}/></span></button>)}
-      <div className="audit-metric tone-blue"><div><p>Unique users</p><strong>{actorCount}</strong><small>Distinct recorded actors</small></div><span><Users size={18}/></span></div>
+      {metrics.map(({value,label,count,tone})=><button type="button" key={value} onClick={()=>setFilter('severity',value==='all'?'':value==='attention'?'attention':value)} aria-pressed={(value==='all'&&!filters.severity)||(value==='attention'&&filters.severity==='attention')||(value==='normal'&&filters.severity==='normal')} className={`audit-metric tone-${tone}`}><span className="audit-metric-label"><i aria-hidden="true" />{label}</span><strong>{count}</strong></button>)}
+      <div className="audit-metric tone-slate"><span className="audit-metric-label"><i aria-hidden="true" />Unique users</span><strong>{actorCount}</strong></div>
     </section>
 
     <section className="audit-registry">
