@@ -737,10 +737,13 @@ export default function UserAccounts() {
             <div className="account-registry-toolbar">
               <div>
                 <p className="account-registry-eyebrow">Resident registry</p>
-                <p className="account-registry-count"><strong>{filtered.length}</strong> sa {users.length} account</p><FilterPopup title="Filter resident accounts" resultNoun="accounts" count={filtered.length} onReset={() => setStatusFilter('All')}><label><span>Status</span><select value={statusFilter} onChange={event => setStatusFilter(event.target.value)}>{['All','Active','Pending','Suspended','Deactivated'].map(status => <option key={status}>{status}</option>)}</select></label></FilterPopup>
+                <p className="account-registry-count"><strong>{filtered.length}</strong> sa {users.length} account</p>
               </div>
-              <div className="account-search-wrap">
-              <SearchInput value={query} onChange={setQuery} placeholder="Hanapin ang pangalan, phone, o ID..." />
+              <div className="account-registry-tools">
+                <FilterPopup title="Filter resident accounts" resultNoun="accounts" count={filtered.length} onReset={() => setStatusFilter('All')}><label><span>Status</span><select value={statusFilter} onChange={event => setStatusFilter(event.target.value)}>{['All','Active','Pending','Suspended','Deactivated'].map(status => <option key={status}>{status}</option>)}</select></label></FilterPopup>
+                <div className="account-search-wrap">
+                  <SearchInput value={query} onChange={setQuery} placeholder="Hanapin ang pangalan, phone, o ID..." />
+                </div>
               </div>
             </div>
 
@@ -916,13 +919,6 @@ export default function UserAccounts() {
                 <p className="account-registry-count"><strong>{filteredAdminAccounts.length}</strong> sa {accounts.length} admin</p>
               </div>
               <div className="account-admin-tools">
-                <div className="account-search-wrap">
-              <SearchInput
-                value={adminQuery}
-                onChange={setAdminQuery}
-                placeholder="Hanapin ang pangalan, email, role, o ID..."
-              />
-                </div>
                 <FilterPopup title="Filter admin accounts" resultNoun="accounts" count={filteredAdminAccounts.length} onReset={() => setAdminRoleFilter('All')}>                <label >
                   <span>Role</span>
                   <select value={adminRoleFilter} onChange={(event) => setAdminRoleFilter(event.target.value)}>
@@ -931,6 +927,13 @@ export default function UserAccounts() {
                     ))}
                   </select>
                 </label></FilterPopup>
+                <div className="account-search-wrap">
+              <SearchInput
+                value={adminQuery}
+                onChange={setAdminQuery}
+                placeholder="Hanapin ang pangalan, email, role, o ID..."
+              />
+                </div>
               </div>
             </div>
 

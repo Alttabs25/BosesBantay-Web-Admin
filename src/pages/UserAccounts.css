@@ -52,6 +52,8 @@ button.account-metric:hover { border-color: #b9c9d9; background: #fbfdff; }
 .account-registry-count { color: #5d7083; font-size: 12px; line-height: 19px; }
 .account-registry-count strong { color: #244f7b; font-weight: 750; }
 .account-search-wrap { width: min(100%, 330px); }
+.account-registry-tools { display: flex; align-items: center; justify-content: flex-end; gap: 9px; width: min(100%, 480px); }
+.account-registry-tools .account-search-wrap { flex: 1; }
 .account-admin-tools { display: flex; align-items: end; justify-content: flex-end; gap: 9px; width: min(100%, 520px); }
 .account-admin-tools .account-search-wrap { flex: 1; }
 .account-role-filter { display: block; min-width: 150px; color: #758597; font-size: 9px; line-height: 14px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
@@ -80,12 +82,12 @@ button.account-metric:hover { border-color: #b9c9d9; background: #fbfdff; }
 
 @media (max-width: 720px) {
   .account-command-bar { padding: 15px; }
-  .account-command-actions, .account-registry-toolbar, .account-admin-tools { align-items: stretch; flex-direction: column; }
+  .account-command-actions, .account-registry-toolbar, .account-admin-tools, .account-registry-tools { align-items: stretch; flex-direction: column; }
   .account-section-nav { width: 100%; overflow-x: auto; }
   .account-section-nav button { flex: 1 0 max-content; justify-content: center; }
   .account-primary-action { justify-content: center; width: 100%; }
   .account-metric-grid, .account-metric-grid-admin { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .account-search-wrap, .account-admin-tools { width: 100%; max-width: none; }
+  .account-search-wrap, .account-admin-tools, .account-registry-tools { width: 100%; max-width: none; }
   .account-role-filter { width: 100%; }
   .account-access-summary { grid-template-columns: 1fr; }
   .account-access-summary > div { border-right: 0; border-bottom: 1px solid #e2e8ef; }
