@@ -1295,82 +1295,27 @@ export default function UserAccounts() {
       </Modal>
 
       {/* MODAL: Add New Resident */}
-      <Modal open={addingAccount} onClose={() => setAddingAccount(false)} title="Magdagdag ng Resident Account">
-        <form onSubmit={submitNewAccount} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-semibold text-gray-700">First Name</span>
-              <input
-                type="text"
-                required
-                value={newAccount.firstName}
-                onChange={(e) => setNewAccount((a) => ({ ...a, firstName: e.target.value }))}
-                placeholder="Juan"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-semibold text-gray-700">Last Name</span>
-              <input
-                type="text"
-                required
-                value={newAccount.lastName}
-                onChange={(e) => setNewAccount((a) => ({ ...a, lastName: e.target.value }))}
-                placeholder="Dela Cruz"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-              />
-            </label>
+      <Modal open={addingAccount} onClose={() => setAddingAccount(false)} title="Magdagdag ng Resident Account" maxWidth="max-w-3xl">
+        <form onSubmit={submitNewAccount} className="account-create-form">
+          <div className="account-create-columns">
+            <section className="account-create-section">
+              <div className="account-create-section-heading"><span><Users size={18} /></span><div><h4>Resident identity</h4><p>Pangalan at pangunahing contact information.</p></div></div>
+              <div className="account-create-name-grid">
+                <label><span>First Name</span><input type="text" required value={newAccount.firstName} onChange={(e) => setNewAccount((a) => ({ ...a, firstName: e.target.value }))} placeholder="Juan" /></label>
+                <label><span>Last Name</span><input type="text" required value={newAccount.lastName} onChange={(e) => setNewAccount((a) => ({ ...a, lastName: e.target.value }))} placeholder="Dela Cruz" /></label>
+              </div>
+              <label><span>Mobile Phone Number</span><div className="account-create-input-icon"><Phone size={16} /><input type="text" required value={newAccount.phone} onChange={(e) => setNewAccount((a) => ({ ...a, phone: e.target.value }))} placeholder="09171234567" /></div></label>
+              <label><span>Purok / Address</span><div className="account-create-input-icon"><MapPin size={16} /><input type="text" required value={newAccount.purok} onChange={(e) => setNewAccount((a) => ({ ...a, purok: e.target.value }))} placeholder="Purok 3" /></div></label>
+            </section>
+
+            <section className="account-create-section account-create-access">
+              <div className="account-create-section-heading"><span><KeyRound size={18} /></span><div><h4>Login access</h4><p>Kredensyal para sa resident mobile account.</p></div></div>
+              <label><span>Email Address</span><div className="account-create-input-icon"><Mail size={16} /><input type="email" required value={newAccount.email} onChange={(e) => setNewAccount((a) => ({ ...a, email: e.target.value }))} placeholder="juan@example.com" /></div></label>
+              <label><span>Password</span><div className="account-create-input-icon"><KeyRound size={16} /><input type="password" required minLength={6} value={newAccount.password} onChange={(e) => setNewAccount((a) => ({ ...a, password: e.target.value }))} placeholder="Hindi bababa sa 6 na karakter" /></div></label>
+              <div className="account-create-note"><ShieldCheck size={17} /><p>Ang account ay idaragdag bilang resident at sasailalim pa rin sa kasalukuyang governance verification process.</p></div>
+            </section>
           </div>
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Mobile Phone Number</span>
-            <input
-              type="text"
-              required
-              value={newAccount.phone}
-              onChange={(e) => setNewAccount((a) => ({ ...a, phone: e.target.value }))}
-              placeholder="09171234567"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Purok / Address</span>
-            <input
-              type="text"
-              required
-              value={newAccount.purok}
-              onChange={(e) => setNewAccount((a) => ({ ...a, purok: e.target.value }))}
-              placeholder="Purok 3"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Email Address</span>
-            <input
-              type="email"
-              required
-              value={newAccount.email}
-              onChange={(e) => setNewAccount((a) => ({ ...a, email: e.target.value }))}
-              placeholder="juan@example.com"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Password</span>
-            <input
-              type="password"
-              required
-              value={newAccount.password}
-              onChange={(e) => setNewAccount((a) => ({ ...a, password: e.target.value }))}
-              placeholder="Min. 6 characters"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-            />
-          </label>
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-2.5 font-semibold text-white transition-all active:scale-[0.98]"
-          >
-            Isumite
-          </button>
+          <footer className="account-create-footer"><button type="button" onClick={() => setAddingAccount(false)} className="account-create-cancel">Kanselahin</button><button type="submit" className="account-create-submit"><Plus size={17} /> Gumawa ng Resident Account</button></footer>
         </form>
       </Modal>
 
@@ -1379,123 +1324,28 @@ export default function UserAccounts() {
         open={addingAdminAccount}
         onClose={() => setAddingAdminAccount(false)}
         title="Gumawa ng Admin Portal Account"
+        maxWidth="max-w-3xl"
       >
-        <form onSubmit={submitNewAdminAccount} className="space-y-4">
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Buong Pangalan</span>
-            <input
-              type="text"
-              required
-              value={newAdminAccount.name}
-              onChange={(e) => setNewAdminAccount((a) => ({ ...a, name: e.target.value }))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Opisyal na Email</span>
-            <input
-              type="email"
-              required
-              value={newAdminAccount.email}
-              onChange={(e) => setNewAdminAccount((a) => ({ ...a, email: e.target.value }))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Tungkulin</span>
-            <select
-              value={newAdminAccount.role}
-              onChange={(e) => setNewAdminAccount((a) => ({ ...a, role: e.target.value }))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-            >
-              {PORTAL_ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">
-              Pansamantalang Password
-            </span>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                required
-                value={newAdminAccount.tempPassword}
-                onChange={(e) => setNewAdminAccount((a) => ({ ...a, tempPassword: e.target.value }))}
-                placeholder="hal. Barangay#1234"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm placeholder:text-gray-400 focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-              />
-              <button
-                type="button"
-                onClick={() =>
-                  setNewAdminAccount((a) => ({ ...a, tempPassword: generateTempPassword() }))
-                }
-                className="flex shrink-0 items-center gap-1.5 rounded-lg bg-gray-100 px-3 text-xs font-semibold text-gray-600 hover:bg-gray-200"
-              >
-                <Dices size={14} />
-                Bumuo
-              </button>
-            </div>
+        <form onSubmit={submitNewAdminAccount} className="account-create-form">
+          <div className="account-create-columns">
+            <section className="account-create-section">
+              <div className="account-create-section-heading"><span><ShieldCheck size={18} /></span><div><h4>Portal identity</h4><p>Opisyal at tungkuling bibigyan ng access.</p></div></div>
+              <label><span>Buong Pangalan</span><div className="account-create-input-icon"><Users size={16} /><input type="text" required value={newAdminAccount.name} onChange={(e) => setNewAdminAccount((a) => ({ ...a, name: e.target.value }))} placeholder="Juan Dela Cruz" /></div></label>
+              <label><span>Opisyal na Email</span><div className="account-create-input-icon"><Mail size={16} /><input type="email" required value={newAdminAccount.email} onChange={(e) => setNewAdminAccount((a) => ({ ...a, email: e.target.value }))} placeholder="juan@barangay.gov.ph" /></div></label>
+              <label><span>Tungkulin</span><select value={newAdminAccount.role} onChange={(e) => setNewAdminAccount((a) => ({ ...a, role: e.target.value }))}>{PORTAL_ROLES.map((role) => <option key={role} value={role}>{role}</option>)}</select></label>
+            </section>
 
-            {/* Password Strength Status Bar */}
-            <div className="mt-3">
-              <div className="flex items-center justify-between text-xs mb-1">
-                <span className="text-gray-500 font-semibold">Kahirapan ng Password (Strength):</span>
-                <span className={`font-bold ${getPasswordStrength(newAdminAccount.tempPassword).textColor}`}>
-                  {getPasswordStrength(newAdminAccount.tempPassword).label || 'Walang nilalaman'}
-                </span>
+            <section className="account-create-section account-create-access">
+              <div className="account-create-section-heading"><span><KeyRound size={18} /></span><div><h4>First-login security</h4><p>Temporary credential para sa unang pag-login.</p></div></div>
+              <label><span>Pansamantalang Password</span><div className="account-password-generator"><div className="account-create-input-icon"><KeyRound size={16} /><input type="text" required value={newAdminAccount.tempPassword} onChange={(e) => setNewAdminAccount((a) => ({ ...a, tempPassword: e.target.value }))} placeholder="hal. Barangay#1234" /></div><button type="button" onClick={() => setNewAdminAccount((a) => ({ ...a, tempPassword: generateTempPassword() }))}><Dices size={15} /> Bumuo</button></div></label>
+              <div className="account-password-strength">
+                <div><span>Kahirapan ng password</span><strong className={getPasswordStrength(newAdminAccount.tempPassword).textColor}>{getPasswordStrength(newAdminAccount.tempPassword).label || 'Walang nilalaman'}</strong></div>
+                <div className="account-strength-track">{[1, 2, 3, 4].map((score) => <i key={score} className={getPasswordStrength(newAdminAccount.tempPassword).score >= score ? getPasswordStrength(newAdminAccount.tempPassword).color : ''} />)}</div>
               </div>
-              <div className="flex h-1.5 gap-1 rounded bg-gray-100 overflow-hidden">
-                <div
-                  className={`h-full transition-all duration-300 ${
-                    getPasswordStrength(newAdminAccount.tempPassword).score >= 1
-                      ? getPasswordStrength(newAdminAccount.tempPassword).color
-                      : 'bg-transparent'
-                  }`}
-                  style={{ width: '25%' }}
-                />
-                <div
-                  className={`h-full transition-all duration-300 ${
-                    getPasswordStrength(newAdminAccount.tempPassword).score >= 2
-                      ? getPasswordStrength(newAdminAccount.tempPassword).color
-                      : 'bg-transparent'
-                  }`}
-                  style={{ width: '25%' }}
-                />
-                <div
-                  className={`h-full transition-all duration-300 ${
-                    getPasswordStrength(newAdminAccount.tempPassword).score >= 3
-                      ? getPasswordStrength(newAdminAccount.tempPassword).color
-                      : 'bg-transparent'
-                  }`}
-                  style={{ width: '25%' }}
-                />
-                <div
-                  className={`h-full transition-all duration-300 ${
-                    getPasswordStrength(newAdminAccount.tempPassword).score >= 4
-                      ? getPasswordStrength(newAdminAccount.tempPassword).color
-                      : 'bg-transparent'
-                  }`}
-                  style={{ width: '25%' }}
-                />
-              </div>
-              <p className="mt-1.5 text-xs text-gray-400 font-semibold leading-relaxed">
-                * Ang password ay dapat mayroong hindi bababa sa 8 karakter at naglalaman ng kumbinasyon ng malalaki at maliliit na titik, numero, at mga espesyal na karakter.
-              </p>
-            </div>
-            <span className="mt-2 block text-xs text-gray-500">
-              * Kailangan itong palitan ng user sa unang pag-login.
-            </span>
-          </label>
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-2.5 font-semibold text-white transition-all active:scale-[0.98]"
-          >
-            Gumawa ng Account
-          </button>
+              <div className="account-create-note"><ShieldCheck size={17} /><p>Hindi bababa sa 8 karakter na may uppercase, lowercase, numero, at special character. Papalitan ito ng user sa unang login.</p></div>
+            </section>
+          </div>
+          <footer className="account-create-footer"><button type="button" onClick={() => setAddingAdminAccount(false)} className="account-create-cancel">Kanselahin</button><button type="submit" className="account-create-submit"><Plus size={17} /> Gumawa ng Admin Account</button></footer>
         </form>
       </Modal>
 
