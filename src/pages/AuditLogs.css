@@ -1031,3 +1031,27 @@ button.audit-metric.tone-green[aria-pressed="true"] { background: #f0f7f1; }
   .audit-page .audit-metric-label { font-size: 12px; }
   .audit-metric-grid .audit-metric strong { font-size: 24px; line-height: 29px; }
 }
+
+/* Keep summary cards neutral; color is reserved for the small status indicator. */
+.audit-page .audit-metric.tone-blue,
+.audit-page .audit-metric.tone-orange,
+.audit-page .audit-metric.tone-green,
+.audit-page .audit-metric.tone-slate,
+.audit-page button.audit-metric[aria-pressed="true"] {
+  background: #fff;
+}
+.audit-page .audit-metric.tone-blue > .audit-metric-label,
+.audit-page .audit-metric.tone-orange > .audit-metric-label,
+.audit-page .audit-metric.tone-green > .audit-metric-label,
+.audit-page .audit-metric.tone-slate > .audit-metric-label {
+  background: transparent;
+}
+.audit-page .audit-metric strong,
+.audit-page .audit-metric.tone-orange strong,
+.audit-page .audit-metric.tone-green strong {
+  color: #1f344a;
+}
+.audit-page button.audit-metric[aria-pressed="true"] {
+  border-color: #4778aa;
+  box-shadow: inset 0 0 0 1px #4778aa, 0 2px 8px rgb(27 59 91 / 8%);
+}
