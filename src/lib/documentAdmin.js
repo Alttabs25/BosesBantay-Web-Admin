@@ -1,7 +1,7 @@
 const base = (import.meta.env.VITE_DOCUMENT_ADMIN_URL || '/api/document-admin').replace(/\/$/, '')
 export async function documentRequest(path, body) {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), path === '/index' ? 15 * 60 * 1000 : path === '/services/action' ? 3 * 60 * 1000 : ['/summary','/chatbot/test','/chatbot/message'].includes(path) ? 6 * 60 * 1000 : 60000)
+  const timeout = setTimeout(() => controller.abort(), path === '/services' ? 8000 : path === '/index' ? 15 * 60 * 1000 : path === '/services/action' ? 3 * 60 * 1000 : ['/summary','/chatbot/test','/chatbot/message'].includes(path) ? 6 * 60 * 1000 : 60000)
   const send = () => fetch(base + path, { method: body ? 'POST' : 'GET', headers: { ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}), signal: controller.signal })
   try {
     const response = await send()
@@ -9,7 +9,7 @@ export async function documentRequest(path, body) {
     if (!response.ok || !result) throw Object.assign(new Error(result?.error || 'Document service is unavailable. Please retry.'), { status: response.status })
     return result
   } catch (error) {
-    if (error.name === 'AbortError') throw new Error('The lookup timed out. Check the library before retrying an upload.')
+    if (error.name === 'AbortError') throw new Error(path === '/services' ? 'The local control service did not respond within 8 seconds. Retry the status check.' : 'The request timed out. Check the service connection; if uploading, check the library before retrying.')
     if (error instanceof TypeError) throw new Error('Cannot reach the document service. Check its connection and retry.')
     throw error
   } finally { clearTimeout(timeout) }

@@ -11,6 +11,74 @@ import {
 
 const DataContext = createContext(null)
 
+function classifyAuditAction(action = '', requestedType = '') {
+  if (requestedType) return String(requestedType).toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 50)
+  const text = String(action).toLowerCase()
+  if (/login|sign.?in/.test(text)) return 'login'
+  if (/logout|sign.?out/.test(text)) return 'logout'
+  if (/password|password/.test(text)) return 'password_change'
+  if (/unmap|alis sa mapa|in-alis sa mapa|i-map|naka-mapa|mapa/.test(text)) return 'map'
+  if (/delete|remove|tinanggal|binura|inalis/.test(text)) return 'delete'
+  if (/approve|apruba|na-apruba|inaprubahan/.test(text)) return 'approve'
+  if (/reject|tinanggihan/.test(text)) return 'reject'
+  if (/suspend|block|blocked|spam|deactivate/.test(text)) return 'restrict'
+  if (/create|add|nagdagdag|lumikha|gumawa|upload|indexed|nag-upload|nagpadala/.test(text)) return 'create'
+  if (/export|download|print/.test(text)) return 'export'
+  if (/map|gis|pin/.test(text)) return 'map'
+  if (/status|role|access|enable|disable|in-update|nag-update|in-edit|binago/.test(text)) return 'update'
+  return 'other'
+}
+
+function inferAuditTable(action = '', pathname = '') {
+  const text = `${action} ${pathname}`.toLowerCase()
+  if (/emergency contact|emergency-directory|directory/.test(text)) return 'emergency_contacts'
+  if (/chatbot|document|knowledge-base|source|index/.test(text)) return 'documents'
+  if (/notification|alert|abiso/.test(text)) return 'notifications'
+  if (/blotter|service complaint|complaint|reklamo|report/.test(text)) return 'reports'
+  if (/incident|insidente|gis|\bpin\b/.test(text)) return 'incidents'
+  if (/login|logout|2fa|authentication/.test(text)) return 'login_logs'
+  if (/account|user|profile|password|role|module access/.test(text)) return 'users'
+  return null
+}
+
+function inferAuditTargetKey(action = '') {
+  const text = String(action)
+  return text.match(/\b(?:BGY|SC|REF|BLT)-[A-Z0-9-]+\b/i)?.[0]
+    || text.match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i)?.[0]
+    || null
+}
+
+function normalizeAuditSeverity(value) {
+  if (value === 'warning' || value === 'critical') return value
+  return 'normal'
+}
+
+function auditColorForSeverity(severity) {
+  return ({ warning: 'orange', critical: 'red' })[severity] || 'blue'
+}
+
+function sanitizeAuditMetadata(value, depth = 0) {
+  if (depth > 4 || value == null) return value ?? null
+  if (typeof value === 'string') return value.slice(0, 1200)
+  if (typeof value === 'number' || typeof value === 'boolean') return value
+  if (Array.isArray(value)) return value.slice(0, 30).map(item => sanitizeAuditMetadata(item, depth + 1))
+  if (typeof value !== 'object') return String(value)
+  const safeSecurityFlags = new Set(['password_changed', 'temporary_password_replaced', 'must_change_password', 'password_reset', 'recovery_completed'])
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => safeSecurityFlags.has(key) || !/(password|passcode|token|secret|authorization|cookie|email|phone|mobile|address|birth|id_number)/i.test(key))
+    .slice(0, 40)
+    .map(([key, item]) => [key, sanitizeAuditMetadata(item, depth + 1)]))
+}
+
+function unpackLegacyAuditDetails(details = '') {
+  const marker = '\n\n[AUDIT_CONTEXT]'
+  const splitAt = String(details).lastIndexOf(marker)
+  if (splitAt < 0) return { action: details, context: {} }
+  const action = String(details).slice(0, splitAt)
+  try { return { action, context: JSON.parse(String(details).slice(splitAt + marker.length)) } }
+  catch { return { action: details, context: {} } }
+}
+
 function calculateAge(birthdateString) {
   if (!birthdateString) return ''
   const today = new Date()
@@ -537,19 +605,29 @@ export function DataProvider({ children }) {
 
       if (!logsErr && logsData) {
         const mappedLogs = logsData.map(l => {
-          const actorName = l.users ? `${l.users.first_name} ${l.users.last_name}`.trim() : 'System'
-          const actorRole = l.users?.roles?.role_name || '—'
+          const legacyContext = unpackLegacyAuditDetails(l.details).context
+          const actorName = l.actor_name_snapshot || legacyContext.actor_name_snapshot || (l.users ? `${l.users.first_name} ${l.users.last_name}`.trim() : 'System')
+          const actorRole = l.actor_role_snapshot || legacyContext.actor_role_snapshot || l.users?.roles?.role_name || '—'
 
-          let color = 'blue'
-          if (l.action_type?.toLowerCase().includes('suspend') || l.action_type?.toLowerCase().includes('reject')) color = 'orange'
-          else if (l.action_type?.toLowerCase().includes('delete') || l.action_type?.toLowerCase().includes('deactivate')) color = 'red'
-          else if (l.action_type?.toLowerCase().includes('create') || l.action_type?.toLowerCase().includes('upload') || l.action_type?.toLowerCase().includes('approve') || l.action_type?.toLowerCase().includes('resolve')) color = 'green'
+          const severity = normalizeAuditSeverity(l.severity || legacyContext.severity)
+          const color = auditColorForSeverity(severity)
 
           return {
             id: l.audit_id,
+            actorId: l.actor_id || null,
+            targetTable: l.target_table || legacyContext.target_table || '',
+            targetId: l.target_id ?? null,
+            targetKey: l.target_key || legacyContext.target_key || '',
+            actionType: l.action_type || '',
+            severity,
+            source: l.source || legacyContext.source || '',
+            ipAddress: l.ip_address || legacyContext.ip_address || '',
+            metadata: l.metadata || legacyContext.metadata || {},
             actorName,
             actorRole,
-            action: l.details || l.action_type,
+            action: unpackLegacyAuditDetails(l.details).action || l.action_type,
+            createdAt: l.created_at,
+            rawEvent: { audit_id: l.audit_id, actor_id: l.actor_id, actor_name_snapshot: l.actor_name_snapshot || legacyContext.actor_name_snapshot, actor_role_snapshot: l.actor_role_snapshot || legacyContext.actor_role_snapshot, action_type: l.action_type, target_table: l.target_table || legacyContext.target_table, target_id: l.target_id, target_key: l.target_key || legacyContext.target_key, severity, source: l.source || legacyContext.source, ip_address: l.ip_address || legacyContext.ip_address, metadata: l.metadata || legacyContext.metadata, details: unpackLegacyAuditDetails(l.details).action, legacy_context: Object.keys(legacyContext).length ? legacyContext : undefined, created_at: l.created_at },
             timestamp: new Date(l.created_at).toLocaleString('en-US', {
               month: 'short',
               day: 'numeric',
@@ -685,16 +763,56 @@ export function DataProvider({ children }) {
     }
   }, [user])
 
-  const addAuditEntry = async (action, { color = 'blue', actorName, actorRole } = {}) => {
+  const addAuditEntry = async (action, options = {}) => {
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser()
-      await supabase
-        .from('audit_logs')
-        .insert([{
-          actor_id: authUser?.id || null,
-          action_type: action.substring(0, 50),
-          details: action
-        }])
+      const text = String(action || '').trim().slice(0, 4000)
+      const pathname = typeof window === 'undefined' ? '' : window.location.pathname
+      const inferredTargetKey = inferAuditTargetKey(text)
+      const targetKey = options.targetKey == null
+        ? (inferredTargetKey || (/users|profile|first-login/.test(pathname) ? user?.id : null))
+        : String(options.targetKey)
+      const actionId = text.match(/\b(?:user|account|contact|incident|report|notification)\s*(?:id)?\s*[#:]?\s*(\d+)\b/i)?.[1]
+      const targetIdNumber = options.targetId == null ? (actionId ? Number(actionId) : null) : Number(options.targetId)
+      const targetId = Number.isSafeInteger(targetIdNumber) && targetIdNumber >= 0 ? targetIdNumber : null
+      const targetTable = String(options.targetTable || inferAuditTable(text, pathname) || '').slice(0, 50) || null
+      const severity = normalizeAuditSeverity(options.severity)
+      const metadata = sanitizeAuditMetadata({
+        outcome: options.outcome || 'success',
+        ...(options.attemptCount !== undefined ? { failed_attempt_count: options.attemptCount } : {}),
+        ...(options.metadata && typeof options.metadata === 'object' ? options.metadata : {}),
+        ...(options.before !== undefined ? { before: options.before } : {}),
+        ...(options.after !== undefined ? { after: options.after } : {}),
+        ...(targetKey ? { target_reference: targetKey } : {}),
+      })
+      const legacy = {
+        actor_id: authUser?.id || user?.id || null,
+        action_type: classifyAuditAction(text, options.eventType),
+        target_table: targetTable,
+        target_id: targetId,
+        details: text,
+      }
+      const enriched = {
+        ...legacy,
+        actor_name_snapshot: String(options.actorName || user?.name || '').slice(0, 160) || null,
+        actor_role_snapshot: String(options.actorRole || user?.role || '').slice(0, 100) || null,
+        target_key: targetKey?.slice(0, 200) || null,
+        source: String(options.source || `web-admin:${pathname.replace(/^\//, '') || 'app'}`).slice(0, 120),
+        severity,
+        metadata,
+      }
+      const legacyContext = { actor_name_snapshot: enriched.actor_name_snapshot, actor_role_snapshot: enriched.actor_role_snapshot, target_table: enriched.target_table, target_key: enriched.target_key, source: enriched.source, severity: enriched.severity, metadata: enriched.metadata }
+      const { error: insertError } = await supabase.from('audit_logs').insert([enriched])
+      if (insertError) {
+        const schemaNeedsUpdate = ['42703','PGRST204','PGRST200'].includes(insertError.code)
+          || (insertError.code === '23514' && /audit_logs_severity_check|severity/i.test(insertError.message || ''))
+          || /column .* does not exist|schema cache/i.test(insertError.message || '')
+        if (!schemaNeedsUpdate) throw insertError
+        const fallbackLegacy = { ...legacy, details: `${text}\n\n[AUDIT_CONTEXT]${JSON.stringify(legacyContext)}` }
+        const { error: legacyError } = await supabase.from('audit_logs').insert([fallbackLegacy])
+        if (legacyError) throw legacyError
+        console.warn('[audit] Extended audit fields are not installed yet; stored the compatible legacy event.', insertError.message)
+      }
 
       const { data: logsData, error: logsErr } = await supabase
         .from('audit_logs')
@@ -704,18 +822,28 @@ export function DataProvider({ children }) {
 
       if (!logsErr && logsData) {
         const mappedLogs = logsData.map(l => {
-          const name = l.users ? `${l.users.first_name} ${l.users.last_name}`.trim() : 'System'
-          const role = l.users?.roles?.role_name || '—'
-          let logColor = 'blue'
-          if (l.action_type?.toLowerCase().includes('suspend') || l.action_type?.toLowerCase().includes('reject')) logColor = 'orange'
-          else if (l.action_type?.toLowerCase().includes('delete') || l.action_type?.toLowerCase().includes('deactivate')) logColor = 'red'
-          else if (l.action_type?.toLowerCase().includes('create') || l.action_type?.toLowerCase().includes('upload') || l.action_type?.toLowerCase().includes('approve') || l.action_type?.toLowerCase().includes('resolve')) logColor = 'green'
+          const legacyContext = unpackLegacyAuditDetails(l.details).context
+          const name = l.actor_name_snapshot || legacyContext.actor_name_snapshot || (l.users ? `${l.users.first_name} ${l.users.last_name}`.trim() : 'System')
+          const role = l.actor_role_snapshot || legacyContext.actor_role_snapshot || l.users?.roles?.role_name || '—'
+          const storedSeverity = normalizeAuditSeverity(l.severity || legacyContext.severity)
+          const logColor = auditColorForSeverity(storedSeverity)
 
           return {
             id: l.audit_id,
+            actorId: l.actor_id || null,
+            targetTable: l.target_table || legacyContext.target_table || '',
+            targetId: l.target_id ?? null,
+            targetKey: l.target_key || legacyContext.target_key || '',
+            actionType: l.action_type || '',
+            severity: storedSeverity,
+            source: l.source || legacyContext.source || '',
+            ipAddress: l.ip_address || legacyContext.ip_address || '',
+            metadata: l.metadata || legacyContext.metadata || {},
             actorName: name,
             actorRole: role,
-            action: l.details || l.action_type,
+            action: unpackLegacyAuditDetails(l.details).action || l.action_type,
+            createdAt: l.created_at,
+            rawEvent: { audit_id: l.audit_id, actor_id: l.actor_id, actor_name_snapshot: l.actor_name_snapshot || legacyContext.actor_name_snapshot, actor_role_snapshot: l.actor_role_snapshot || legacyContext.actor_role_snapshot, action_type: l.action_type, target_table: l.target_table || legacyContext.target_table, target_id: l.target_id, target_key: l.target_key || legacyContext.target_key, severity: storedSeverity, source: l.source || legacyContext.source, ip_address: l.ip_address || legacyContext.ip_address, metadata: l.metadata || legacyContext.metadata, details: unpackLegacyAuditDetails(l.details).action, legacy_context: Object.keys(legacyContext).length ? legacyContext : undefined, created_at: l.created_at },
             timestamp: new Date(l.created_at).toLocaleString('en-US', {
               month: 'short',
               day: 'numeric',
@@ -834,17 +962,20 @@ export function DataProvider({ children }) {
 
   const addEmergencyContact = async (contact) => {
     try {
-      await supabase.from('emergency_contacts').insert([{
+      const { data, error } = await supabase.from('emergency_contacts').insert([{
         agency_name: contact.agencyName,
         contact_person: contact.contactPerson || '',
         phone_number: contact.phoneNumber,
         category: contact.category,
         is_active: contact.isActive ?? true,
         authorized_by: user?.id || null
-      }])
+      }]).select('contact_id').single()
+      if (error) throw error
       fetchData()
+      return { success: true, id: data.contact_id }
     } catch (err) {
       console.error('Error adding emergency contact:', err)
+      return { success: false, error: err.message }
     }
   }
 
@@ -862,29 +993,39 @@ export function DataProvider({ children }) {
         }
       }
 
-      await supabase
+      const { data, error } = await supabase
         .from('emergency_contacts')
         .update(updateFields)
         .eq('contact_id', id)
+        .select('contact_id')
+        .maybeSingle()
+      if (error || !data) throw error || new Error('Emergency contact was not found.')
       fetchData()
+      return { success: true, id: data.contact_id }
     } catch (err) {
       console.error('Error updating emergency contact:', err)
+      return { success: false, error: err.message }
     }
   }
 
   const deleteEmergencyContact = async (id) => {
     try {
-      await supabase
+      const { data, error } = await supabase
         .from('emergency_contacts')
         .delete()
         .eq('contact_id', id)
+        .select('contact_id')
+        .maybeSingle()
+      if (error || !data) throw error || new Error('Emergency contact was not found.')
       fetchData()
+      return { success: true, id: data.contact_id }
     } catch (err) {
       console.error('Error deleting emergency contact:', err)
+      return { success: false, error: err.message }
     }
   }
 
-  const mapIncidentLocation = async (refOrId, { lat, lng, location, address, report } = {}) => {
+  const mapIncidentLocation = async (refOrId, { lat, lng, location, address, report } = {}, auditOptions = {}) => {
     try {
       if (lat == null || lng == null) {
         throw new Error('Pumili muna ng lokasyon sa mapa bago i-map ang insidente.')
@@ -1217,7 +1358,11 @@ export function DataProvider({ children }) {
         return updated
       })
 
-      addAuditEntry(`I-map ang insidente ${refOrId} sa GIS map`, { color: 'green' })
+      addAuditEntry(auditOptions.action || `I-map ang insidente ${refOrId} sa GIS map`, {
+        color: auditOptions.color || 'green', eventType: auditOptions.eventType || 'map', targetTable: existingReport ? 'reports' : 'incidents', targetKey: String(refOrId),
+        before: auditOptions.before ?? { mapped: Boolean(existingIncident?.isMapped ?? existingIncident?.is_mapped), map_status: existingIncident?.mapStatus || 'Pending' },
+        after: auditOptions.after ?? { mapped: true, map_status: 'Approved', location_updated: Boolean(targetLocation) },
+      })
 
       // Immediately refetch from backend so database is the absolute source of truth
       await fetchData()
@@ -1229,7 +1374,7 @@ export function DataProvider({ children }) {
     }
   }
 
-  const unmapIncidentLocation = async (refOrId) => {
+  const unmapIncidentLocation = async (refOrId, auditOptions = {}) => {
     try {
       const existingReport = blotterReports.find(r => r.id === refOrId || r.ref === refOrId || String(r.blotterId) === String(refOrId))
       const existingIncident = incidents.find(i => i.ref === refOrId || i.id === refOrId || String(i.blotterId) === String(refOrId))
@@ -1315,7 +1460,11 @@ export function DataProvider({ children }) {
         })
       )
 
-      addAuditEntry(`Inalis sa GIS map ang insidente ${refOrId}`, { color: 'orange' })
+      addAuditEntry(auditOptions.action || `Inalis sa GIS map ang insidente ${refOrId}`, {
+        color: auditOptions.color || 'orange', eventType: auditOptions.eventType || 'map', targetTable: existingReport ? 'reports' : 'incidents', targetKey: String(refOrId),
+        before: auditOptions.before ?? { mapped: Boolean(existingIncident?.isMapped ?? existingIncident?.is_mapped), map_status: existingIncident?.mapStatus || 'Approved' },
+        after: auditOptions.after ?? { mapped: false, map_status: 'Pending' },
+      })
 
       // Immediately refetch from backend so database is the absolute source of truth
       await fetchData()
@@ -1475,7 +1624,7 @@ export function DataProvider({ children }) {
         }, ...prev])
       }
 
-      addAuditEntry(`Lumikha ng blotter report ${refNo} (${isMapped ? 'Naka-mapa na' : 'Hindi naka-mapa'})`, { color: 'green' })
+      addAuditEntry(`Lumikha ng blotter report ${refNo} (${isMapped ? 'Naka-mapa na' : 'Hindi naka-mapa'})`, { color: 'green', eventType: 'create', targetTable: 'reports', targetKey: refNo, after: { record_type: 'blotter_report', category: classificationValue, status: reportData.status || 'Sinuri', severity: reportData.severity || 'Katamtaman', mapped: isMapped } })
       fetchData().catch(() => {})
       return { success: true, ref: refNo }
     } catch (err) {
@@ -1642,7 +1791,7 @@ export function DataProvider({ children }) {
       }
       setBlotterReports((prev) => [newBlotterItem, ...prev.filter((b) => b.id !== refNo)])
 
-      addAuditEntry(`Nagdagdag ng insidente ${refNo} (${isMapped ? 'Naka-mapa na' : 'Hindi naka-mapa'})`, { color: 'blue' })
+      addAuditEntry(`Nagdagdag ng insidente ${refNo} (${isMapped ? 'Naka-mapa na' : 'Hindi naka-mapa'})`, { color: 'blue', eventType: 'create', targetTable: 'incidents', targetKey: refNo, after: { title: titleValue, classification: classificationValue, severity: incident.severity || 'Katamtaman', map_status: mapStatus, mapped: isMapped } })
       fetchData().catch((e) => console.error('Background sync error:', e))
 
       return { success: true, data: createdIncident }
@@ -1656,7 +1805,7 @@ export function DataProvider({ children }) {
     try {
       const isApproved = status === 'Approved'
       if (!isApproved) {
-        return await unmapIncidentLocation(ref)
+        return await unmapIncidentLocation(ref, { action: `Tinanggihan ang pin ${ref} para sa mapa`, eventType: 'reject', color: 'orange', before: { map_status: 'Pending', published: false }, after: { map_status: 'Pending', published: false, review_decision: 'Rejected' } })
       }
 
       const existingIncident = incidents.find(i => i.ref === ref || i.id === ref)
@@ -1665,7 +1814,7 @@ export function DataProvider({ children }) {
           lat: existingIncident.lat,
           lng: existingIncident.lng,
           location: existingIncident.location,
-        })
+        }, { action: `Na-apruba ang pin ${ref} para sa pampublikong mapa`, eventType: 'approve', color: 'green', before: { map_status: existingIncident.mapStatus || 'Pending', published: false }, after: { map_status: 'Approved', published: true } })
       }
     } catch (err) {
       console.error('Error updating incident map status:', err)
@@ -1687,16 +1836,21 @@ export function DataProvider({ children }) {
         .maybeSingle()
 
       if (pb) {
-        await supabase.from('pre_blotters').delete().eq('blotter_id', pb.blotter_id)
+        const { error: removeBlotterError } = await supabase.from('pre_blotters').delete().eq('blotter_id', pb.blotter_id)
+        if (removeBlotterError) throw removeBlotterError
         if (pb.extraction_id) {
-          await supabase.from('ai_extractions').delete().eq('extraction_id', pb.extraction_id)
+          const { error: removeExtractionError } = await supabase.from('ai_extractions').delete().eq('extraction_id', pb.extraction_id)
+          if (removeExtractionError) throw removeExtractionError
         }
       }
 
       setIncidents((prev) => prev.filter((i) => i.ref !== ref))
       setBlotterReports((prev) => prev.filter((b) => b.id !== ref && b.ref !== ref))
 
+      if (existing) addAuditEntry(`Binura ang insidente ${ref}`, { color: 'red', eventType: 'delete', targetTable: 'incidents', targetKey: String(ref), before: { title: existing.title, classification: existing.classification, severity: existing.severity, status: existing.status, map_status: existing.mapStatus }, after: null })
+
       fetchData()
+      return { success: true }
     } catch (err) {
       console.error('Error deleting incident:', err)
     }
@@ -1731,7 +1885,7 @@ export function DataProvider({ children }) {
         severity: record.severity || existingJson.severity || 'Katamtaman',
       }
 
-      await supabase
+      const { error: extractionUpdateError } = await supabase
         .from('ai_extractions')
         .update({
           incident_type: classificationValue,
@@ -1741,6 +1895,7 @@ export function DataProvider({ children }) {
           json_output: updatedJson,
         })
         .eq('extraction_id', pb.extraction_id)
+      if (extractionUpdateError) throw extractionUpdateError
 
       const pbUpdate = {
         latitude: parsedLat,
@@ -1748,7 +1903,8 @@ export function DataProvider({ children }) {
         map_status: isMapped ? 'Approved' : 'Pending',
       }
 
-      await supabase.from('pre_blotters').update(pbUpdate).eq('blotter_id', pb.blotter_id)
+      const { error: mapUpdateError } = await supabase.from('pre_blotters').update(pbUpdate).eq('blotter_id', pb.blotter_id)
+      if (mapUpdateError) throw mapUpdateError
 
       setIncidents((prev) =>
         prev.map((i) =>
@@ -1795,7 +1951,8 @@ export function DataProvider({ children }) {
         )
       )
 
-      addAuditEntry(`Na-update ang insidente ${ref}`, { color: 'blue' })
+      const previous = incidents.find((item) => item.ref === ref)
+      addAuditEntry(`Na-update ang insidente ${ref}`, { color: 'blue', eventType: 'update', targetTable: 'incidents', targetKey: String(ref), before: previous ? { title: previous.title, classification: previous.classification, severity: previous.severity, map_status: previous.mapStatus } : null, after: { title: titleValue, classification: classificationValue, severity: record.severity || existingJson.severity || 'Katamtaman', map_status: isMapped ? 'Approved' : 'Pending', mapped: isMapped } })
       fetchData().catch((e) => console.error('Background sync error:', e))
       return { success: true }
     } catch (err) {
@@ -1999,7 +2156,7 @@ export function DataProvider({ children }) {
   const addAlert = async (entry) => {
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser()
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('notifications')
         .insert([{
           sent_by: authUser?.id || null,
@@ -2008,10 +2165,12 @@ export function DataProvider({ children }) {
           notification_type: entry.type,
           is_read: false
         }])
+        .select('notification_id')
+        .single()
 
       if (!error) {
         await fetchData()
-        return { success: true }
+        return { success: true, id: data.notification_id }
       } else {
         console.error('Error inserting notification:', error)
         return { success: false, error }

@@ -26,7 +26,7 @@ function initialStage(status) {
 }
 export default function ServiceComplaintActions({ report }) {
   const { user } = useAuth()
-  const { fetchData } = useData()
+  const { fetchData, addAuditEntry } = useData()
   const { showToast } = useToast()
   const source = report.sourceTable
   const reportId = String(report.dbId || '')
@@ -72,6 +72,17 @@ export default function ServiceComplaintActions({ report }) {
       if (!saved?.id) throw new Error('Save not confirmed')
       setEvents(previous => [saved, ...previous.filter(event => event.id !== saved.id)].sort((a,b) => b.created_at.localeCompare(a.created_at)))
       setAction(''); setNote(''); request.current = null; setConfirm(false)
+      const previousStage = latest?.stage || initialStage(report.status)
+      const severity = saved.stage === 'resolved' ? 'green' : ['spam','out_of_scope','closed_unresolved'].includes(saved.stage) ? 'orange' : 'blue'
+      addAuditEntry(`${activityLabels[saved.action] || saved.action}: ${report.reference || report.id}`, {
+        color: severity,
+        eventType: `service_complaint_${saved.action}`,
+        targetTable: source,
+        targetKey: String(report.reference || report.id),
+        before: { stage: previousStage, status: report.status },
+        after: { stage: saved.stage, status: saved.status || null, note_recorded: true, linked_action_id: saved.id },
+        source: 'web-admin:service-complaints',
+      })
       showToast('Na-save ang update sa service complaint.')
       void fetchData().catch(() => showToast('Na-save ang update. I-reload ang listahan para sa bagong status.', 'error'))
     } catch (failure) {

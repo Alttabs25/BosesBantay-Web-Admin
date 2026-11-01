@@ -65,18 +65,18 @@ export default function Reports() {
       return
     }
     setGenerated(true)
-    addAuditEntry('Bumuo ng report summary', { color: 'blue' })
+    addAuditEntry('Generated records summary', { color: 'blue', eventType: 'report_generate', targetTable: 'reports', after: { date_range: dateRange, custom_start: dateRange === 'Custom Range' ? startDate : null, custom_end: dateRange === 'Custom Range' ? endDate : null, report_sections: ['incident_types', 'sectors', 'statuses'] } })
   }
 
   function handleExportCSV() {
     const rows = [['Kategorya', 'Label', 'Bilang'], ...typeData.map((row) => ['Insidente ayon sa Uri ng Insidente', row.label, row.value]), ...sectorData.map((row) => ['Kabuuan ayon sa Sektor', row.label, row.value]), ...statusData.map((row) => ['Status Breakdown', row.label, row.value])]
     downloadCSV(`bosesbantay-report-${Date.now()}.csv`, rows)
     showToast('Nai-download na ang Spreadsheet (CSV) report summary.', 'success')
-    addAuditEntry('Nag-export ng report bilang spreadsheet (CSV)', { color: 'green' })
+    addAuditEntry('Exported records summary as CSV', { color: 'green', eventType: 'export_csv', targetTable: 'reports', after: { date_range: scopeLabel, row_count: rows.length - 1, format: 'csv' } })
   }
 
   function handlePrint() {
-    addAuditEntry('Nag-export ng report bilang PDF (print)', { color: 'green' })
+    addAuditEntry('Exported records summary as PDF', { color: 'green', eventType: 'export_pdf', targetTable: 'reports', after: { date_range: scopeLabel, format: 'pdf_print' } })
     setTimeout(() => { window.print(); showToast('Nai-export na ang PDF report summary.', 'success') }, 150)
   }
 

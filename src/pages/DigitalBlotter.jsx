@@ -261,7 +261,7 @@ export default function DigitalBlotter({ reportType = 'blotter' }) {
     try {
       await updateBlotterReport(report.id, { status: 'Spam' })
       await suspendUserByName(report.filedBy)
-      addAuditEntry(`Na-flag bilang spam ang blotter ${report.id}, na-block ang account ni ${report.filedBy}`, { color: 'red' })
+      addAuditEntry(`Na-flag bilang spam ang blotter ${report.id}, na-block ang account ni ${report.filedBy}`, { color: 'red', eventType: 'restrict', targetTable: 'reports', targetKey: report.id, before: { status: report.status }, after: { status: 'Spam', reporter_account_restricted: true } })
       showToast(`Na-flag bilang spam. Na-block ang account ni ${report.filedBy}.`)
     } catch {
       showToast(`Hindi na-save ang pagbabago sa ${report.id}. Pakisubukan muli.`, 'error')

@@ -27,7 +27,7 @@ export default function FirstLoginPasswordChange() {
       return
     }
     completeFirstLogin(newPassword)
-    addAuditEntry('Binago ang pansamantalang password sa unang pag-login', { color: 'blue' })
+    addAuditEntry('Binago ang pansamantalang password sa unang pag-login', { color: 'blue', eventType: 'password_change', targetTable: 'users', targetKey: user?.id, after: { temporary_password_replaced: true, must_change_password: false } })
     showToast('Na-set ang bagong password.')
     navigate('/dashboard')
   }

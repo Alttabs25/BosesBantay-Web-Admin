@@ -39,3 +39,9 @@ Larger chunks can mean fewer embeddings and database rows but a bigger generatio
 Uploads now collect a document title, category, optional ordinance/reference number, and optional summary. The backend stores these as `document_title`, `document_type`, `reference_number`, and `summary` in each chunk's existing metadata JSON; no schema changes or legacy-document rewrites are required. Metadata cannot replace source filename, page, active state, embedding model, or chunk identity. The document library supports title/reference search and category filtering. These administrative categories do not automatically rewrite the chatbot's menu file.
 
 The source form offers file upload or pasted text. Pasted content is saved as a named UTF-8 TXT file through the same validated ingestion pipeline. PDF extraction previews are read-only so changes cannot silently create false page citations. File uploads retain their original filename. DOCX remains unsupported by the current ingestion backend; convert it first. The summary is an administrative description, not independent evidence used to answer factual questions.
+
+## Manual local startup
+
+The website never starts the document/control adapter automatically. Run `services/document-admin/Start-Document-Admin.cmd` when you want to use it. AI, Whisper and the gateway remain separately controlled in Services.
+
+Status requests time out after eight seconds rather than staying on Checking. If the adapter is off, start it manually and use Check status. No runtime processes are started merely by opening the website.

@@ -338,7 +338,7 @@ export default function UserAccounts() {
 
     updateUser(id, patch)
     const colorByNext = { Active: 'green', Suspended: 'orange', Deactivated: 'red' }
-    addAuditEntry(`${action.label} User ID ${target.id}`, { color: colorByNext[action.next] })
+    addAuditEntry(`${action.label} User ID ${target.id}`, { color: colorByNext[action.next], targetTable: 'users', targetKey: target.id, before: { status: target.status, role: target.role, verification: target.barangayIdStatus }, after: patch })
     showToast(action.toast ?? 'Na-update ang account.')
   }
 
@@ -360,6 +360,8 @@ export default function UserAccounts() {
     const statusLabel = BARANGAY_ID_STATUS_BADGE[newStatus]?.label || newStatus
     addAuditEntry(`In-update ang Barangay ID Status ni ${targetName} sa "${statusLabel}"`, {
       color: newStatus === 'pb_authorized' ? 'green' : 'orange',
+      targetTable: 'users', targetKey: targetUser.id,
+      before: { barangay_id_status: targetUser.barangayIdStatus, account_status: targetUser.status }, after: patch,
     })
     showToast(
       newStatus === 'pb_authorized'
@@ -394,11 +396,11 @@ export default function UserAccounts() {
           }),
         },
       })
-      addAuditEntry(`Humiling ng tungkuling ${role} para kay ${userName}`, { color: 'orange' })
+      addAuditEntry(`Humiling ng tungkuling ${role} para kay ${userName}`, { color: 'orange', targetTable: 'users', targetKey: targetUser.id, before: { role: targetUser.role }, after: { requested_role: role, request_status: 'pending' } })
       showToast(`Naisumite ang kahilingan na gawing ${role} si ${userName} — naghihintay ng PB approval.`)
     } else {
       updateUser(targetUser.id, { role, status: 'Active' })
-      addAuditEntry(`Nag-assign ng tungkuling ${role} kay ${userName}`, { color: 'blue' })
+      addAuditEntry(`Nag-assign ng tungkuling ${role} kay ${userName}`, { color: 'blue', targetTable: 'users', targetKey: targetUser.id, before: { role: targetUser.role, status: targetUser.status }, after: { role, status: 'Active' } })
       showToast(`Na-assign si ${userName} bilang ${role}.`)
     }
     setRoleChoice('')
@@ -421,11 +423,11 @@ export default function UserAccounts() {
         status: 'Active',
         pendingRoleRequest: null,
       })
-      addAuditEntry(`Inaprubahan ang tungkuling ${requestedRole} para kay ${userName}`, { color: 'green' })
+      addAuditEntry(`Inaprubahan ang tungkuling ${requestedRole} para kay ${userName}`, { color: 'green', targetTable: 'users', targetKey: targetUser.id, before: { role: targetUser.role, pending_role: requestedRole }, after: { role: requestedRole, pending_role: null } })
       showToast(`Na-approve: si ${userName} ngayon ay ${requestedRole}.`)
     } else {
       updateUser(targetUser.id, { pendingRoleRequest: null })
-      addAuditEntry(`Tinanggihan ang kahilingan sa tungkulin ni ${userName}`, { color: 'red' })
+      addAuditEntry(`Tinanggihan ang kahilingan sa tungkulin ni ${userName}`, { color: 'red', targetTable: 'users', targetKey: targetUser.id, before: { pending_role: targetUser.pendingRoleRequest?.requestedRole }, after: { pending_role: null, decision: 'rejected' } })
       showToast(`Tinanggihan ang kahilingan para kay ${userName}.`, 'error')
     }
     setPendingRoleDecision(null)
@@ -434,7 +436,7 @@ export default function UserAccounts() {
   function confirmDelete() {
     const target = users.find((u) => u.id === pendingDeleteId)
     removeUser(pendingDeleteId)
-    addAuditEntry(`Tinanggal ang account ni ${target?.name || target?.fullName || pendingDeleteId}`, { color: 'red' })
+    addAuditEntry(`Tinanggal ang account ni ${target?.name || target?.fullName || pendingDeleteId}`, { color: 'red', targetTable: 'users', targetKey: pendingDeleteId, before: target ? { status: target.status, role: target.role } : null, after: null })
     showToast(`Tinanggal ang account ni ${target?.name || target?.fullName || ''}.`)
   }
 
@@ -470,7 +472,7 @@ export default function UserAccounts() {
     }
 
     const fullName = `${newAccount.firstName.trim()} ${newAccount.lastName.trim()}`
-    addAuditEntry(`Nagdagdag ng bagong resident account: ${fullName}`, { color: 'green' })
+    addAuditEntry(`Nagdagdag ng bagong resident account: ${fullName}`, { color: 'green', targetTable: 'users', targetKey: res.user?.id, after: { role: 'Residente', status: 'Pending' } })
     showToast(`Naidagdag ang account ni ${fullName}. Naghihintay ng pag-apruba.`)
     
     fetchData()
@@ -496,7 +498,7 @@ export default function UserAccounts() {
     }
     addAuditEntry(
       `Gumawa ng bagong admin portal account para kay ${newAdminAccount.name.trim()} (${newAdminAccount.role})`,
-      { color: 'green' },
+      { color: 'green', targetTable: 'users', targetKey: result.account?.id, after: { role: newAdminAccount.role, must_change_password: true } },
     )
     showToast(`Nagawa ang admin account ni ${newAdminAccount.name.trim()}. Kailangan niyang baguhin ang password sa unang login.`)
     setNewAdminAccount(BLANK_ADMIN_ACCOUNT)
@@ -524,7 +526,7 @@ export default function UserAccounts() {
       return
     }
 
-    addAuditEntry(`Nag-reset ng password para sa admin account ni ${account.name}`, { color: 'orange' })
+    addAuditEntry(`Nag-reset ng password para sa admin account ni ${account.name}`, { color: 'orange', targetTable: 'users', targetKey: account.id, after: { password_reset: true, password_value: '[redacted]' } })
     showToast(`Bagong password para kay ${account.name} ay na-save na.`)
     setPendingResetId(null)
     setResetPasswordValue('')
@@ -546,7 +548,7 @@ export default function UserAccounts() {
 
     addAuditEntry(
       `Binago ang tungkulin ni ${targetAccount.name} mula "${oldRole}" patungong "${newRole}"`,
-      { color: 'blue' }
+      { color: 'blue', targetTable: 'users', targetKey: targetAccount.id, before: { role: oldRole }, after: { role: newRole } }
     )
     showToast(`Matagumpay na nabago ang tungkulin ni ${targetAccount.name} bilang ${newRole}.`)
     fetchData()
@@ -558,7 +560,7 @@ export default function UserAccounts() {
     const account = accounts.find((a) => a.id === pendingAdminDeleteId)
     if (!account) return
     await deleteAdminAccount(account.id)
-    addAuditEntry(`Tinanggal ang admin portal account ni ${account.name}`, { color: 'red' })
+    addAuditEntry(`Tinanggal ang admin portal account ni ${account.name}`, { color: 'red', targetTable: 'users', targetKey: account.id, before: { role: account.role, status: account.status }, after: null })
     showToast(`Tinanggal ang admin account ni ${account.name}.`)
   }
 
@@ -572,7 +574,7 @@ export default function UserAccounts() {
     setModuleAccess(role, moduleKey, enabled)
     addAuditEntry(
       `Binago ang access sa module na "${moduleLabel}" para sa ${role}: ${enabled ? 'Naka-on' : 'Naka-off'}`,
-      { color: enabled ? 'green' : 'orange' },
+      { color: enabled ? 'green' : 'orange', targetTable: 'role_module_access', targetKey: `${role}:${moduleKey}`, before: { role, module: moduleKey, enabled: !enabled }, after: { role, module: moduleKey, enabled } },
     )
     showToast(
       enabled

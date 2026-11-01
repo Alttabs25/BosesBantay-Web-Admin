@@ -27,7 +27,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
 
   const groups = ['Workspace','Management','Reports & account'].map(label=>({label,items:visibleItems.filter(item=>item.group===label)})).filter(group=>group.items.length)
   const handleLogout = () => {
-    addAuditEntry('Logout', { color: 'blue' })
+    addAuditEntry('Logout', { color: 'blue', eventType: 'logout', targetTable: 'users', targetKey: user?.id, before: { session_active: true }, after: { session_active: false, reason: 'user_signed_out' } })
     logout()
   }
 

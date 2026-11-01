@@ -53,7 +53,7 @@ export default function Alerts() {
       setConfirmingSend(false)
       return
     }
-    addAuditEntry(`Nagpadala ng ${noticeType} ("${title.trim()}") sa ${target}`, { color: 'blue' })
+    addAuditEntry(`Nagpadala ng ${noticeType} ("${title.trim()}") sa ${target}`, { color: level === 'Emergency' ? 'red' : level === 'High' ? 'orange' : 'blue', eventType: 'create', targetTable: 'notifications', targetId: result.id, after: { notice_type: noticeType, target, alert_level: level, title: title.trim() } })
     showToast(`Naipadala ang abiso sa ${target}.`)
     setTitle('')
     setMessage('')
@@ -67,7 +67,7 @@ export default function Alerts() {
     setAlertToDelete(null)
     const result = await deleteAlert(selected.id)
     if (result?.success) {
-      addAuditEntry(`Binura ang abiso ("${selected.title || 'Abiso'}")`, { color: 'red' })
+      addAuditEntry(`Binura ang abiso ("${selected.title || 'Abiso'}")`, { color: 'red', eventType: 'delete', targetTable: 'notifications', targetId: selected.id, before: { title: selected.title, type: selected.type, is_read: selected.read }, after: null })
       showToast('Matagumpay na nabura ang abiso.')
     } else showToast('Hindi nabura ang abiso. Subukan muli.', 'error')
   }

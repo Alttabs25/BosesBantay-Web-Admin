@@ -34,7 +34,7 @@ export default function Profile() {
     reader.onload = async () => {
       const result = await updateUser({ avatarUrl: reader.result })
       if (result && !result.success) showToast(result.error || 'Hindi ma-update ang profile picture.', 'error')
-      else { addAuditEntry('Nag-upload ng bagong profile picture', { color: 'blue' }); showToast('Na-update ang profile picture.') }
+      else { addAuditEntry('Nag-upload ng bagong profile picture', { color: 'blue', eventType: 'profile_avatar_update', targetTable: 'users', targetKey: user?.id, after: { avatar_updated: true } }); showToast('Na-update ang profile picture.') }
     }
     reader.readAsDataURL(file)
   }
@@ -42,7 +42,7 @@ export default function Profile() {
   async function confirmRemoveAvatar() {
     const result = await updateUser({ avatarUrl: null })
     if (result && !result.success) showToast(result.error || 'Hindi maalis ang profile picture.', 'error')
-    else { addAuditEntry('Inalis ang profile picture', { color: 'orange' }); showToast('Naalis ang profile picture.') }
+    else { addAuditEntry('Inalis ang profile picture', { color: 'orange', eventType: 'profile_avatar_remove', targetTable: 'users', targetKey: user?.id, before: { avatar_present: true }, after: { avatar_present: false } }); showToast('Naalis ang profile picture.') }
   }
 
   async function saveInfo(event) {
@@ -50,7 +50,7 @@ export default function Profile() {
     if (!name.trim() || !email.trim()) return showToast('Kumpletuhin ang pangalan at email.', 'error')
     const result = await updateUser({ name: name.trim(), email: email.trim() })
     if (result && !result.success) showToast(result.error || 'Hindi ma-save ang mga pagbabago.', 'error')
-    else { addAuditEntry('In-update ang profile information', { color: 'blue' }); showToast('Na-save ang mga pagbabago sa profile.') }
+    else { addAuditEntry('In-update ang profile information', { color: 'blue', eventType: 'profile_update', targetTable: 'users', targetKey: user?.id, before: { display_name_changed: name.trim() !== user?.name, contact_email_changed: email.trim() !== user?.email }, after: { profile_saved: true } }); showToast('Na-save ang mga pagbabago sa profile.') }
   }
 
   async function submitPasswordChange(event) {
@@ -60,7 +60,7 @@ export default function Profile() {
     if (newPassword !== confirmPassword) return showToast('Hindi magkatugma ang bagong password.', 'error')
     const result = await changePassword({ currentPassword, newPassword })
     if (!result?.success) return showToast(result?.error || 'Hindi ma-update ang password.', 'error')
-    addAuditEntry('Binago ang sariling password', { color: 'blue' })
+    addAuditEntry('Binago ang sariling password', { color: 'blue', eventType: 'password_change', targetTable: 'users', targetKey: user?.id, after: { password_changed: true, password_value: '[redacted]' } })
     showToast('Na-update ang password.')
     setCurrentPassword(''); setNewPassword(''); setConfirmPassword('')
   }
@@ -83,7 +83,7 @@ export default function Profile() {
       const { error } = await supabase.rpc('toggle_2fa', { disable: false })
       if (error) throw error
       setIs2faDisabled(false)
-      addAuditEntry('In-enable ang Two-Factor Authentication (2FA)', { color: 'green' })
+      addAuditEntry('In-enable ang Two-Factor Authentication (2FA)', { color: 'green', eventType: 'security_setting_update', targetTable: 'users', targetKey: user?.id, before: { email_2fa_enabled: false }, after: { email_2fa_enabled: true } })
       showToast('Naka-enable na ang email 2FA verification.')
     } catch (error) { showToast(`Hindi ma-update ang 2FA settings: ${error.message}`, 'error') }
   }
@@ -93,7 +93,7 @@ export default function Profile() {
       const { error } = await supabase.rpc('toggle_2fa', { disable: true })
       if (error) throw error
       setIs2faDisabled(true)
-      addAuditEntry('In-disable ang Two-Factor Authentication (2FA)', { color: 'red' })
+      addAuditEntry('In-disable ang Two-Factor Authentication (2FA)', { color: 'red', eventType: 'security_setting_update', targetTable: 'users', targetKey: user?.id, before: { email_2fa_enabled: true }, after: { email_2fa_enabled: false } })
       showToast('BABALA: Naka-disable na ang email 2FA verification.', 'info')
     } catch (error) { showToast(`Hindi ma-update ang 2FA settings: ${error.message}`, 'error') }
     finally { setConfirmingDisable2fa(false) }

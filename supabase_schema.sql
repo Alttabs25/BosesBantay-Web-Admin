@@ -214,12 +214,28 @@ CREATE TABLE IF NOT EXISTS public.login_logs (
 CREATE TABLE IF NOT EXISTS public.audit_logs (
     audit_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     actor_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    actor_name_snapshot TEXT NULL,
+    actor_role_snapshot TEXT NULL,
     action_type VARCHAR(50) NOT NULL,
     target_table VARCHAR(50) NULL,
     target_id BIGINT NULL,
+    target_key TEXT NULL,
+    source TEXT NULL,
+    severity TEXT NOT NULL DEFAULT 'normal' CHECK (severity IN ('normal', 'warning', 'critical')),
+    ip_address INET NULL,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
     details TEXT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS audit_logs_target_key_idx
+  ON public.audit_logs (target_table, target_key)
+  WHERE target_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS audit_logs_severity_created_idx
+  ON public.audit_logs (severity, created_at DESC);
+CREATE INDEX IF NOT EXISTS audit_logs_failed_signin_ip_idx
+  ON public.audit_logs (ip_address, created_at DESC)
+  WHERE action_type IN ('login_failure', 'login_2fa_failure');
 
 -- 16. GENERATED REPORTS
 CREATE TABLE IF NOT EXISTS public.generated_reports (
