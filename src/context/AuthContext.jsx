@@ -78,7 +78,7 @@ export function AuthProvider({ children }) {
             avatarUrl: profile.avatar_url || null,
             gender: profile.gender || '',
             birthdate: profile.birthdate || '',
-            civilStatus: profile.civil_status || '',
+            civilStatus: profile.civil_status || session.user.user_metadata?.civil_status || '',
             mobileNumber: profile.mobile_number || '',
             address: profile.address === 'N/A' ? '' : (profile.address || ''),
             mustChangePassword: session.user.user_metadata?.must_change_password || false,
@@ -148,7 +148,7 @@ export function AuthProvider({ children }) {
       avatarUrl: profile?.avatar_url || null,
       gender: profile?.gender || '',
       birthdate: profile?.birthdate || '',
-      civilStatus: profile?.civil_status || '',
+      civilStatus: profile?.civil_status || data.user.user_metadata?.civil_status || '',
       mobileNumber: profile?.mobile_number || '',
       address: profile?.address === 'N/A' ? '' : (profile?.address || ''),
       mustChangePassword: data.user.user_metadata?.must_change_password || false,
@@ -195,10 +195,27 @@ export function AuthProvider({ children }) {
     if ('mobileNumber' in partial) patch.mobile_number = partial.mobileNumber || null
     if ('address' in partial) patch.address = partial.address || ''
 
-    const { error } = await supabase
+    let { error } = await supabase
       .from('users')
       .update(patch)
       .eq('id', user.id)
+
+    if (error && 'civilStatus' in partial && /civil_status.*schema cache|column.*civil_status.*does not exist/i.test(error.message || '')) {
+      const compatiblePatch = { ...patch }
+      delete compatiblePatch.civil_status
+      const retry = await supabase
+        .from('users')
+        .update(compatiblePatch)
+        .eq('id', user.id)
+      error = retry.error
+
+      if (!error) {
+        const metadataUpdate = await supabase.auth.updateUser({
+          data: { civil_status: partial.civilStatus || null }
+        })
+        error = metadataUpdate.error
+      }
+    }
 
     if (error) {
       console.error('Error updating profile:', error)
