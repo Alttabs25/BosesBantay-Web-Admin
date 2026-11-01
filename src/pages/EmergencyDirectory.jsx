@@ -1,15 +1,20 @@
 import { useState } from 'react'
 import {
+  Building2,
   Phone,
+  PhoneCall,
   Plus,
   Pencil,
   Trash2,
-  AlertCircle,
-  CheckCircle,
-  HelpCircle,
+  Info,
+  Landmark,
+  Save,
+  Siren,
+  UserRound,
   Eye,
   EyeOff
 } from 'lucide-react'
+import './EmergencyDirectory.css'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
@@ -199,61 +204,24 @@ export default function EmergencyDirectory() {
         open={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingContact ? 'I-edit ang Contact' : 'Magdagdag ng Emergency Contact'}
+        maxWidth="max-w-3xl"
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Pangalan ng Ahensya / Desk</span>
-            <input
-              type="text"
-              required
-              placeholder="Hal. BFP Milagrosa, Barangay Health Center"
-              value={formData.agencyName}
-              onChange={(e) => setFormData(f => ({ ...f, agencyName: e.target.value }))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-            />
-          </label>
+        <form onSubmit={handleSubmit} className="emergency-contact-form">
+          <div className="emergency-form-columns">
+            <section className="emergency-form-section">
+              <div className="emergency-form-heading"><span><Building2 size={18} /></span><div><h4>Contact identity</h4><p>Ahensya o desk na makikita sa directory.</p></div></div>
+              <label><span>Pangalan ng Ahensya / Desk <small>Required</small></span><div className="emergency-input-icon"><Building2 size={16} /><input type="text" required placeholder="Hal. BFP Milagrosa" value={formData.agencyName} onChange={(e) => setFormData(f => ({ ...f, agencyName: e.target.value }))} /></div></label>
+              <label><span>Deskripsyon / Tao na Kakausapin</span><div className="emergency-input-icon"><UserRound size={16} /><input type="text" placeholder="Hal. Fire emergency, Medical assistance" value={formData.contactPerson} onChange={(e) => setFormData(f => ({ ...f, contactPerson: e.target.value }))} /></div><small className="emergency-field-help">Maikling paliwanag kung kailan o sino ang dapat tawagan.</small></label>
+            </section>
 
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Deskripsyon / Tao na Kakausapin</span>
-            <input
-              type="text"
-              placeholder="Hal. Fire emergency, Medical assistance"
-              value={formData.contactPerson}
-              onChange={(e) => setFormData(f => ({ ...f, contactPerson: e.target.value }))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-            />
-          </label>
-
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Numero ng Telepono</span>
-            <input
-              type="text"
-              required
-              placeholder="Hal. 0912-345-6789 o 8911-5966"
-              value={formData.phoneNumber}
-              onChange={(e) => setFormData(f => ({ ...f, phoneNumber: e.target.value }))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-            />
-          </label>
-
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-gray-700">Kategorya</span>
-            <select
-              value={formData.category}
-              onChange={(e) => setFormData(f => ({ ...f, category: e.target.value }))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue"
-            >
-              <option value="Emergency">Emergency Hotline</option>
-              <option value="Barangay Services">Barangay Service</option>
-            </select>
-          </label>
-
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-2.5 font-semibold text-white transition-all active:scale-[0.98]"
-          >
-            Isumite
-          </button>
+            <section className="emergency-form-section emergency-form-directory">
+              <div className="emergency-form-heading"><span><PhoneCall size={18} /></span><div><h4>Directory setup</h4><p>Hotline number at uri ng serbisyong ibinibigay.</p></div></div>
+              <label><span>Numero ng Telepono <small>Required</small></span><div className="emergency-input-icon"><Phone size={16} /><input type="text" required inputMode="tel" placeholder="Hal. 0912-345-6789 o 8911-5966" value={formData.phoneNumber} onChange={(e) => setFormData(f => ({ ...f, phoneNumber: e.target.value }))} /></div></label>
+              <fieldset className="emergency-category-field"><legend>Kategorya</legend><div className="emergency-category-options" role="radiogroup" aria-label="Kategorya ng contact"><button type="button" role="radio" aria-checked={formData.category === 'Emergency'} className={formData.category === 'Emergency' ? 'is-selected' : ''} onClick={() => setFormData(f => ({ ...f, category: 'Emergency' }))}><Siren size={18} /><span><strong>Emergency Hotline</strong><small>Urgent response at rescue</small></span></button><button type="button" role="radio" aria-checked={formData.category === 'Barangay Services'} className={formData.category === 'Barangay Services' ? 'is-selected' : ''} onClick={() => setFormData(f => ({ ...f, category: 'Barangay Services' }))}><Landmark size={18} /><span><strong>Barangay Service</strong><small>Office at public assistance</small></span></button></div></fieldset>
+              <div className="emergency-form-note"><Info size={17} /><p>{formData.isActive ? 'Kasalukuyang published ang contact na ito. Ang pagbabago ay agad na lalabas sa directory.' : 'Mase-save ito bilang draft hanggang i-authorize at i-publish ng Punong Barangay.'}</p></div>
+            </section>
+          </div>
+          <footer className="emergency-form-footer"><button type="button" className="emergency-form-cancel" onClick={() => setIsModalOpen(false)}>Kanselahin</button><button type="submit" className="emergency-form-submit">{editingContact ? <Save size={17} /> : <Plus size={17} />}{editingContact ? 'I-save ang Pagbabago' : 'Idagdag sa Directory'}</button></footer>
         </form>
       </Modal>
 
@@ -280,7 +248,6 @@ function ContactCard({
   themeColor
 }) {
   const iconBg = themeColor === 'red' ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-600'
-  const buttonBg = themeColor === 'red' ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
 
   return (
     <div className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-xs transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md">
