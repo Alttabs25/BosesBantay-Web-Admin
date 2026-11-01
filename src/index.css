@@ -296,7 +296,7 @@ body {
 
 .blotter-detail-columns { display: grid; align-items: start; gap: 1.25rem; }
 @media (min-width: 1024px) { .blotter-detail-columns { grid-template-columns: minmax(0, 7fr) minmax(0, 3fr); } .blotter-detail-columns > .blotter-actions { position: sticky; top: 0; } }
-@media print { body * { visibility: hidden !important; } [data-blotter-paper], [data-blotter-paper] * { visibility: visible !important; } [data-blotter-paper] { position: absolute !important; inset: 0 auto auto 0 !important; width: 100% !important; max-width: none !important; zoom: 1 !important; box-shadow: none !important; } main, main > div, .blotter-detail-columns, .blotter-detail-columns > section { overflow: visible !important; height: auto !important; } }
+@media print { body * { visibility: hidden !important; } [data-blotter-paper], [data-blotter-paper] *, [data-report-paper], [data-report-paper] * { visibility: visible !important; } [data-blotter-paper] { position: absolute !important; inset: 0 auto auto 0 !important; width: 100% !important; max-width: none !important; zoom: 1 !important; box-shadow: none !important; } main, main > div, .blotter-detail-columns, .blotter-detail-columns > section { overflow: visible !important; height: auto !important; } }
 @media (min-width: 1024px) { .blotter-detail-columns > section, .blotter-detail-columns > .blotter-actions { height: var(--blotter-detail-height, calc(100dvh - 180px)); min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; } .blotter-detail-columns > .blotter-actions { position: static; padding-right: 4px; } }
 @media print { .blotter-detail-columns > section { height: auto !important; overflow: visible !important; } }
 /* Consistent hierarchy for the blotter workflow sidebar. */

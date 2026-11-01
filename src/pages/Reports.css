@@ -94,9 +94,11 @@
 @media (max-width:700px) { .report-builder-body,.report-custom-dates,.report-kpi-grid,.report-analytics-grid,.report-analytics-grid.is-three-column { grid-template-columns:1fr; } .report-custom-dates { grid-column:auto; } .report-output-heading { flex-direction:column; } .report-output-controls { width:100%; align-items:stretch; } .report-view-switch,.report-export-actions { width:100%; justify-content:flex-start; } .report-view-switch button,.report-export-actions button { flex:1; justify-content:center; } .report-kpi-grid > div { border-right:0; border-bottom:1px solid #e5e7eb; } .report-kpi-grid > div:last-child { border-bottom:0; } .report-paper-stage { padding:12px; } .report-paper-sheet { min-width:620px; padding:40px 44px; } }
 @media print {
   @page { size:A4 portrait; margin:0; }
-  .report-output-panel { overflow:visible; margin:0; border:0; box-shadow:none; }
+  html,body,#root { width:100% !important; height:auto !important; margin:0 !important; overflow:visible !important; background:#fff !important; }
+  #root > div,#root > div > div,main,.reports-page,.report-output-panel,.report-paper-stage { display:block !important; width:100% !important; max-width:none !important; height:auto !important; min-height:0 !important; overflow:visible !important; margin:0 !important; padding:0 !important; transform:none !important; animation:none !important; }
+  .report-output-panel { border:0; border-radius:0; box-shadow:none; }
   .report-details-view { display:none !important; }
-  .report-paper-stage { display:block !important; overflow:visible; padding:0; background:#fff; }
-  .report-paper-sheet { width:210mm; min-height:297mm; margin:0; padding:14mm 16mm 12mm; box-shadow:none; }
+  .report-paper-stage { background:#fff !important; }
+  .report-paper-sheet { position:relative !important; inset:auto !important; box-sizing:border-box !important; width:100% !important; max-width:none !important; min-width:0 !important; min-height:297mm; margin:0 !important; padding:14mm 16mm 12mm !important; background:#fff !important; box-shadow:none !important; transform:none !important; zoom:1 !important; visibility:visible !important; }
   .report-paper-section,.report-paper-overview,.report-paper-footer { break-inside:avoid; }
 }
