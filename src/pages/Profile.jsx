@@ -1,6 +1,6 @@
 import './Profile.css'
 import { useEffect, useRef, useState } from 'react'
-import { BadgeCheck, Camera, KeyRound, Mail, Save, ShieldCheck, Trash2, User as UserIcon } from 'lucide-react'
+import { BadgeCheck, CalendarDays, Camera, KeyRound, Mail, MapPin, Phone, Save, ShieldCheck, Trash2, User as UserIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
@@ -9,12 +9,28 @@ import { supabase } from '../lib/supabaseClient'
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024
 
+function ageFromBirthdate(value) {
+  if (!value) return ''
+  const birthdate = new Date(`${value}T00:00:00`)
+  if (Number.isNaN(birthdate.getTime())) return ''
+  const today = new Date()
+  let age = today.getFullYear() - birthdate.getFullYear()
+  const monthDifference = today.getMonth() - birthdate.getMonth()
+  if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < birthdate.getDate())) age -= 1
+  return age >= 0 ? String(age) : ''
+}
+
 export default function Profile() {
   const { user, updateUser, changePassword } = useAuth()
   const { addAuditEntry } = useData()
   const { showToast } = useToast()
   const [name, setName] = useState(user?.name ?? '')
   const [email, setEmail] = useState(user?.email ?? '')
+  const [gender, setGender] = useState(user?.gender ?? '')
+  const [civilStatus, setCivilStatus] = useState(user?.civilStatus ?? '')
+  const [birthdate, setBirthdate] = useState(user?.birthdate ?? '')
+  const [mobileNumber, setMobileNumber] = useState(user?.mobileNumber ?? '')
+  const [address, setAddress] = useState(user?.address ?? '')
   const fileInputRef = useRef(null)
   const [confirmingRemoveAvatar, setConfirmingRemoveAvatar] = useState(false)
   const [is2faDisabled, setIs2faDisabled] = useState(false)
@@ -48,9 +64,9 @@ export default function Profile() {
   async function saveInfo(event) {
     event.preventDefault()
     if (!name.trim() || !email.trim()) return showToast('Kumpletuhin ang pangalan at email.', 'error')
-    const result = await updateUser({ name: name.trim(), email: email.trim() })
+    const result = await updateUser({ name: name.trim(), email: email.trim(), gender, civilStatus, birthdate, mobileNumber: mobileNumber.trim(), address: address.trim() })
     if (result && !result.success) showToast(result.error || 'Hindi ma-save ang mga pagbabago.', 'error')
-    else { addAuditEntry('In-update ang profile information', { color: 'blue', eventType: 'profile_update', targetTable: 'users', targetKey: user?.id, before: { display_name_changed: name.trim() !== user?.name, contact_email_changed: email.trim() !== user?.email }, after: { profile_saved: true } }); showToast('Na-save ang mga pagbabago sa profile.') }
+    else { addAuditEntry('In-update ang profile information', { color: 'blue', eventType: 'profile_update', targetTable: 'users', targetKey: user?.id, before: { display_name_changed: name.trim() !== user?.name, contact_email_changed: email.trim() !== user?.email }, after: { profile_saved: true, personal_details_updated: true } }); showToast('Na-save ang mga pagbabago sa profile.') }
   }
 
   async function submitPasswordChange(event) {
@@ -64,6 +80,16 @@ export default function Profile() {
     showToast('Na-update ang password.')
     setCurrentPassword(''); setNewPassword(''); setConfirmPassword('')
   }
+
+  useEffect(() => {
+    setName(user?.name ?? '')
+    setEmail(user?.email ?? '')
+    setGender(user?.gender ?? '')
+    setCivilStatus(user?.civilStatus ?? '')
+    setBirthdate(user?.birthdate ?? '')
+    setMobileNumber(user?.mobileNumber ?? '')
+    setAddress(user?.address ?? '')
+  }, [user?.id, user?.name, user?.email, user?.gender, user?.civilStatus, user?.birthdate, user?.mobileNumber, user?.address])
 
   useEffect(() => {
     async function fetch2faStatus() {
@@ -116,8 +142,22 @@ export default function Profile() {
 
     <main className="profile-settings-column">
       <form onSubmit={saveInfo} className="profile-settings-panel">
-        <header><span><UserIcon size={19} /></span><div><p>Account details</p><h2>Profile Information</h2><small>I-update ang pangalan at opisyal na contact email.</small></div></header>
-        <div className="profile-form-body"><div className="profile-field-grid"><label><span>Pangalan ng Administrator</span><input value={name} onChange={(event) => setName(event.target.value)} /></label><label><span>Authority Role</span><input value={user?.role ?? ''} disabled /><small>System Administrator lamang ang maaaring magtakda nito.</small></label></div><label><span>Email Address</span><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><div className="profile-form-actions"><button type="submit"><Save size={16} /> I-save ang Pagbabago</button></div></div>
+        <header><span><UserIcon size={19} /></span><div><p>Account details</p><h2>Profile Information</h2><small>I-update ang opisyal at personal na impormasyon ng iyong account.</small></div></header>
+        <div className="profile-form-body">
+          <div className="profile-field-grid"><label><span>Pangalan ng Administrator</span><input value={name} onChange={(event) => setName(event.target.value)} /></label><label><span>Authority Role</span><input value={user?.role ?? ''} disabled /><small>System Administrator lamang ang maaaring magtakda nito.</small></label></div>
+          <label><span>Email Address</span><div className="profile-input-icon"><Mail size={16} /><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></div></label>
+
+          <div className="profile-form-section-heading"><div><h3>Personal information</h3><p>Optional ang mga field na ito. Mananatiling blangko para sa bagong staff hanggang makumpleto nila ang profile.</p></div></div>
+          <div className="profile-field-grid profile-personal-grid">
+            <label><span>Gender</span><select value={gender} onChange={(event) => setGender(event.target.value)}><option value="">Pumili ng gender</option><option value="Lalaki">Lalaki</option><option value="Babae">Babae</option><option value="Non-binary">Non-binary</option><option value="Prefer not to say">Prefer not to say</option></select></label>
+            <label><span>Civil Status</span><select value={civilStatus} onChange={(event) => setCivilStatus(event.target.value)}><option value="">Pumili ng status</option><option value="Single">Single</option><option value="Married">Married</option><option value="Widowed">Widowed</option><option value="Separated">Separated</option></select></label>
+            <label><span>Date of Birth</span><div className="profile-input-icon"><CalendarDays size={16} /><input type="date" max={new Date().toISOString().slice(0, 10)} value={birthdate} onChange={(event) => setBirthdate(event.target.value)} /></div></label>
+            <label><span>Age</span><input value={ageFromBirthdate(birthdate)} placeholder="—" disabled /><small>Awtomatikong kinukuwenta mula sa date of birth.</small></label>
+          </div>
+          <label><span>Mobile Number</span><div className="profile-input-icon"><Phone size={16} /><input type="tel" inputMode="tel" value={mobileNumber} onChange={(event) => setMobileNumber(event.target.value)} placeholder="Hal. 0917 123 4567" /></div></label>
+          <label><span>Address</span><div className="profile-input-icon profile-textarea-icon"><MapPin size={16} /><textarea rows="3" value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Ilagay ang kasalukuyang address" /></div></label>
+          <div className="profile-form-actions"><button type="submit"><Save size={16} /> I-save ang Pagbabago</button></div>
+        </div>
       </form>
 
       <form onSubmit={submitPasswordChange} className="profile-settings-panel">

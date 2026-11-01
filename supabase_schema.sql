@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS public.users (
     last_name VARCHAR(100) NOT NULL,
     suffix VARCHAR(20) NULL,
     gender VARCHAR(20) NULL,
+    civil_status VARCHAR(30) NULL,
     birthdate DATE NULL,
     mobile_number VARCHAR(20) UNIQUE,
     email VARCHAR(100) UNIQUE NOT NULL,

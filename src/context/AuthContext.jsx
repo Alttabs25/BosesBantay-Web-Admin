@@ -76,6 +76,11 @@ export function AuthProvider({ children }) {
             role: profile.roles?.role_name || 'System Administrator',
             email: session.user.email,
             avatarUrl: profile.avatar_url || null,
+            gender: profile.gender || '',
+            birthdate: profile.birthdate || '',
+            civilStatus: profile.civil_status || '',
+            mobileNumber: profile.mobile_number || '',
+            address: profile.address === 'N/A' ? '' : (profile.address || ''),
             mustChangePassword: session.user.user_metadata?.must_change_password || false,
           })
         } else {
@@ -85,6 +90,11 @@ export function AuthProvider({ children }) {
             name: session.user.user_metadata?.first_name || 'Admin User',
             role: 'System Administrator',
             email: session.user.email,
+            gender: '',
+            birthdate: '',
+            civilStatus: '',
+            mobileNumber: '',
+            address: '',
             mustChangePassword: session.user.user_metadata?.must_change_password || false,
           })
         }
@@ -136,6 +146,11 @@ export function AuthProvider({ children }) {
       role: profile?.roles?.role_name || 'System Administrator',
       email: data.user.email,
       avatarUrl: profile?.avatar_url || null,
+      gender: profile?.gender || '',
+      birthdate: profile?.birthdate || '',
+      civilStatus: profile?.civil_status || '',
+      mobileNumber: profile?.mobile_number || '',
+      address: profile?.address === 'N/A' ? '' : (profile?.address || ''),
       mustChangePassword: data.user.user_metadata?.must_change_password || false,
     }
 
@@ -174,6 +189,11 @@ export function AuthProvider({ children }) {
     }
     if (partial.email) patch.email = partial.email
     if ('avatarUrl' in partial) patch.avatar_url = partial.avatarUrl
+    if ('gender' in partial) patch.gender = partial.gender || null
+    if ('birthdate' in partial) patch.birthdate = partial.birthdate || null
+    if ('civilStatus' in partial) patch.civil_status = partial.civilStatus || null
+    if ('mobileNumber' in partial) patch.mobile_number = partial.mobileNumber || null
+    if ('address' in partial) patch.address = partial.address || ''
 
     const { error } = await supabase
       .from('users')
@@ -257,7 +277,7 @@ export function AuthProvider({ children }) {
           last_name,
           email: email.trim(),
           mobile_number: null,
-          address: 'N/A',
+          address: '',
           barangay_id_image: 'N/A',
           verification_status: 'pb_authorized',
           approval_status: 'Active'
