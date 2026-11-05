@@ -519,11 +519,12 @@
 .gis-filter-popup input[type=radio] { width: 17px; height: 17px; accent-color: #286bac; flex-shrink: 0; }
 
 @media(min-width:640px) {
+ .gis-workspace.gis-filter-popup #gis-overview-filters { max-height: none; overflow: visible; padding-right: 0; }
  .gis-workspace.gis-filter-popup #gis-overview-filters .gis-analysis-controls { align-items: stretch; }
- .gis-workspace.gis-filter-popup #gis-overview-filters .gis-type-select { display: flex; flex-direction: column; align-self: stretch; min-height: 0; }
+ .gis-workspace.gis-filter-popup #gis-overview-filters .gis-type-select { display: flex; flex-direction: column; align-self: stretch; height: min(52vh,460px); min-height: 300px; }
  .gis-workspace.gis-filter-popup #gis-overview-filters .gis-type-select legend { float: none; flex-shrink: 0; }
  .gis-workspace.gis-filter-popup .gis-type-search-row { flex-shrink: 0; }
- .gis-workspace.gis-filter-popup #gis-overview-filters .gis-type-choices { flex: 1; min-height: 0; height: 0; max-height: none; overflow-y: auto; }
+ .gis-workspace.gis-filter-popup #gis-overview-filters .gis-type-choices { flex: 1; min-height: 0; height: auto; max-height: none; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 }
 @media(min-width:1024px) {
  .gis-workspace.gis-browsing:not(.gis-analysis-mode) .gis-map-panel,
