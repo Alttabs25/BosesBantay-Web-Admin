@@ -138,6 +138,18 @@ function sanitizeText(val, fallback = 'N/A') {
   return String(val)
 }
 
+function normalizeIncidentSeverity(value) {
+  return ({
+    high: 'Mataas', mataas: 'Mataas',
+    medium: 'Katamtaman', moderate: 'Katamtaman', katamtaman: 'Katamtaman',
+    low: 'Mababa', mababa: 'Mababa',
+  })[String(value || '').trim().toLowerCase()] || ''
+}
+
+function isPendingWorkflowStatus(status) {
+  return ['sinuri', 'under review', 'pending', 'for review', ''].includes(String(status || '').trim().toLowerCase())
+}
+
 function extractPhotoPaths(report) {
   const details = report?.full_details && typeof report.full_details === 'object'
     ? report.full_details
@@ -242,6 +254,9 @@ export function DataProvider({ children }) {
       if (!pbsErr && pbsData) {
         pbsData.forEach(b => {
           const json = b.ai_extractions?.json_output || {}
+          const workflowStatus = b.status || 'Sinuri'
+          const intakeSeverity = normalizeIncidentSeverity(json.severity || json.suggestedSeverity)
+          const severityConfirmed = json.severityConfirmed === true || (Boolean(intakeSeverity) && !isPendingWorkflowStatus(workflowStatus))
           const complainantName = json.complainant || b.ai_extractions?.complainant || 'Residente'
 
           const userObj = usersData?.find(u => u.id === b.user_id) ||
@@ -267,7 +282,9 @@ export function DataProvider({ children }) {
             sourceTable: 'pre_blotters',
             title: json.what || b.ai_extractions?.incident_type || 'Kaso',
             classification: json.classification || b.ai_extractions?.incident_type || 'Kaso',
-            severity: json.severity || 'Katamtaman',
+            severity: severityConfirmed ? intakeSeverity : '',
+            suggestedSeverity: severityConfirmed ? '' : intakeSeverity,
+            severityConfirmed,
             excerpt: b.ai_extractions?.narrative_summary || b.remarks || '',
             location: b.location_address || b.ai_extractions?.incident_location || 'Quezon City',
             address: b.location_address || b.ai_extractions?.incident_location || 'Quezon City',
@@ -286,7 +303,7 @@ export function DataProvider({ children }) {
             mapReviewedAt: b.map_reviewed_at || b.mapped_at || null,
             filedBy: complainantName,
             submittedById: b.user_id || null,
-            status: b.status || 'Sinuri',
+            status: workflowStatus,
           }
 
           // Incidents collection contains all incidents; mapped ones have is_mapped = true and lat/lng
@@ -332,7 +349,9 @@ export function DataProvider({ children }) {
             when: sanitizeText(json.when, 'N/A'),
             why: sanitizeText(json.why, 'N/A'),
             how: sanitizeText(json.how || b.ai_extractions?.narrative_summary, 'N/A'),
-            severity: sanitizeText(json.severity, 'Katamtaman'),
+            severity: intakeSeverity,
+            suggestedSeverity: severityConfirmed ? '' : intakeSeverity,
+            severityConfirmed,
             sector: b.barangay_sectors?.sector_name || 'Sector 1',
             committeeId: b.committee_id || b.committee?.committee_id || null,
             committeeName: b.committee?.committee_name || '',
@@ -382,6 +401,9 @@ export function DataProvider({ children }) {
           else if (r.status === 'Spam') adminStatus = 'Spam'
           else if (r.status) adminStatus = r.status
 
+          const intakeSeverity = normalizeIncidentSeverity(r.full_details?.severity || r.full_details?.suggestedSeverity)
+          const severityConfirmed = r.full_details?.severityConfirmed === true || (Boolean(intakeSeverity) && !isPendingWorkflowStatus(adminStatus))
+
           const finalAge = sanitizeText(r.full_details?.complainantAge || r.full_details?.age || (userObj?.birthdate ? calculateAge(userObj.birthdate) : ''), '')
           const rawDateStr = r.created_at || r.submitted_at || new Date().toISOString()
 
@@ -414,7 +436,9 @@ export function DataProvider({ children }) {
             rawDate: rawDateStr,
             title: sanitizeText(r.category || r.summary, 'Resident Form Report'),
             classification: sanitizeText(r.category || r.summary, 'Resident Form Report'),
-            severity: ({ high: 'Mataas', mataas: 'Mataas', medium: 'Katamtaman', moderate: 'Katamtaman', katamtaman: 'Katamtaman', low: 'Mababa', mababa: 'Mababa' })[String(r.full_details?.severity || '').trim().toLowerCase()] || '',
+            severity: severityConfirmed ? intakeSeverity : '',
+            suggestedSeverity: severityConfirmed ? '' : intakeSeverity,
+            severityConfirmed,
             status: adminStatus,
             datetime: new Date(rawDateStr).toLocaleString('en-US', {
               month: 'short',
@@ -2108,12 +2132,12 @@ export function DataProvider({ children }) {
 
     setIncidents(prev => prev.map(item =>
       item.ref === ref || item.id === ref
-        ? { ...item, severity, status: 'Inimbestigahan', severityConfirmed: true }
+        ? { ...item, severity, suggestedSeverity: '', status: 'Inimbestigahan', severityConfirmed: true }
         : item
     ))
     setBlotterReports(prev => prev.map(report =>
       report.ref === ref || report.id === ref
-        ? { ...report, severity, status: 'Inimbestigahan', severityConfirmed: true }
+        ? { ...report, severity, suggestedSeverity: '', status: 'Inimbestigahan', severityConfirmed: true }
         : report
     ))
     addAuditEntry(`Kinumpirma ang insidente ${ref} bilang Investigating`, {

@@ -684,8 +684,9 @@ export default function GISCommandCenter() {
   const visibleIncidents = view === 'pending' ? pendingIncidents : filtered
   const selectedIncident = visibleIncidents.find((incident) => incident.ref === selectedRef)
   useEffect(() => {
-    setConfirmationSeverity(SEVERITY_OPTIONS.includes(selectedIncident?.severity) ? selectedIncident.severity : '')
-  }, [selectedIncident?.ref, selectedIncident?.severity])
+    const suggested = selectedIncident?.severity || selectedIncident?.suggestedSeverity
+    setConfirmationSeverity(SEVERITY_OPTIONS.includes(suggested) ? suggested : '')
+  }, [selectedIncident?.ref, selectedIncident?.severity, selectedIncident?.suggestedSeverity])
   const selectedPhotoPaths = useMemo(() => {
     if (!selectedIncident) return []
     const linked = [...blotterReports, ...(serviceComplaints || [])].find(report =>

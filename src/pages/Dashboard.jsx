@@ -31,13 +31,17 @@ function isToday(dateISO) {
 
 export default function Dashboard() {
   const { user } = useAuth()
-  const { users, incidents, blotterReports, documents, auditLog } = useData()
+  const { users, incidents, blotterReports, serviceComplaints, documents, auditLog } = useData()
 
   const pendingVerifications = users.filter((account) => account.status === 'Pending').length
   const underReview = blotterReports.filter((report) => report.status === 'Sinuri').length
   const investigating = blotterReports.filter((report) => report.status === 'Inimbestigahan').length
   const resolved = blotterReports.filter((report) => report.status === 'Nareselba').length
-  const todayIncidents = incidents.filter((incident) => isToday(incident.dateISO)).length
+  const intakeReports = [...new Map([...blotterReports, ...serviceComplaints]
+    .map(report => [report.ref || report.id, report])).values()]
+  const todayIncidents = intakeReports.filter((report) => isToday(
+    report.rawDate || report.submittedAt || report.createdAt || report.dateISO,
+  )).length
 
   const classificationData = Object.entries(
     incidents.reduce((counts, incident) => {
@@ -51,6 +55,11 @@ export default function Dashboard() {
     value: incidents.filter((incident) => incident.severity === severity).length,
     color: SEVERITY_COLOR[severity],
   }))
+  severityData.push({
+    label: 'Hindi pa naitala',
+    value: incidents.filter((incident) => !SEVERITY_COLOR[incident.severity]).length,
+    color: 'gray',
+  })
 
   const registrationData = [
     { label: 'Aktibo (Active)', value: users.filter((account) => account.status === 'Active').length, color: 'green' },
@@ -92,7 +101,7 @@ export default function Dashboard() {
             <StatTile icon={CheckCircle2} label="Nareselba" value={resolved} accent="green" />
           </>}
           {user?.role === ROLES.TANOD && <>
-            <StatTile icon={MapPin} label="Insidente Ngayong Araw" value={todayIncidents} accent="blue" />
+            <StatTile icon={MapPin} label="Mga Ulat Ngayong Araw" value={todayIncidents} accent="blue" />
             <StatTile icon={ClipboardList} label="Pending" value={underReview} accent="orange" />
           </>}
           {user?.role === ROLES.LUPON && <StatTile icon={Gavel} label="Nakatalagang Kaso (Investigating)" value={investigating} accent="blue" />}
@@ -124,7 +133,7 @@ export default function Dashboard() {
           </div>}
 
           {user?.role === ROLES.KAGAWAD && <div className="dashboard-chart-grid single"><MiniBarChart title="Insidente ayon sa Klasipikasyon (Committee View)" data={classificationData} /></div>}
-          {user?.role === ROLES.TANOD && <div className="dashboard-chart-grid single"><MiniBarChart title="Insidente ayon sa Kalubhaan (Intake)" data={severityData} /></div>}
+          {user?.role === ROLES.TANOD && <div className="dashboard-chart-grid single"><MiniBarChart title="Opisyal na Kalubhaan (pagkatapos ng review)" data={severityData} /></div>}
           {user?.role === ROLES.ADMIN && <div className="dashboard-chart-grid">
             <MiniBarChart title="Kabuuan ng Rehistradong Residente" data={registrationData} />
             <MiniBarChart title="Kabuuan ng Blotter Reports" data={blotterData} />
