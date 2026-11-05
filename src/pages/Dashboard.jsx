@@ -82,6 +82,24 @@ export default function Dashboard() {
     { label: 'Spam', value: blotterReports.filter((report) => report.status === 'Spam').length, color: 'red' },
   ]
 
+  const reportDateKey = (report) => {
+    const value = report.rawDate || report.submittedAt || report.createdAt || report.dateISO
+    const date = value ? new Date(value) : null
+    if (!date || Number.isNaN(date.getTime())) return null
+    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+  }
+  const reportsSubmittedData = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date()
+    date.setHours(0, 0, 0, 0)
+    date.setDate(date.getDate() - (6 - index))
+    const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+    return {
+      label: date.toLocaleDateString('fil-PH', { month: 'short', day: 'numeric' }),
+      value: intakeReports.filter((report) => reportDateKey(report) === key).length,
+      color: 'blue',
+    }
+  })
+
   const activityFeed = auditLog.slice(0, 8)
   const isFullOverview = user?.role === ROLES.SECRETARY || user?.role === ROLES.CAPTAIN
   const hasActivityFeed = isFullOverview || user?.role === ROLES.ADMIN
@@ -133,7 +151,7 @@ export default function Dashboard() {
           </div>}
 
           {user?.role === ROLES.KAGAWAD && <div className="dashboard-chart-grid single"><MiniBarChart title="Insidente ayon sa Klasipikasyon (Committee View)" data={classificationData} /></div>}
-          {user?.role === ROLES.TANOD && <div className="dashboard-chart-grid single"><MiniBarChart title="Opisyal na Kalubhaan (pagkatapos ng review)" data={severityData} /></div>}
+          {user?.role === ROLES.TANOD && <div className="dashboard-chart-grid single"><MiniBarChart title="Mga Ulat na Isinumite (Huling 7 Araw)" data={reportsSubmittedData} /></div>}
           {user?.role === ROLES.ADMIN && <div className="dashboard-chart-grid">
             <MiniBarChart title="Kabuuan ng Rehistradong Residente" data={registrationData} />
             <MiniBarChart title="Kabuuan ng Blotter Reports" data={blotterData} />
