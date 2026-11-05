@@ -20,7 +20,7 @@ export default function MiniBarChart({ title, data }) {
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
               <div
                 className={`h-full rounded-full ${COLOR_CLASSES[row.color] ?? COLOR_CLASSES.blue}`}
-                style={{ width: `${Math.max(4, (row.value / max) * 100)}%` }}
+                style={{ width: row.value > 0 ? `${Math.max(8, (row.value / max) * 100)}%` : '0%' }}
               />
             </div>
             <span className="w-7 shrink-0 text-right text-xs font-semibold text-gray-700">

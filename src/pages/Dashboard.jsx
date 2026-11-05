@@ -19,6 +19,7 @@ import StatTile from '../components/StatTile'
 import MiniBarChart from '../components/MiniBarChart'
 import SubmissionTrendChart from '../components/SubmissionTrendChart'
 import { isServiceComplaint } from '../lib/reportType'
+import { blotterProgress } from '../lib/blotterProgress'
 
 const SEVERITY_COLOR = { Mataas: 'red', Katamtaman: 'orange', Mababa: 'green' }
 
@@ -109,6 +110,18 @@ export default function Dashboard() {
     { label: 'Spam', value: blotterReports.filter((report) => report.status === 'Spam').length, color: 'red' },
   ]
 
+  const luponStatusData = [
+    { label: 'Pending', value: blotterReports.filter(report => blotterProgress(report).status === 'review').length, color: 'orange' },
+    { label: 'Investigating', value: blotterReports.filter(report => blotterProgress(report).status === 'active').length, color: 'blue' },
+    { label: 'Closed', value: blotterReports.filter(report => blotterProgress(report).status === 'closed').length, color: 'green' },
+  ]
+  const luponHearingData = [
+    { label: 'Needs schedule', value: blotterReports.filter(report => ['schedule_pending', 'postponed', 'missed'].includes(blotterProgress(report).stageKey)).length, color: 'orange' },
+    { label: 'Scheduled', value: blotterReports.filter(report => blotterProgress(report).stageKey === 'scheduled').length, color: 'blue' },
+    { label: 'Awaiting outcome', value: blotterReports.filter(report => blotterProgress(report).stageKey === 'outcome_pending').length, color: 'red' },
+    { label: 'Completed', value: blotterReports.filter(report => blotterProgress(report).stageKey === 'closed').length, color: 'green' },
+  ]
+
   const reportDateKey = (value) => {
     const date = value ? new Date(value) : null
     if (!date || Number.isNaN(date.getTime())) return null
@@ -186,7 +199,10 @@ export default function Dashboard() {
             <MiniBarChart title="Kabuuan ng Rehistradong Residente" data={registrationData} />
             <MiniBarChart title="Kabuuan ng Blotter Reports" data={blotterData} />
           </div>}
-          {user?.role === ROLES.LUPON && <div className="dashboard-empty-panel">Walang analytics panel para sa Lupong Tagapamayapa — puro assigned-case activity lamang ang nakalaan dito.</div>}
+          {user?.role === ROLES.LUPON && <div className="dashboard-chart-grid">
+            <MiniBarChart title="Nakatalagang Kaso ayon sa Status" data={luponStatusData} />
+            <MiniBarChart title="Hearing Workload ng Nakatalagang Kaso" data={luponHearingData} />
+          </div>}
         </section>
 
         {hasActivityFeed && <section className="dashboard-panel dashboard-activity-panel">
