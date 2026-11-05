@@ -2400,29 +2400,25 @@ export function DataProvider({ children }) {
   const addAlert = async (entry) => {
     try {
       assertCan('alerts', 'create')
-      const { data: { user: authUser } } = await supabase.auth.getUser()
       const { data, error } = await supabase
-        .from('notifications')
-        .insert([{
-          sent_by: authUser?.id || null,
-          title: `[${entry.target} | ${entry.level}] ${entry.title}`,
-          message: entry.message,
-          notification_type: entry.type,
-          is_read: false
-        }])
-        .select('notification_id')
-        .single()
+        .rpc('bb_send_official_notification', {
+          p_title: entry.title,
+          p_message: entry.message,
+          p_notification_type: entry.type,
+          p_target: entry.target,
+          p_level: entry.level,
+        })
 
       if (!error) {
         await fetchData()
-        return { success: true, id: data.notification_id }
+        return { success: true, id: data }
       } else {
         console.error('Error inserting notification:', error)
-        return { success: false, error }
+        return { success: false, error: error.message || 'Notification was rejected by the database.' }
       }
     } catch (err) {
       console.error('Error adding alert:', err)
-      return { success: false, error: err }
+      return { success: false, error: err.message || 'Notification could not be sent.' }
     }
   }
 
