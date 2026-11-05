@@ -27,6 +27,7 @@ import {
   TIME_INTERVALS,
   SEVERITY_FILTERS,
   SEVERITY_META,
+  UNRECORDED_SEVERITY,
 } from '../data/mockIncidents'
 import {
   formatDisplayDateTime,
@@ -52,6 +53,8 @@ function hasValidCoordinates(incident) {
 }
 
 const SEVERITY_OPTIONS = SEVERITY_FILTERS.slice(1)
+const matchesSeverity = (incident, level) => level === SEVERITY_FILTERS[0]
+  || (level === UNRECORDED_SEVERITY ? !SEVERITY_META[incident.severity] : incident.severity === level)
 const SEVERITY_PILL_COLOR = { Mataas: 'red', Katamtaman: 'orange', Mababa: 'green' }
 const DEFAULT_CENTER = MILAGROSA_CENTER
 
@@ -293,12 +296,12 @@ export default function GISCommandCenter() {
   ), [mappedIncidents, interval, dateRange])
 
   const availableClassifications = useMemo(() => [...new Set(filterableIncidents
-    .filter((incident) => severity === SEVERITY_FILTERS[0] || incident.severity === severity)
+    .filter((incident) => matchesSeverity(incident, severity))
     .map((incident) => incident.classification)
     .filter(Boolean))].sort((a, b) => a.localeCompare(b)), [filterableIncidents, severity])
 
-  const availableSeverities = useMemo(() => SEVERITY_FILTERS.slice(1).filter((level) =>
-    filterableIncidents.some((incident) => incident.severity === level),
+  const availableSeverities = useMemo(() => [...SEVERITY_FILTERS.slice(1), UNRECORDED_SEVERITY].filter((level) =>
+    filterableIncidents.some((incident) => matchesSeverity(incident, level)),
   ), [filterableIncidents])
 
   const filtered = useMemo(() => {
@@ -312,7 +315,7 @@ export default function GISCommandCenter() {
       if (classification !== ALL_CLASSIFICATIONS && incident.classification !== classification) {
         return false
       }
-      if (severity !== SEVERITY_FILTERS[0] && incident.severity !== severity) return false
+      if (!matchesSeverity(incident, severity)) return false
       return true
     })
   }, [filterableIncidents, incidentQuery, classification, severity, view, heatSeverities, heatTypes])
@@ -320,7 +323,7 @@ export default function GISCommandCenter() {
   function selectSeverity(nextSeverity) {
     setSeverity(nextSeverity)
     if (classification !== ALL_CLASSIFICATIONS && nextSeverity !== SEVERITY_FILTERS[0] &&
-      !filterableIncidents.some((incident) => incident.severity === nextSeverity && incident.classification === classification)) {
+      !filterableIncidents.some((incident) => matchesSeverity(incident, nextSeverity) && incident.classification === classification)) {
       setClassification(ALL_CLASSIFICATIONS)
     }
   }
@@ -328,7 +331,7 @@ export default function GISCommandCenter() {
   function selectClassification(nextClassification) {
     setClassification(nextClassification)
     if (severity !== SEVERITY_FILTERS[0] && nextClassification !== ALL_CLASSIFICATIONS &&
-      !filterableIncidents.some((incident) => incident.classification === nextClassification && incident.severity === severity)) {
+      !filterableIncidents.some((incident) => incident.classification === nextClassification && matchesSeverity(incident, severity))) {
       setSeverity(SEVERITY_FILTERS[0])
     }
   }
@@ -591,6 +594,7 @@ export default function GISCommandCenter() {
   async function confirmPendingAction() {
     if (!pendingAction) return
     const { type, incident } = pendingAction
+    try {
     if (type === 'confirm') {
       await confirmIncident(incident.ref, pendingAction.severity)
       showToast(`Confirmed ${incident.ref} as Investigating.`)
@@ -609,7 +613,11 @@ export default function GISCommandCenter() {
       showToast(`Inalis sa mapa ang insidente ${incident.ref}. Mananatili ito sa blotter.`)
       if (selectedRef === incident.ref) setSelectedRef(null)
     }
-    setPendingAction(null)
+    } catch (error) {
+      showToast(error.message || 'Hindi na-save ang incident confirmation.', 'error')
+    } finally {
+      setPendingAction(null)
+    }
   }
 
   const PENDING_ACTION_META = {

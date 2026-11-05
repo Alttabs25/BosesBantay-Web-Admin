@@ -11,6 +11,7 @@ export const TIME_INTERVALS = [
 ]
 
 export const SEVERITY_FILTERS = ['Lahat ng Kalubhaan', 'Mataas', 'Katamtaman', 'Mababa']
+export const UNRECORDED_SEVERITY = '__unrecorded__'
 
 export const SEVERITY_META = {
   Mataas: { color: '#eb5757', label: 'High' },
