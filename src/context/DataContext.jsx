@@ -863,6 +863,15 @@ export function DataProvider({ children }) {
       )
       .on(
         'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'bb_dashboard_events' },
+        () => {
+          // This detail-free event also arrives when the changed report itself
+          // becomes hidden by RLS (for example Pending -> Investigating).
+          fetchData()
+        }
+      )
+      .on(
+        'postgres_changes',
         { event: '*', schema: 'public', table: 'notifications' },
         () => {
           fetchData()
