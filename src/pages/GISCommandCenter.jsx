@@ -33,6 +33,7 @@ import {
   toDatetimeLocalValue,
   generateRef,
   getStatusLabel,
+  isUnderReview,
 } from '../lib/incidentUtils'
 import { reverseGeocode, searchAddress } from '../lib/geocode'
 import { MilagrosaMapArea, MILAGROSA_CENTER } from '../components/MilagrosaMapArea'
@@ -191,6 +192,7 @@ export default function GISCommandCenter() {
     serviceComplaints,
     addIncident,
     replaceIncident,
+    confirmIncident,
     unmapIncidentLocation,
     setIncidentMapStatus,
     deleteIncident,
@@ -201,6 +203,7 @@ export default function GISCommandCenter() {
   const canUpdate = can(user.role, 'gis', 'update')
   const canApprove = can(user.role, 'gis', 'approve')
   const canDelete = can(user.role, 'gis', 'delete')
+  const canConfirmIncident = can(user.role, 'blotter', 'confirm')
 
   const [view, setView] = useState('pins') // 'pins' | 'heatmap' | 'pending'
   const [classification, setClassification] = useState(ALL_CLASSIFICATIONS)
@@ -225,6 +228,7 @@ export default function GISCommandCenter() {
   const [searching, setSearching] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [pendingAction, setPendingAction] = useState(null) // { type: 'approve' | 'reject' | 'delete' | 'unmap', incident }
+  const [confirmationSeverity, setConfirmationSeverity] = useState('')
 
   const panelsRef = useRef(null)
   useLayoutEffect(() => {
@@ -576,10 +580,21 @@ export default function GISCommandCenter() {
     setPendingAction({ type: 'unmap', incident })
   }
 
+  function requestConfirmIncident(incident) {
+    if (!confirmationSeverity) {
+      showToast('Select an official severity before confirming the incident.', 'error')
+      return
+    }
+    setPendingAction({ type: 'confirm', incident, severity: confirmationSeverity })
+  }
+
   async function confirmPendingAction() {
     if (!pendingAction) return
     const { type, incident } = pendingAction
-    if (type === 'approve') {
+    if (type === 'confirm') {
+      await confirmIncident(incident.ref, pendingAction.severity)
+      showToast(`Confirmed ${incident.ref} as Investigating.`)
+    } else if (type === 'approve') {
       await setIncidentMapStatus(incident.ref, 'Approved')
       showToast('Naaprubahan ang insidente — nakikita na ito sa mapa.')
     } else if (type === 'reject') {
@@ -598,6 +613,13 @@ export default function GISCommandCenter() {
   }
 
   const PENDING_ACTION_META = {
+    confirm: {
+      title: 'Confirm incident',
+      message: (incident) =>
+        `Confirm ${incident.ref} with the selected official severity and move it to Investigating?`,
+      confirmLabel: 'Confirm incident',
+      danger: false,
+    },
     approve: {
       title: 'Aprubahan ang Insidente',
       message: (incident) =>
@@ -653,6 +675,9 @@ export default function GISCommandCenter() {
   const otherIncidents = isFormMode ? mappedIncidents.filter((i) => i.ref !== draft.ref) : filtered
   const visibleIncidents = view === 'pending' ? pendingIncidents : filtered
   const selectedIncident = visibleIncidents.find((incident) => incident.ref === selectedRef)
+  useEffect(() => {
+    setConfirmationSeverity(SEVERITY_OPTIONS.includes(selectedIncident?.severity) ? selectedIncident.severity : '')
+  }, [selectedIncident?.ref, selectedIncident?.severity])
   const selectedPhotoPaths = useMemo(() => {
     if (!selectedIncident) return []
     const linked = [...blotterReports, ...(serviceComplaints || [])].find(report =>
@@ -981,6 +1006,23 @@ export default function GISCommandCenter() {
                 </Pill>
               </div>
               <p className="mt-2 text-sm leading-relaxed text-gray-700">{selectedIncident.excerpt || 'Walang nakatalang buod.'}</p>
+              {canConfirmIncident && isUnderReview(selectedIncident.status) && (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <label className="block text-xs font-semibold text-amber-950">
+                    Official severity
+                    <select
+                      value={confirmationSeverity}
+                      onChange={(event) => setConfirmationSeverity(event.target.value)}
+                      className="mt-2 w-full rounded-lg border border-amber-300 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-bb-blue"
+                    >
+                      <option value="">Select severity</option>
+                      {SEVERITY_OPTIONS.map(level => <option key={level} value={level}>{SEVERITY_META[level].label}</option>)}
+                    </select>
+                  </label>
+                  <p className="mt-2 text-xs leading-relaxed text-amber-900">Review the report and location first. Confirmation records this severity and moves the incident to Investigating.</p>
+                  <button type="button" onClick={() => requestConfirmIncident(selectedIncident)} className="mt-3 w-full rounded-lg bg-bb-blue px-3 py-2.5 text-sm font-semibold text-white hover:bg-bb-blue-dark">Confirm incident</button>
+                </div>
+              )}
               {hasValidCoordinates(selectedIncident)
                 ? <button type="button" className="gis-locate-button" onClick={() => focusIncident(selectedIncident, { toggle: false })}><MapPin size={16} /> Locate on map</button>
                 : <p className="gis-location-warning">No valid map coordinates are recorded. Location approval is unavailable until the pin is confirmed.</p>}

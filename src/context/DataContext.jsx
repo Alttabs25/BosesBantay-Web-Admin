@@ -414,6 +414,7 @@ export function DataProvider({ children }) {
             rawDate: rawDateStr,
             title: sanitizeText(r.category || r.summary, 'Resident Form Report'),
             classification: sanitizeText(r.category || r.summary, 'Resident Form Report'),
+            severity: ({ high: 'Mataas', mataas: 'Mataas', medium: 'Katamtaman', moderate: 'Katamtaman', katamtaman: 'Katamtaman', low: 'Mababa', mababa: 'Mababa' })[String(r.full_details?.severity || '').trim().toLowerCase()] || '',
             status: adminStatus,
             datetime: new Date(rawDateStr).toLocaleString('en-US', {
               month: 'short',
@@ -2086,6 +2087,43 @@ export function DataProvider({ children }) {
     }
   }
 
+  const confirmIncident = async (ref, severity) => {
+    assertCan('blotter', 'confirm')
+    const incident = incidents.find(item => item.ref === ref || item.id === ref)
+    if (!incident) throw new Error('Hindi natagpuan ang insidente.')
+    if (!['Mataas', 'Katamtaman', 'Mababa'].includes(severity)) {
+      throw new Error('Pumili ng opisyal na severity bago kumpirmahin.')
+    }
+
+    const sourceTable = incident.sourceTable === 'reports' ? 'reports' : 'pre_blotters'
+    const recordId = sourceTable === 'reports'
+      ? String(incident.dbId || incident.ref || incident.id)
+      : String(incident.ref || incident.id || incident.blotterId)
+    const { data, error } = await supabase.rpc('bb_confirm_gis_incident', {
+      p_source: sourceTable,
+      p_record_id: recordId,
+      p_severity: severity,
+    })
+    if (error || !data) throw new Error(error?.message || 'Hindi nakumpirma ang insidente.')
+
+    setIncidents(prev => prev.map(item =>
+      item.ref === ref || item.id === ref
+        ? { ...item, severity, status: 'Inimbestigahan', severityConfirmed: true }
+        : item
+    ))
+    setBlotterReports(prev => prev.map(report =>
+      report.ref === ref || report.id === ref
+        ? { ...report, severity, status: 'Inimbestigahan', severityConfirmed: true }
+        : report
+    ))
+    addAuditEntry(`Kinumpirma ang insidente ${ref} bilang Investigating`, {
+      color: 'green', eventType: 'confirm', targetTable: sourceTable, targetKey: String(ref),
+      before: { status: incident.status, severity: incident.severity || null },
+      after: { status: 'Inimbestigahan', severity },
+    })
+    return { success: true, ref, severity }
+  }
+
   const updateBlotterReport = async (id, patch) => {
     try {
       const existingReport = blotterReports.find(r => r.id === id)
@@ -2418,6 +2456,7 @@ export function DataProvider({ children }) {
         incidents: scopedData.incidents,
         addIncident,
         replaceIncident,
+        confirmIncident,
         setIncidentMapStatus,
         deleteIncident,
         mapIncidentLocation,
