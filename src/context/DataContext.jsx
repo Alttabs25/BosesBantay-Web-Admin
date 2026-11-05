@@ -877,6 +877,24 @@ export function DataProvider({ children }) {
           fetchData()
         }
       )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
+        fetchData()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'documents' }, () => {
+        fetchData()
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, () => {
+        fetchData()
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bb_blotter_events' }, () => {
+        fetchData()
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bb_service_events' }, () => {
+        fetchData()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'emergency_contacts' }, () => {
+        fetchData()
+      })
       .subscribe()
 
     return () => {
