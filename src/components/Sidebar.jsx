@@ -6,6 +6,7 @@ import { LogOut, X, PanelLeftClose } from 'lucide-react'
 import { NAV_ITEMS } from '../config/navigation'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
+import { ROLES } from '../config/permissions'
 
 export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) {
   const { user, logout } = useAuth()
@@ -23,7 +24,10 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
   const hideHelper = () => { clearTimeout(helperTimer.current); setHelper(null) }
   const { addAuditEntry, hasDynamicModuleAccess } = useData()
 
-  const visibleItems = NAV_ITEMS.filter((item) => hasDynamicModuleAccess(user?.role, item.module))
+  const visibleItems = NAV_ITEMS.filter((item) =>
+    hasDynamicModuleAccess(user?.role, item.module)
+    && (item.module !== 'profile' || user?.role === ROLES.ADMIN)
+  )
 
   const groups = ['Workspace','Management','Reports & account'].map(label=>({label,items:visibleItems.filter(item=>item.group===label)})).filter(group=>group.items.length)
   const handleLogout = () => {

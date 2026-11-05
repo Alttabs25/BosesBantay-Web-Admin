@@ -21,6 +21,7 @@ import { useToast } from '../context/ToastContext'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Pill from '../components/Pill'
+import { ROLES } from '../config/permissions'
 
 export default function EmergencyDirectory() {
   const { user } = useAuth()
@@ -34,8 +35,8 @@ export default function EmergencyDirectory() {
   const { showToast } = useToast()
 
   // Role Checks
-  const isCaptain = user?.role === 'Barangay Captain'
-  const isAdmin = user?.role === 'System Administrator'
+  const isCaptain = user?.role === ROLES.CAPTAIN
+  const isAdmin = user?.role === ROLES.ADMIN
 
   // Modal / Dialog States
   const [isModalOpen, setIsModalOpen] = useState(false)

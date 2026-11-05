@@ -5,7 +5,7 @@ import { Bell, Clock, Info, Search, Send, ShieldAlert, Trash2, Users } from 'luc
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
-import { ROLES } from '../config/permissions'
+import { ROLES, can } from '../config/permissions'
 import Pill from '../components/Pill'
 import ConfirmDialog from '../components/ConfirmDialog'
 
@@ -75,6 +75,8 @@ export default function Alerts() {
   const roleHistory = alertHistory.filter((alert) => {
     if (user.role === ROLES.ADMIN) return alert.type === 'System-level Broadcast'
     if (user.role === ROLES.KAGAWAD) return alert.type === 'Committee-scoped Advisory'
+    if (user.role === ROLES.LUPON) return ['Lupon Members', 'Lahat ng Residente'].includes(alert.target)
+    if (user.role === ROLES.TANOD) return ['Field Patrol Tanods Lamang', 'Lahat ng Residente'].includes(alert.target)
     return true
   })
   const filteredHistory = roleHistory.filter((alert) => {
@@ -87,7 +89,7 @@ export default function Alerts() {
     { value: 'Mataas na Alerto', label: 'Mataas na alerto', count: roleHistory.filter((alert) => alert.level === 'Mataas na Alerto').length, tone: 'amber', icon: ShieldAlert },
     { value: 'Emergency', label: 'Kritikal / emergency', count: roleHistory.filter((alert) => alert.level === 'Emergency').length, tone: 'red', icon: ShieldAlert },
   ]
-  const canDeleteAlert = [ROLES.SECRETARY, ROLES.CAPTAIN, ROLES.ADMIN, ROLES.KAGAWAD].includes(user.role)
+  const canDeleteAlert = can(user.role, 'alerts', 'delete')
 
   return <div className="alerts-page">
     <section className="alert-metric-grid" aria-label="Buod ng mga abiso">

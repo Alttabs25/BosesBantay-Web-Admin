@@ -36,7 +36,7 @@ export default defineConfig({
         rewrite: path => path.replace(/^\/api\/document-admin/, ''),
         timeout: 960000, proxyTimeout: 960000,
         configure(proxy) {
-          proxy.on('proxyReq', proxyRequest => { proxyRequest.setHeader('X-Document-Local-Key', proxyKey); proxyRequest.removeHeader('Authorization') })
+          proxy.on('proxyReq', proxyRequest => { proxyRequest.setHeader('X-Document-Local-Key', proxyKey) })
         },
       },
     },

@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { createClient } from '@supabase/supabase-js'
-import { ROLES } from '../config/permissions'
+import { ROLES, normalizeRole, roleLookupNames, can } from '../config/permissions'
 
 const AuthContext = createContext(null)
 
@@ -46,7 +46,7 @@ export function AuthProvider({ children }) {
           .map(u => ({
             id: u.id,
             name: `${u.first_name} ${u.last_name}`.trim(),
-            role: u.roles?.role_name || 'System Administrator',
+            role: normalizeRole(u.roles?.role_name || 'System Administrator'),
             email: u.email,
             mustChangePassword: false,
           }))
@@ -73,7 +73,7 @@ export function AuthProvider({ children }) {
           setUser({
             id: session.user.id,
             name: `${profile.first_name} ${profile.last_name}`.trim(),
-            role: profile.roles?.role_name || 'System Administrator',
+            role: normalizeRole(profile.roles?.role_name || 'System Administrator'),
             email: session.user.email,
             avatarUrl: profile.avatar_url || null,
             gender: profile.gender || '',
@@ -88,7 +88,7 @@ export function AuthProvider({ children }) {
           setUser({
             id: session.user.id,
             name: session.user.user_metadata?.first_name || 'Admin User',
-            role: 'System Administrator',
+            role: normalizeRole(session.user.user_metadata?.role || 'Unassigned'),
             email: session.user.email,
             gender: '',
             birthdate: '',
@@ -143,7 +143,7 @@ export function AuthProvider({ children }) {
     const loggedInUser = {
       id: data.user.id,
       name: profile ? `${profile.first_name} ${profile.last_name}`.trim() : 'Admin User',
-      role: profile?.roles?.role_name || 'System Administrator',
+      role: normalizeRole(profile?.roles?.role_name || data.user.user_metadata?.role || 'Unassigned'),
       email: data.user.email,
       avatarUrl: profile?.avatar_url || null,
       gender: profile?.gender || '',
@@ -257,6 +257,7 @@ export function AuthProvider({ children }) {
   }
 
   const createAdminAccount = async ({ name, email, role, tempPassword }) => {
+    if (!can(user?.role, 'userAccounts', 'create')) return { success: false, error: 'Unauthorized account creation.' }
     const parts = name.trim().split(' ')
     const first_name = parts[0] || 'Admin'
     const last_name = parts.slice(1).join(' ') || 'User'
@@ -284,7 +285,8 @@ export function AuthProvider({ children }) {
         const { data: roleObj } = await authAdminClient
           .from('roles')
           .select('role_id')
-          .eq('role_name', role)
+          .in('role_name', roleLookupNames(role))
+          .limit(1)
           .maybeSingle()
 
         await authAdminClient.from('users').upsert({
@@ -318,6 +320,7 @@ export function AuthProvider({ children }) {
   }
 
   const createResidentAccount = async ({ first_name, last_name, address, email, password }) => {
+    if (!can(user?.role, 'userAccounts', 'create')) return { success: false, error: 'Unauthorized account creation.' }
     const { data, error } = await authAdminClient.auth.signUp({
       email: email.trim(),
       password: password.trim(),
@@ -378,6 +381,7 @@ export function AuthProvider({ children }) {
   }
 
   const resetAdminAccountPassword = async (accountId, newPassword, mustChangePassword = true) => {
+    if (!can(user?.role, 'userAccounts', 'update')) return { success: false, error: 'Unauthorized password reset.' }
     const { data, error } = await supabase.rpc('admin_set_user_password', {
       target_user_id: accountId,
       new_password: newPassword,
@@ -392,6 +396,7 @@ export function AuthProvider({ children }) {
   }
 
   const deleteAdminAccount = async (accountId) => {
+    if (!can(user?.role, 'userAccounts', 'delete')) return { success: false, error: 'Unauthorized account deletion.' }
     // Delete profile in public schema. 
     // In production, cascade/trigger can handle full auth.users deletion or deactivation.
     const { error } = await supabase
@@ -413,8 +418,9 @@ export function AuthProvider({ children }) {
       const { data: roleObj, error: roleErr } = await supabase
         .from('roles')
         .select('role_id')
-        .eq('role_name', newRole)
-        .single()
+        .in('role_name', roleLookupNames(newRole))
+        .limit(1)
+        .maybeSingle()
 
       if (roleErr || !roleObj) {
         return { success: false, error: 'Hindi nahanap ang tungkulin sa database.' }

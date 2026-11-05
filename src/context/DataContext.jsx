@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from './AuthContext'
 import {
@@ -7,6 +7,9 @@ import {
   ASSIGNABLE_MODULE_ROLES,
   defaultModuleAccessMap,
   hasModuleAccess,
+  normalizeRole,
+  roleLookupNames,
+  can,
 } from '../config/permissions'
 
 const DataContext = createContext(null)
@@ -176,6 +179,18 @@ export function DataProvider({ children }) {
   const [emergencyContacts, setEmergencyContacts] = useState([])
   const [loading, setLoading] = useState(true)
 
+  const assertCan = (moduleKey, action) => {
+    if (!can(user?.role, moduleKey, action)) {
+      throw new Error(`Unauthorized ${action} operation on ${moduleKey}.`)
+    }
+  }
+
+  const assertAny = (moduleKey, actions) => {
+    if (!actions.some(action => can(user?.role, moduleKey, action))) {
+      throw new Error(`Unauthorized operation on ${moduleKey}.`)
+    }
+  }
+
   // Fetch all tables from Supabase
   const fetchData = async () => {
     try {
@@ -190,7 +205,7 @@ export function DataProvider({ children }) {
           .map(u => ({
             id: u.id,
             name: `${u.first_name} ${u.last_name}`.trim(),
-            role: u.roles?.role_name || 'Residente',
+            role: normalizeRole(u.roles?.role_name || 'Residente'),
             verified: u.verification_status === 'Verified' || u.verification_status === 'pb_authorized' ? 'Verified' : 'Pending',
             barangayIdStatus: u.verification_status || 'unverified',
             status: u.approval_status === 'Suspended' || u.approval_status === 'Deactivated'
@@ -260,6 +275,7 @@ export function DataProvider({ children }) {
             mapReviewedBy: b.map_reviewed_by || b.mapped_by || null,
             mapReviewedAt: b.map_reviewed_at || b.mapped_at || null,
             filedBy: complainantName,
+            submittedById: b.user_id || null,
             status: b.status || 'Sinuri',
           }
 
@@ -297,6 +313,7 @@ export function DataProvider({ children }) {
               hour12: true
             }).toUpperCase(),
             filedBy: sanitizeText(complainantName, 'Residente'),
+            submittedById: b.user_id || null,
             what: sanitizeText(json.what || b.incident_type || b.ai_extractions?.incident_type, 'Kaganapan'),
             who: sanitizeText(json.who || b.ai_extractions?.respondent, 'Hindi Alam'),
             where: sanitizeText(json.where || b.location_address || b.ai_extractions?.incident_location, 'N/A'),
@@ -385,6 +402,7 @@ export function DataProvider({ children }) {
               hour12: true
             }).toUpperCase(),
             filedBy,
+            submittedById: r.user_id || null,
             what: sanitizeText(r.full_details?.what || r.category || r.summary, 'Unspecified Incident'),
             who: sanitizeText(r.full_details?.respondentName || r.full_details?.who || r.other_party || r.respondent || r.full_details?.otherParties, 'Hindi Alam'),
             where: sanitizeText(r.location || r.full_details?.where || r.full_details?.location, 'N/A'),
@@ -453,6 +471,7 @@ export function DataProvider({ children }) {
             excerpt: row.description || '',
             photoPaths: row.image_url ? [row.image_url] : [],
             assignedTo: row.assigned_to || null,
+            submittedById: row.user_id || null,
           }
         }))
       }
@@ -501,8 +520,23 @@ export function DataProvider({ children }) {
         }
       })
 
+      // Attach the latest lifecycle case assignment when that optional table is present.
+      const { data: assignmentRows } = await supabase
+        .from('bb_blotter_events')
+        .select('source_table,reference_no,payload,sequence')
+        .eq('kind', 'assignment')
+        .order('sequence', { ascending: false })
+      const assignments = new Map()
+      ;(assignmentRows || []).forEach(row => {
+        const key = `${row.source_table}:${row.reference_no}`
+        if (!assignments.has(key)) assignments.set(key, row.payload?.assigned_to || null)
+      })
+
       // Combine and sort by newest date first
-      const combinedBlotter = Array.from(blotterReportsMap.values()).sort((a, b) => {
+      const combinedBlotter = Array.from(blotterReportsMap.values()).map(report => ({
+        ...report,
+        assignedTo: report.assignedTo || assignments.get(`${report.sourceTable}:${report.ref || report.id}`) || null,
+      })).sort((a, b) => {
         const timeA = new Date(a.rawDate).getTime() || 0
         const timeB = new Date(b.rawDate).getTime() || 0
         return timeB - timeA
@@ -864,6 +898,10 @@ export function DataProvider({ children }) {
 
   const updateUser = async (id, patch) => {
     try {
+      if (patch.role) assertCan('userAccounts', 'assignRole')
+      else if (patch.status) assertCan('userAccounts', 'approve')
+      else if (patch.verified !== undefined || patch.barangayIdStatus !== undefined) assertAny('userAccounts', ['verify', 'approve'])
+      else assertCan('userAccounts', 'update')
       let updateFields = {}
       if (patch.name) {
         const parts = patch.name.trim().split(' ')
@@ -880,8 +918,9 @@ export function DataProvider({ children }) {
         const { data: roleObj } = await supabase
           .from('roles')
           .select('role_id')
-          .eq('role_name', patch.role)
-          .single()
+          .in('role_name', roleLookupNames(patch.role))
+          .limit(1)
+          .maybeSingle()
         if (roleObj) {
           updateFields.role_id = roleObj.role_id
         }
@@ -900,6 +939,7 @@ export function DataProvider({ children }) {
 
   const addUser = async (newUser) => {
     try {
+      assertCan('userAccounts', 'create')
       const { data: roleObj } = await supabase
         .from('roles')
         .select('role_id')
@@ -932,6 +972,7 @@ export function DataProvider({ children }) {
 
   const removeUser = async (id) => {
     try {
+      assertCan('userAccounts', 'delete')
       await supabase
         .from('users')
         .delete()
@@ -944,6 +985,7 @@ export function DataProvider({ children }) {
 
   const suspendUserByName = async (name) => {
     try {
+      assertCan('userAccounts', 'update')
       const parts = name.trim().split(' ')
       const first_name = parts[0] || ''
       const last_name = parts.slice(1).join(' ') || ''
@@ -962,6 +1004,7 @@ export function DataProvider({ children }) {
 
   const addEmergencyContact = async (contact) => {
     try {
+      assertCan('directory', 'create')
       const { data, error } = await supabase.from('emergency_contacts').insert([{
         agency_name: contact.agencyName,
         contact_person: contact.contactPerson || '',
@@ -981,6 +1024,7 @@ export function DataProvider({ children }) {
 
   const updateEmergencyContact = async (id, patch) => {
     try {
+      assertAny('directory', ['update', 'approve'])
       const updateFields = {}
       if (patch.agencyName !== undefined) updateFields.agency_name = patch.agencyName
       if (patch.contactPerson !== undefined) updateFields.contact_person = patch.contactPerson
@@ -1010,6 +1054,7 @@ export function DataProvider({ children }) {
 
   const deleteEmergencyContact = async (id) => {
     try {
+      assertCan('directory', 'delete')
       const { data, error } = await supabase
         .from('emergency_contacts')
         .delete()
@@ -1027,6 +1072,7 @@ export function DataProvider({ children }) {
 
   const mapIncidentLocation = async (refOrId, { lat, lng, location, address, report } = {}, auditOptions = {}) => {
     try {
+      assertAny('gis', ['create', 'update'])
       if (lat == null || lng == null) {
         throw new Error('Pumili muna ng lokasyon sa mapa bago i-map ang insidente.')
       }
@@ -1376,6 +1422,7 @@ export function DataProvider({ children }) {
 
   const unmapIncidentLocation = async (refOrId, auditOptions = {}) => {
     try {
+      assertCan('gis', 'update')
       const existingReport = blotterReports.find(r => r.id === refOrId || r.ref === refOrId || String(r.blotterId) === String(refOrId))
       const existingIncident = incidents.find(i => i.ref === refOrId || i.id === refOrId || String(i.blotterId) === String(refOrId))
 
@@ -1478,6 +1525,7 @@ export function DataProvider({ children }) {
 
   const addBlotterReport = async (reportData) => {
     try {
+      assertCan('blotter', 'create')
       let reviewerId = null
       if (user?.id && users.some((u) => u.id === user.id)) {
         reviewerId = user.id
@@ -1635,6 +1683,7 @@ export function DataProvider({ children }) {
 
   const addIncident = async (incident) => {
     try {
+      assertCan('gis', 'create')
       // If administrator picked an existing blotter report from dropdown in GIS, map that existing report!
       if (incident.existingReportId) {
         return await mapIncidentLocation(incident.existingReportId, {
@@ -1803,6 +1852,7 @@ export function DataProvider({ children }) {
 
   const setIncidentMapStatus = async (ref, status) => {
     try {
+      assertCan('gis', 'update')
       const isApproved = status === 'Approved'
       if (!isApproved) {
         return await unmapIncidentLocation(ref, { action: `Tinanggihan ang pin ${ref} para sa mapa`, eventType: 'reject', color: 'orange', before: { map_status: 'Pending', published: false }, after: { map_status: 'Pending', published: false, review_decision: 'Rejected' } })
@@ -1823,6 +1873,7 @@ export function DataProvider({ children }) {
 
   const deleteIncident = async (ref) => {
     try {
+      assertCan('gis', 'delete')
       const existing = blotterReports.find(b => b.id === ref || b.ref === ref) || incidents.find(i => i.ref === ref || i.id === ref)
       if (existing && existing.status !== 'Sinuri' && existing.status !== 'Under Review') {
         console.warn(`Hindi maaaring burahin ang opisyal na blotter record ${ref}.`)
@@ -1858,6 +1909,7 @@ export function DataProvider({ children }) {
 
   const replaceIncident = async (ref, record) => {
     try {
+      assertCan('gis', 'update')
       const { data: pb } = await supabase
         .from('pre_blotters')
         .select('blotter_id, extraction_id, ai_extractions(json_output)')
@@ -1964,6 +2016,15 @@ export function DataProvider({ children }) {
   const updateBlotterReport = async (id, patch) => {
     try {
       const existingReport = blotterReports.find(r => r.id === id)
+      const moduleKey = existingReport?.reportType === 'service_complaint' ? 'serviceComplaints' : 'blotter'
+      const action = moduleKey === 'serviceComplaints'
+        ? 'update'
+        : patch.status === 'Inimbestigahan'
+          ? 'confirm'
+          : patch.status === 'Nareselba'
+            ? 'finalize'
+            : 'update'
+      assertCan(moduleKey, action)
 
       if (existingReport?.isFormReport || id.startsWith('REP-')) {
         const updateFields = {}
@@ -2025,6 +2086,7 @@ export function DataProvider({ children }) {
   }
 
   const addDocument = async (doc) => {
+    assertCan('knowledgeBase', 'create')
     const newDocItem = {
       id: doc.id || Date.now(),
       title: doc.title,
@@ -2074,6 +2136,7 @@ export function DataProvider({ children }) {
   }
 
   const updateDocument = async (identifier, patch) => {
+    assertCan('knowledgeBase', patch.officialStatus === 'Opisyal' ? 'approve' : 'update')
     setDocuments((prev) =>
       prev.map((d) => {
         if (d.title === identifier || d.id === identifier) {
@@ -2128,6 +2191,7 @@ export function DataProvider({ children }) {
   }
 
   const deleteDocument = async (identifier, optionalTitle) => {
+    assertCan('knowledgeBase', 'delete')
     setDocuments((prev) =>
       prev.filter(
         (d) =>
@@ -2155,6 +2219,7 @@ export function DataProvider({ children }) {
 
   const addAlert = async (entry) => {
     try {
+      assertCan('alerts', 'create')
       const { data: { user: authUser } } = await supabase.auth.getUser()
       const { data, error } = await supabase
         .from('notifications')
@@ -2183,6 +2248,7 @@ export function DataProvider({ children }) {
 
   const deleteAlert = async (id) => {
     try {
+      assertCan('alerts', 'delete')
       setAlertHistory((prev) => prev.filter((a) => String(a.id) !== String(id)))
 
       const { error } = await supabase
@@ -2214,41 +2280,72 @@ export function DataProvider({ children }) {
   }
 
   const hasDynamicModuleAccess = (role, moduleKey) => {
+    role = normalizeRole(role)
     if (ALWAYS_ON_MODULES.includes(moduleKey)) return true
     if (role === ROLES.ADMIN) return hasModuleAccess(role, moduleKey)
     const override = roleModuleAccess[role]?.[moduleKey]
-    if (override !== undefined) return override
-    return hasModuleAccess(role, moduleKey)
+    return hasModuleAccess(role, moduleKey) && override !== false
   }
+
+  // Client-side scoping limits what reaches pages and dashboard widgets. RLS in
+  // the companion migration is still the security boundary for direct requests.
+  const scopedData = useMemo(() => {
+    const role = normalizeRole(user?.role)
+    const assigned = report => report.assignedTo === user?.id
+    const intake = report => report.submittedById === user?.id || ['Sinuri', 'Under Review', 'Pending'].includes(report.status)
+    const committee = record => Boolean(user?.committeeId) && record.committeeId === user.committeeId
+
+    if (role === ROLES.LUPON) return {
+      users: [], incidents: [], serviceComplaints: [],
+      blotterReports: blotterReports.filter(report => assigned(report) && report.status === 'Inimbestigahan'),
+      documents: [], auditLog: [],
+    }
+    if (role === ROLES.TANOD) return {
+      users: [], incidents: incidents.filter(intake),
+      blotterReports: blotterReports.filter(intake), serviceComplaints: serviceComplaints.filter(intake),
+      documents: [], auditLog: [],
+    }
+    if (role === ROLES.KAGAWAD) return {
+      users: [], incidents: incidents.filter(committee),
+      blotterReports: blotterReports.filter(committee), serviceComplaints: serviceComplaints.filter(committee),
+      documents: [], auditLog: [],
+    }
+    if (role === ROLES.SECRETARY) return {
+      users: users.filter(account => account.role === 'Residente'), incidents, blotterReports,
+      serviceComplaints, documents, auditLog: auditLog.filter(entry => entry.severity !== 'critical'),
+    }
+    if (role === ROLES.CAPTAIN || role === ROLES.ADMIN) return { users, incidents, blotterReports, serviceComplaints, documents, auditLog }
+    return { users: [], incidents: [], blotterReports: [], serviceComplaints: [], documents: [], auditLog: [] }
+  }, [user, users, incidents, blotterReports, serviceComplaints, documents, auditLog])
 
   return (
     <DataContext.Provider
       value={{
-        users,
+        users: scopedData.users,
         updateUser,
         addUser,
         removeUser,
         suspendUserByName,
-        incidents,
+        incidents: scopedData.incidents,
         addIncident,
         replaceIncident,
         setIncidentMapStatus,
         deleteIncident,
         mapIncidentLocation,
         unmapIncidentLocation,
-        blotterReports,
-        serviceComplaints,
+        blotterReports: scopedData.blotterReports,
+        serviceComplaints: scopedData.serviceComplaints,
         serviceComplaintsError,
         addBlotterReport,
         updateBlotterReport,
-        documents,
+        documents: scopedData.documents,
         addDocument,
         updateDocument,
         deleteDocument,
         alertHistory,
         addAlert,
         deleteAlert,
-        auditLog,
+        auditLog: scopedData.auditLog,
         addAuditEntry,
         roleModuleAccess,
         setModuleAccess,

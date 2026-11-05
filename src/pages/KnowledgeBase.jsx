@@ -10,6 +10,7 @@ import DocumentUploadDialog from '../components/DocumentUploadDialog'
 import { documentRequest } from '../lib/documentAdmin'
 import FilterPopup from '../components/FilterPopup'
 import Modal from '../components/Modal'
+import { can } from '../config/permissions'
 import './DocumentManagement.css'
 
 const categoryLabel=value=>({'Executive Order / Administrative Policy':'Executive order / Policy','Lokal na Ordinansa':'Local ordinance','Barangay Resolution':'Barangay resolution','Citizens Charter / Clearance Requirements':"Citizen’s Charter / Requirements"}[value]||value)
@@ -41,7 +42,7 @@ export default function KnowledgeBase() {
   const [chunks, setChunks] = useState([])
   const [sourceLoading, setSourceLoading] = useState(false)
   const [sourceError, setSourceError] = useState('')
-  const canIndex = ['System Administrator','Barangay Secretary'].includes(user?.role)
+  const canIndex = can(user?.role, 'knowledgeBase', 'create') || can(user?.role, 'knowledgeBase', 'update')
 
   async function refresh({ clearSources = false } = {}) {
     setError('')

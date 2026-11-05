@@ -66,7 +66,7 @@ function App() {
         <Route
           path="/complaints"
           element={
-            <RoleGuard module="blotter">
+            <RoleGuard module="serviceComplaints">
               <DigitalBlotter reportType="service_complaint" />
             </RoleGuard>
           }
@@ -87,7 +87,7 @@ function App() {
             </RoleGuard>
           }
         />
-        <Route path="/services" element={<RoleGuard module="knowledgeBase"><Services /></RoleGuard>} />
+        <Route path="/services" element={<RoleGuard module="services"><Services /></RoleGuard>} />
         <Route path="/chatbot-settings" element={<RoleGuard module="knowledgeBase"><Navigate to="/knowledge-base?view=chat" replace /></RoleGuard>} />
         <Route
           path="/knowledge-base"

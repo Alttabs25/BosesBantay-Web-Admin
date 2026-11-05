@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import Modal from './Modal'
+import { can } from '../config/permissions'
 
 const stages = { received: 'Received · for review', in_progress: 'In progress', follow_up: 'Needs follow-up', resolved: 'Resolved', closed_unresolved: 'Closed · not resolved' }
 const actions = { start: 'Kumpirmahin at simulan', note: 'Mag-record ng update', follow_up: 'Kailangan ng follow-up', resolve: 'Mark as resolved', spam: 'Mark as spam', out_of_scope: 'Out of scope', close_unresolved: 'Close without resolution', reopen: 'Reopen complaint' }
@@ -18,7 +19,6 @@ const quickNotes = {
   close_unresolved: [['Referred elsewhere', 'Isinasara nang hindi resolved matapos i-refer sa tamang office. Office, referral details, at next step: '], ['Unable to proceed', 'Hindi maipagpatuloy ang request. Dahilan at available na next step: ']],
   reopen: [['New information', 'Muling binuksan dahil may bagong impormasyon: '], ['Issue remains', 'Muling binuksan dahil nananatili ang iniulat na problema. Detalye: ']],
 }
-const staffRoles = ['Barangay Secretary','Barangay Captain','Punong Barangay','System Administrator','Lupon Member','Lupong Tagapamayapa Member']
 function initialStage(status) {
   if (['resolved','nareselba','completed'].includes(status?.toLowerCase())) return 'resolved'
   if (['closed','cancelled','canceled','spam','out of scope'].includes(status?.toLowerCase())) return 'closed_unresolved'
@@ -60,7 +60,7 @@ export default function ServiceComplaintActions({ report }) {
   const stageLabel = latest?.action === 'spam' || report.status?.toLowerCase() === 'spam' ? 'Marked as spam' : latest?.action === 'out_of_scope' || report.status?.toLowerCase() === 'out of scope' ? 'Out of scope' : stages[stage]
   const closed = ['resolved','closed_unresolved'].includes(stage)
   const available = closed ? ['reopen'] : stage === 'received' ? ['start','out_of_scope','spam','close_unresolved'] : ['note','follow_up','resolve','out_of_scope','spam','close_unresolved']
-  const canSave = staffRoles.includes(user?.role) && reportId && ['reports','service_complaints'].includes(source)
+  const canSave = can(user?.role, 'serviceComplaints', 'update') && reportId && ['reports','service_complaints'].includes(source)
   async function save() {
     if (saving || !canSave || error || !note.trim() || !available.includes(action)) return
     setSaving(true)

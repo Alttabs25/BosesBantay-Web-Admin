@@ -1,8 +1,15 @@
+import { supabase } from './supabaseClient'
+
 const base = (import.meta.env.VITE_DOCUMENT_ADMIN_URL || '/api/document-admin').replace(/\/$/, '')
 export async function documentRequest(path, body) {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), path === '/services' ? 8000 : path === '/index' ? 15 * 60 * 1000 : path === '/services/action' ? 3 * 60 * 1000 : ['/summary','/chatbot/test','/chatbot/message'].includes(path) ? 6 * 60 * 1000 : 60000)
-  const send = () => fetch(base + path, { method: body ? 'POST' : 'GET', headers: { ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}), signal: controller.signal })
+  const send = async () => {
+    const { data } = await supabase.auth.getSession()
+    const token = data?.session?.access_token
+    if (!token) throw Object.assign(new Error('Sign in again to use Barangay Bot administration.'), { status: 401 })
+    return fetch(base + path, { method: body ? 'POST' : 'GET', headers: { Authorization: `Bearer ${token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}), signal: controller.signal })
+  }
   try {
     const response = await send()
     const result = await response.json().catch(() => null)

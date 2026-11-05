@@ -2,7 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 const original = await readFile(new URL('../src/lib/documentAdmin.js', import.meta.url), 'utf8')
-const source = original.replace(/^const base = .*$/m, "const base = '/api/document-admin'")
+const source = original
+  .replace(/^import .*supabaseClient.*$/m, "const supabase = { auth: { getSession: async () => ({ data: { session: { access_token: 'session-token' } } }) } }")
+  .replace(/^const base = .*$/m, "const base = '/api/document-admin'")
 let sequence = 0
 async function client(responses) {
   const calls = []
@@ -10,10 +12,10 @@ async function client(responses) {
   const module = await import(`data:text/javascript,${encodeURIComponent(source)}#${sequence++}`)
   return { module, calls }
 }
-test('local document request needs no separate Supabase session', async () => {
+test('local document request forwards the signed-in Supabase session', async () => {
   const { module, calls } = await client([{ status: 200, body: { documents: [] } }])
   assert.deepEqual(await module.documentRequest('/documents'), { documents: [] })
-  assert.equal(calls[0].headers.Authorization, undefined)
+  assert.equal(calls[0].headers.Authorization, 'Bearer session-token')
 })
 test('denied request is not replayed or treated as an expired login', async () => {
   const { module, calls } = await client([{ status: 403, body: { error: 'Local access only' } }])

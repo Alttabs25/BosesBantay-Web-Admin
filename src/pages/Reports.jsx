@@ -50,7 +50,7 @@ export default function Reports() {
   const { user } = useAuth()
   const { incidents, blotterReports, addAuditEntry } = useData()
   const { showToast } = useToast()
-  const canExport = can(user.role, 'reports', 'create')
+  const canExport = can(user.role, 'reports', 'export')
   const classifications = useMemo(() => [ALL_CLASSIFICATIONS, ...new Set(incidents.map((incident) => incident.classification))], [incidents])
   const [dateRange, setDateRange] = useState(DATE_RANGES[0])
   const [startDate, setStartDate] = useState('')

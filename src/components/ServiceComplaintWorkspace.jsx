@@ -9,6 +9,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import ComplaintLocationMap from './ComplaintLocationMap'
 import { ArrowLeft, ChevronLeft, ChevronRight, MapPin, LocateFixed } from 'lucide-react'
 import ReportEvidenceGallery from './ReportEvidenceGallery'
+import { can } from '../config/permissions'
 
 function submissionDate(report) {
   const date = new Date(report.rawDate || '')
@@ -36,7 +37,7 @@ export default function ServiceComplaintWorkspace({ reports, selectedId, onSelec
   const { user } = useAuth()
   const { fetchData } = useData()
   const [correctionReport, setCorrectionReport] = useState(null)
-  const canCorrect = ['Barangay Secretary','Barangay Captain','Punong Barangay','System Administrator','Lupon Member','Lupong Tagapamayapa Member'].includes(user?.role)
+  const canCorrect = can(user?.role, 'serviceComplaints', 'update')
   async function saveCorrection({ lat, lng, location, reason }) {
     const report = correctionReport
     if (!canCorrect || report?.sourceTable !== 'reports' || !report.dbId || !reason?.trim()) throw new Error('Hindi maaaring baguhin ang lokasyon ng record na ito.')

@@ -17,7 +17,7 @@ import BlotterOverview, { isEscalated } from '../components/BlotterOverview'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
-import { ROLES } from '../config/permissions'
+import { can } from '../config/permissions'
 
 const STATUS_GROUPS = [
   { value: 'all', label: 'Lahat' },
@@ -137,13 +137,7 @@ export default function DigitalBlotter({ reportType = 'blotter' }) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
 
   const userRole = user?.role || ''
-  const isAdmin = userRole === ROLES.ADMIN || userRole === 'System Administrator' || userRole.toLowerCase().includes('admin')
-  const canCreateBlotter =
-    userRole === ROLES.SECRETARY ||
-    userRole === ROLES.CAPTAIN ||
-    userRole === ROLES.LUPON ||
-    userRole === ROLES.TANOD ||
-    isAdmin
+  const canCreateBlotter = can(userRole, 'blotter', 'create')
 
   const scrollToReportCard = (reportId) => {
     let attempts = 0

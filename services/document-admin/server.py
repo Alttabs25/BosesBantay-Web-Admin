@@ -20,7 +20,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 logger = logging.getLogger('document-admin')
 LOCK = threading.Lock()
-READ_ROLES = {'System Administrator', 'Barangay Secretary', 'Barangay Captain', 'Punong Barangay'}
+READ_ROLES = {'System Administrator', 'Barangay Secretary', 'Barangay Captain', 'Punong Barangay', 'Punong Barangay (Barangay Captain)'}
 PRESETS = {'precise': {'chunk_size': 900, 'chunk_overlap': 150}, 'balanced': {'chunk_size': 1500, 'chunk_overlap': 200}, 'context': {'chunk_size': 2400, 'chunk_overlap': 300}}
 WRITE_ROLES = {'System Administrator', 'Barangay Secretary'}
 
@@ -143,6 +143,21 @@ def serve(root, port):
                 supplied = self.headers.get('X-Document-Local-Key', '')
                 if self.client_address[0] != '127.0.0.1' or not hmac.compare_digest(supplied, local_key):
                     raise RequestError(403, 'Open Document Management through the localhost Web Admin.')
+                authorization = self.headers.get('Authorization', '')
+                if not authorization.startswith('Bearer '):
+                    raise RequestError(401, 'Sign in to use document administration.')
+                token = authorization[7:].strip()
+                try:
+                    auth_database = create_client(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY)
+                    auth_user = auth_database.auth.get_user(token).user
+                    profile = auth_database.table('users').select('roles(role_name)').eq('id', auth_user.id).single().execute().data
+                    request_role = ((profile or {}).get('roles') or {}).get('role_name')
+                except Exception:
+                    raise RequestError(401, 'Your session is invalid or expired.')
+                service_route = self.path.startswith('/services') or self.path.startswith('/chatbot/settings')
+                allowed_roles = {'System Administrator'} if service_route else (WRITE_ROLES if self.command != 'GET' else READ_ROLES)
+                if request_role not in allowed_roles:
+                    raise RequestError(403, 'Your officer role cannot perform this document operation.')
                 if self.command == 'GET' and self.path == '/chatbot/menu':
                     menu = load_kb()
                     return self.respond(200, {'greeting': menu['greeting'], 'closing': localized(menu['closing'], 'taglish'), 'categories': [{'id': item['id'], 'label': localized(item['name'],'english'), 'example': localized(item['example'],'english')} for item in menu['categories']]})

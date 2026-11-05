@@ -1,140 +1,126 @@
-// Role names must match exactly what Login.jsx writes to AuthContext's user.role.
-export const ROLES = {
+// Canonical role names. Older database aliases are normalized at the auth boundary.
+export const ROLES = Object.freeze({
   SECRETARY: 'Barangay Secretary',
   TANOD: 'Tanod / BPSO',
-  LUPON: 'Lupon Member',
-  KAGAWAD: 'Kagawad (Committee Chair)',
-  CAPTAIN: 'Barangay Captain', // Punong Barangay
+  LUPON: 'Lupong Tagapamayapa Member',
+  KAGAWAD: 'Sangguniang Barangay Kagawad',
+  CAPTAIN: 'Punong Barangay (Barangay Captain)',
   ADMIN: 'System Administrator',
+})
+
+const ROLE_ALIASES = Object.freeze({
+  'Barangay Secretary': ROLES.SECRETARY,
+  'Tanod / BPSO': ROLES.TANOD,
+  'Tanod/BPSO': ROLES.TANOD,
+  'Lupon Member': ROLES.LUPON,
+  'Lupong Tagapamayapa Member': ROLES.LUPON,
+  Kagawad: ROLES.KAGAWAD,
+  'Kagawad (Committee Chair)': ROLES.KAGAWAD,
+  'Sangguniang Barangay Kagawad': ROLES.KAGAWAD,
+  'Barangay Captain': ROLES.CAPTAIN,
+  'Punong Barangay': ROLES.CAPTAIN,
+  'Punong Barangay (Barangay Captain)': ROLES.CAPTAIN,
+  'System Admin': ROLES.ADMIN,
+  'System Administrator': ROLES.ADMIN,
+})
+
+export function normalizeRole(role) {
+  return ROLE_ALIASES[String(role || '').trim()] || String(role || '').trim()
+}
+
+export function roleLookupNames(role) {
+  const canonical = normalizeRole(role)
+  return [...new Set(Object.entries(ROLE_ALIASES)
+    .filter(([, value]) => value === canonical)
+    .map(([name]) => name))]
 }
 
 const { SECRETARY, TANOD, LUPON, KAGAWAD, CAPTAIN, ADMIN } = ROLES
 
-// moduleKey -> role -> capability list. Empty/absent array = no access at all.
-export const PERMISSIONS = {
+// Module visibility and operations share one source of truth.
+export const PERMISSIONS = Object.freeze({
   dashboard: {
-    [SECRETARY]: ['read'],
-    [TANOD]: ['read'],
-    [LUPON]: ['read'],
-    [KAGAWAD]: ['read'],
-    [CAPTAIN]: ['read'],
-    [ADMIN]: ['read'],
+    [SECRETARY]: ['read'], [TANOD]: ['read'], [LUPON]: ['read'],
+    [KAGAWAD]: ['read'], [CAPTAIN]: ['read'], [ADMIN]: ['read'],
   },
   gis: {
-    [SECRETARY]: ['create', 'read', 'update', 'approve'],
-    [TANOD]: ['create', 'read'],
-    [LUPON]: [],
-    [KAGAWAD]: ['read'],
-    [CAPTAIN]: ['create', 'read', 'update', 'approve'],
+    [SECRETARY]: ['create', 'read', 'update'], [TANOD]: ['create', 'read'],
+    [KAGAWAD]: ['read'], [CAPTAIN]: ['read', 'update'],
+    [ADMIN]: ['create', 'read', 'update', 'delete', 'approve'],
+  },
+  serviceComplaints: {
+    [SECRETARY]: ['create', 'read', 'update'], [TANOD]: ['create', 'read'],
+    [KAGAWAD]: ['read'], [CAPTAIN]: ['read'],
     [ADMIN]: ['create', 'read', 'update', 'delete', 'approve'],
   },
   blotter: {
-    [SECRETARY]: ['read', 'update', 'confirm'],
-    [TANOD]: [],
-    [LUPON]: ['read', 'update'],
-    [KAGAWAD]: [],
-    [CAPTAIN]: ['read', 'update', 'confirm'],
-    [ADMIN]: ['read', 'update', 'confirm'],
+    [SECRETARY]: ['read', 'update', 'confirm', 'finalize'],
+    [TANOD]: ['create', 'read'], [LUPON]: ['read', 'update'],
+    [CAPTAIN]: ['read', 'update', 'confirm', 'finalize'],
+    [ADMIN]: ['create', 'read', 'update', 'delete', 'confirm', 'finalize'],
   },
   userAccounts: {
-    [SECRETARY]: [],
-    [TANOD]: [],
-    [LUPON]: [],
-    [KAGAWAD]: [],
-    [CAPTAIN]: ['read', 'approve'],
-    [ADMIN]: ['create', 'read', 'update', 'delete', 'approve'],
+    [SECRETARY]: ['read', 'verify'], [CAPTAIN]: ['read', 'approve', 'assignRole'],
+    [ADMIN]: ['create', 'read', 'update', 'delete', 'approve', 'assignRole'],
   },
   knowledgeBase: {
-    [SECRETARY]: ['create', 'read', 'update'],
-    [TANOD]: [],
-    [LUPON]: [],
-    [KAGAWAD]: [],
-    [CAPTAIN]: ['read', 'approve'],
-    [ADMIN]: ['read', 'create', 'update', 'delete', 'approve'],
+    [SECRETARY]: ['create', 'read', 'update'], [CAPTAIN]: ['read', 'approve'],
+    [ADMIN]: ['create', 'read', 'update', 'delete', 'approve'],
   },
-  alerts: {
-    [SECRETARY]: ['create', 'read', 'delete'],
-    [TANOD]: ['read'],
-    [LUPON]: [],
-    [KAGAWAD]: ['create', 'read', 'delete'],
-    [CAPTAIN]: ['create', 'read', 'delete'],
-    [ADMIN]: ['create', 'read', 'delete'],
-  },
-  auditLogs: {
-    [SECRETARY]: [],
-    [TANOD]: [],
-    [LUPON]: [],
-    [KAGAWAD]: [],
-    [CAPTAIN]: ['read'],
-    [ADMIN]: ['read'],
-  },
-  reports: {
-    [SECRETARY]: ['create', 'read'],
-    [TANOD]: [],
-    [LUPON]: ['read'],
-    [KAGAWAD]: ['read'],
-    [CAPTAIN]: ['create', 'read'],
-    [ADMIN]: ['create', 'read'],
-  },
-  profile: {
-    [SECRETARY]: ['read', 'update'],
-    [TANOD]: ['read', 'update'],
-    [LUPON]: ['read', 'update'],
-    [KAGAWAD]: ['read', 'update'],
-    [CAPTAIN]: ['read', 'update'],
-    [ADMIN]: ['read', 'update'],
-  },
+  // Preserve the existing System Administrator's Services access.
+  services: { [ADMIN]: ['create', 'read', 'update', 'delete'] },
   directory: {
-    [SECRETARY]: ['read'],
-    [TANOD]: ['read'],
-    [LUPON]: ['read'],
-    [KAGAWAD]: ['read'],
-    [CAPTAIN]: ['read', 'update'],
+    [SECRETARY]: ['read'], [TANOD]: ['read'], [LUPON]: ['read'],
+    [KAGAWAD]: ['read'], [CAPTAIN]: ['read', 'update', 'approve'],
     [ADMIN]: ['create', 'read', 'update', 'delete'],
   },
-}
+  alerts: {
+    [SECRETARY]: ['create', 'read'], [TANOD]: ['read'], [LUPON]: ['read'],
+    [KAGAWAD]: ['create', 'read'], [CAPTAIN]: ['create', 'read'],
+    [ADMIN]: ['create', 'read', 'delete'],
+  },
+  reports: {
+    [SECRETARY]: ['create', 'read', 'export'], [LUPON]: ['read'],
+    [KAGAWAD]: ['read'], [CAPTAIN]: ['create', 'read', 'export'],
+    [ADMIN]: ['create', 'read', 'export'],
+  },
+  auditLogs: { [CAPTAIN]: ['read'], [ADMIN]: ['read'] },
+  profile: {
+    [SECRETARY]: ['read', 'update'], [TANOD]: ['read', 'update'],
+    [LUPON]: ['read', 'update'], [KAGAWAD]: ['read', 'update'],
+    [CAPTAIN]: ['read', 'update'], [ADMIN]: ['read', 'update'],
+  },
+})
 
-// Roles that require Punong Barangay sign-off before an Admin-assigned role
-// change actually takes effect (per spec: "official and committee-level roles").
 export const ROLES_REQUIRING_PB_APPROVAL = [SECRETARY, KAGAWAD, LUPON, CAPTAIN]
 
 export function can(role, moduleKey, action) {
-  return Boolean(PERMISSIONS[moduleKey]?.[role]?.includes(action))
+  return Boolean(PERMISSIONS[moduleKey]?.[normalizeRole(role)]?.includes(action))
 }
 
 export function hasModuleAccess(role, moduleKey) {
-  return Boolean(PERMISSIONS[moduleKey]?.[role]?.length)
+  return Boolean(PERMISSIONS[moduleKey]?.[normalizeRole(role)]?.length)
 }
 
-// Modules the System Administrator can toggle on/off per role. Dashboard and
-// Profile are deliberately excluded — every role needs a guaranteed landing
-// page and account/password access, so they stay always-on to avoid a role
-// being locked out of the portal entirely.
 export const ASSIGNABLE_MODULES = [
   { key: 'gis', label: 'GIS Command Center' },
-  { key: 'blotter', label: 'Digital Reports' },
+  { key: 'serviceComplaints', label: 'Service Complaints' },
+  { key: 'blotter', label: 'Blotter Reports' },
   { key: 'userAccounts', label: 'User Accounts' },
-  { key: 'knowledgeBase', label: 'Knowledge Base' },
-  { key: 'alerts', label: 'In-App notification' },
-  { key: 'reports', label: 'Reports' },
-  { key: 'auditLogs', label: 'Audit Logs' },
+  { key: 'knowledgeBase', label: 'Barangay Bot' },
+  { key: 'services', label: 'Services' },
   { key: 'directory', label: 'Emergency Directory' },
+  { key: 'alerts', label: 'In-App Notification' },
+  { key: 'reports', label: 'Reports' },
+  { key: 'auditLogs', label: 'Audit' },
 ]
 
-// Roles whose module access the System Administrator can reassign. ADMIN is
-// excluded so the System Administrator can never toggle away their own access.
 export const ASSIGNABLE_MODULE_ROLES = [SECRETARY, TANOD, LUPON, KAGAWAD, CAPTAIN]
-
-// Modules that are always visible/accessible regardless of any per-role override.
 export const ALWAYS_ON_MODULES = ['dashboard', 'profile']
 
 export function defaultModuleAccessMap() {
-  const map = {}
-  ASSIGNABLE_MODULE_ROLES.forEach((role) => {
-    map[role] = {}
-    ASSIGNABLE_MODULES.forEach(({ key }) => {
-      map[role][key] = hasModuleAccess(role, key)
-    })
-  })
-  return map
+  return Object.fromEntries(ASSIGNABLE_MODULE_ROLES.map(role => [
+    role,
+    Object.fromEntries(ASSIGNABLE_MODULES.map(({ key }) => [key, hasModuleAccess(role, key)])),
+  ]))
 }

@@ -7,6 +7,7 @@ import useBlotterLifecycle from '../hooks/useBlotterLifecycle'
 import { STAGES, EVENT_LABELS, LEGAL_URL, availableCaseActions, caseDeadlines, formatCaseDate, nextCaseAction, validateCaseEvent } from '../lib/blotterLifecycle'
 import BlotterWorkspace from './BlotterWorkspace'
 import ReportEvidenceGallery from './ReportEvidenceGallery'
+import { ROLES, can } from '../config/permissions'
 import { useData } from '../context/DataContext'
 
 const APPROVAL_ACTIONS = ['assessment', 'assignment', 'meeting_verified', 'pangkat', 'arbitration', 'settlement', 'repudiation', 'referral', 'disposition', 'archive']
@@ -40,7 +41,7 @@ function ProcessForm({ kind, state, user, accounts, record, saving, onDone, init
   }
   let fields = []
   if (kind === 'assessment') fields = [field('route', 'Ruta pagkatapos ng officer review', { choices: [['kp', 'Eligible para sa KP'], ['documentation', 'Incident documentation lamang'], ['urgent', 'Urgent safety / referral'], ['outside', 'Outside KP jurisdiction / referral']] }), field('jurisdiction_basis', 'Mga panig, subject matter, exclusions at eligibility assessment', { multiline: true }), field('venue_basis', 'Venue at residency assessment', { multiline: true })]
-  if (kind === 'assignment') fields = [field('assigned_to', 'Assigned case handler', { choices: accounts.filter((a) => ['Barangay Secretary', 'Barangay Captain', 'Punong Barangay', 'Lupon Member', 'Lupong Tagapamayapa Member', 'System Administrator'].includes(a.role)).map((a) => [a.id, `${a.name} — ${a.role}`]) })]
+  if (kind === 'assignment') fields = [field('assigned_to', 'Assigned case handler', { choices: accounts.filter((a) => [ROLES.SECRETARY, ROLES.CAPTAIN, ROLES.LUPON, ROLES.ADMIN].includes(a.role)).map((a) => [a.id, `${a.name} — ${a.role}`]) })]
   if (['meeting_scheduled', 'meeting_rescheduled'].includes(kind)) fields = [
     ...(kind === 'meeting_rescheduled' ? [field('meeting_id', 'Aktibong pagdinig', { choices: state.meetings.filter((m) => m.status === 'scheduled').map((m) => [m.meeting_id, `Meeting ${m.number} · ${formatCaseDate(m.scheduled_at)}`]) })] : []),
     section('1. Uri at iskedyul'), field('type', 'Procedural type', { choices: [[draft.type, procedure.title]], readOnly: true, help: 'Batay sa kasalukuyang yugto; gamitin ang tamang procedural action para magpalit ng ruta.' }), field('scheduled_at', 'Simula', { type: 'datetime-local' }), field('ends_at', 'Pagtatapos', { type: 'datetime-local', min: draft.scheduled_at, help: 'Default na isang oras; baguhin ayon sa aktuwal na plano.' }), section('2. Lugar at namumuno'), field('venue', 'Lugar'), field('presiding', procedure.presiding), section('3. Layunin at mga dadalo'), field('agenda', procedure.agenda, { multiline: true }), field('participants', 'Mga inaasahang panig, saksi at ibang authorized attendee', { multiline: true }),
@@ -105,9 +106,9 @@ export default function BlotterCaseWorkspace({ report, onFlagSpam }) {
   const [selectedEvent, setSelectedEvent] = useState(null)
   const root = useRef(null)
   useLayoutEffect(() => { const measure = () => { if (root.current) root.current.style.setProperty('--case-height', `${Math.max(380, window.innerHeight - root.current.getBoundingClientRect().top - 24)}px`) }; measure(); window.addEventListener('resize', measure); return () => window.removeEventListener('resize', measure) })
-  const officer = ['Barangay Secretary', 'Barangay Captain', 'Punong Barangay', 'System Administrator', 'Lupon Member', 'Lupong Tagapamayapa Member'].includes(user?.role)
-  const assignedLupon = ['Lupon Member', 'Lupong Tagapamayapa Member'].includes(user?.role) && state.assignment?.assigned_to === user?.id
-  const canAct = officer || assignedLupon
+  const officer = [ROLES.SECRETARY, ROLES.CAPTAIN, ROLES.ADMIN].includes(user?.role)
+  const assignedLupon = user?.role === ROLES.LUPON && state.assignment?.assigned_to === user?.id
+  const canAct = officer || (assignedLupon && can(user?.role, 'blotter', 'update'))
   const next = nextCaseAction(state)
   const deadlines = caseDeadlines(state)
   const details = report.intakeDetails || {}

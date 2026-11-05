@@ -75,7 +75,7 @@ export default function Dashboard() {
 
   const activityFeed = auditLog.slice(0, 8)
   const isFullOverview = user?.role === ROLES.SECRETARY || user?.role === ROLES.CAPTAIN
-  const hasActivityFeed = user?.role === ROLES.ADMIN
+  const hasActivityFeed = isFullOverview || user?.role === ROLES.ADMIN
 
   return (
     <div className="dashboard-page">

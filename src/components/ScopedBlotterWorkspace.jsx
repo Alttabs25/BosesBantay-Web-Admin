@@ -9,6 +9,7 @@ import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import BlotterWorkspace from './BlotterWorkspace'
 import { hearingVenue, scopedNextActions, scopedPatch, validateScopedAction } from '../lib/scopedBlotterFlow'
+import { can } from '../config/permissions'
 
 export default function ScopedBlotterWorkspace({ report, onFlagSpam }) {
   const { user } = useAuth()
@@ -25,10 +26,15 @@ export default function ScopedBlotterWorkspace({ report, onFlagSpam }) {
   const [clock, setClock] = useState(Date.now)
   useEffect(() => { const timer = setInterval(() => setClock(Date.now()), 30000); return () => clearInterval(timer) }, [])
   const dateTesting = true
-  const flow = scopedNextActions(report, clock, { ignoreDateConstraints: dateTesting })
+  const canUpdate = can(user?.role, 'blotter', 'update')
+  const canConfirm = can(user?.role, 'blotter', 'confirm')
+  const canFinalize = can(user?.role, 'blotter', 'finalize')
+  const canPerform = value => value === 'review' ? canConfirm : value === 'finalize' ? canFinalize : canUpdate
+  const rawFlow = scopedNextActions(report, clock, { ignoreDateConstraints: dateTesting })
+  const flow = { ...rawFlow, actions: rawFlow.actions.filter(canPerform) }
   useLayoutEffect(() => { const resize = () => { if (root.current) root.current.style.setProperty('--scope-height', `${Math.max(350, window.innerHeight - root.current.getBoundingClientRect().top - 24)}px`) }; resize(); window.addEventListener('resize', resize); return () => window.removeEventListener('resize', resize) })
   const actor = [user?.name, user?.role].filter(Boolean).join(' — ')
-  const stage = report.status === 'Sinuri' ? 0 : report.status === 'Inimbestigahan' ? 1 : report.status === 'Nareselba' ? 2 : -1
+  const stage = report.status === 'Sinuri' ? (canConfirm ? 0 : -1) : report.status === 'Inimbestigahan' ? (canUpdate || canFinalize ? 1 : -1) : report.status === 'Nareselba' ? 2 : -1
   const progress = blotterProgress(report)
   const resolvedCfa = /certificate to file action|\bcfa\b/i.test(report.outcome || '')
   const input = 'mt-2 block w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-200'
