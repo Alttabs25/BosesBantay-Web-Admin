@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react'
-import { UploadCloud, FileText, Search, ChevronRight } from 'lucide-react'
+import { UploadCloud, FileText, Search, ChevronRight, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
@@ -10,6 +10,7 @@ import DocumentUploadDialog from '../components/DocumentUploadDialog'
 import { documentRequest } from '../lib/documentAdmin'
 import FilterPopup from '../components/FilterPopup'
 import Modal from '../components/Modal'
+import DocumentDetailModal from '../components/DocumentDetailModal'
 import { can } from '../config/permissions'
 import './DocumentManagement.css'
 
@@ -27,7 +28,7 @@ const DocumentRow=memo(function DocumentRow({doc,onSelect}) {
 
 export default function KnowledgeBase() {
   const { user } = useAuth()
-  const { addAuditEntry } = useData()
+  const { documents: approvalDocuments, updateDocument, addAuditEntry } = useData()
   const { showToast } = useToast()
   const [documents, setDocuments] = useState(() => documentCache.library() || [])
   const [loading, setLoading] = useState(() => documentCache.library() === null)
@@ -42,7 +43,18 @@ export default function KnowledgeBase() {
   const [chunks, setChunks] = useState([])
   const [sourceLoading, setSourceLoading] = useState(false)
   const [sourceError, setSourceError] = useState('')
+  const [approvalSelected, setApprovalSelected] = useState(null)
   const canIndex = can(user?.role, 'knowledgeBase', 'create') || can(user?.role, 'knowledgeBase', 'update')
+  const canApprove = can(user?.role, 'knowledgeBase', 'approve')
+  const pendingApprovals = (approvalDocuments || []).filter(doc => doc.officialStatus !== 'Opisyal' && doc.status !== 'Retired')
+
+  async function approveOfficialDocument(doc) {
+    const result = await updateDocument(doc.id, { officialStatus: 'Opisyal' })
+    if (!result?.success) return showToast(result?.error || 'Hindi naaprubahan ang dokumento.', 'error')
+    addAuditEntry(`Inaprubahan bilang opisyal ang knowledge-base document: ${doc.title}`, { color: 'green', eventType: 'approve', targetTable: 'documents', targetId: doc.id, before: { approval_status: doc.officialStatus }, after: { approval_status: 'Opisyal' } })
+    setApprovalSelected(null)
+    showToast(`${doc.title} ay opisyal nang naaprubahan.`, 'success')
+  }
 
   async function refresh({ clearSources = false } = {}) {
     setError('')
@@ -87,11 +99,17 @@ export default function KnowledgeBase() {
 
     {error && <div className="dm-error" role="alert"><strong>Could not load documents</strong><p>{error}</p><button type="button" className="dm-secondary" onClick={()=>refresh({clearSources:true})}>Try again</button></div>}
 
+    {canApprove && <section className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Official approval authority</p><h3 className="mt-1 text-sm font-bold text-slate-900">Knowledge-base approval queue</h3><p className="mt-1 text-xs text-slate-600">Review indexed documents before making them official.</p></div><span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-emerald-700 shadow-sm">{pendingApprovals.length} pending</span></div>
+      {pendingApprovals.length > 0 ? <div className="mt-3 grid gap-2">{pendingApprovals.map(doc => <button type="button" key={doc.id} onClick={() => setApprovalSelected(doc)} className="flex items-center justify-between gap-3 rounded-lg border border-emerald-100 bg-white px-3 py-2 text-left hover:border-emerald-300"><span className="min-w-0"><strong className="block truncate text-xs text-slate-800">{doc.title}</strong><small className="text-[10px] text-slate-500">{doc.category} · {doc.dateUploaded}</small></span><span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-emerald-700"><ShieldCheck size={14} /> Review</span></button>)}</div> : <p className="mt-3 rounded-lg bg-white px-3 py-2 text-xs text-slate-500">Walang dokumentong naghihintay ng pag-apruba.</p>}
+    </section>}
+
     <div className="dm-library"><header><div className="dm-status-tabs" role="group" aria-label="Document status">{[['all','All documents',documents.length],['active','Active',activeCount],['inactive','Inactive',documents.length-activeCount]].map(([value,label,count])=><button type="button" key={value} aria-pressed={status===value} onClick={()=>setStatus(value)}>{label}<span>{count}</span></button>)}</div><span className="dm-showing" role="status">{filtered.length===documents.length?'':`${filtered.length} matching`}</span></header>
       {loading ? <p className="dm-empty" role="status">Loading indexed sources…</p> : !filtered.length ? <div className="dm-empty"><FileText size={28} /><h3>{error ? 'Unable to load the library' : documents.length ? 'No matching documents' : 'No indexed documents yet'}</h3><p>{documents.length ? 'Try another filename or clear your filters.' : 'Add a searchable PDF or UTF-8 TXT file to begin.'}</p></div> : <div className="dm-document-list"><div className="dm-list-heading" aria-hidden="true"><span>Document</span><span>Chunks</span><span>Status</span><span /></div>{filtered.map(doc=><DocumentRow key={doc.filename} doc={doc} onSelect={setSelected}/>)}</div>}
 
     </div>
     {uploadOpen&&<DocumentUploadDialog open onClose={()=>setUploadOpen(false)} onIndexed={async result=>{if(result){setUploadOpen(false);showToast(`${result.filename} added successfully. Ready for Barangay Bot.`, 'success');addAuditEntry(`Indexed chatbot document: ${result.filename} (${result.chunks} chunks)`,{color:'green',eventType:'index',targetTable:'documents',targetKey:result.filename,after:{indexed:true,chunk_count:result.chunks}})}await refresh()}} />}
     <Modal open={Boolean(selected)} onClose={() => setSelected(null)} title={selected?.title || selected?.filename || 'Source preview'} maxWidth="max-w-3xl"><div className="dm-source"><div className="dm-source-metadata"><span>Source: {selected?.filename}</span>{selected?.category&&<span>{selected.category}</span>}{selected?.reference&&<span>Reference: {selected.reference}</span>}{selected?.summary&&<p>{selected.summary}</p>}</div>{canIndex && <div className="dm-source-actions"><span>{selected?.activeChunks ? 'Active chunks are available to chatbot lookup.' : 'This source is excluded from chatbot lookup.'}</span><button className="dm-secondary" type="button" disabled={statusBusy} onClick={toggleSource}>{statusBusy ? 'Saving…' : selected?.activeChunks ? 'Archive source' : 'Activate source'}</button></div>}{sourceLoading && <p role="status">Loading source chunks…</p>}{sourceError && <p className="dm-error" role="alert">{sourceError}</p>}{chunks.map((chunk,index) => <details key={chunk.id} open={index === 0}><summary><strong>Chunk {index + 1}</strong><span>{chunk.metadata?.page ? `Page ${chunk.metadata.page}` : 'Text file'} · {chunk.metadata?.active === false ? 'Inactive' : 'Active'}</span></summary><div className="dm-chunk-text">{chunkParagraphs(chunk.content).map((paragraph,index) => <p key={index}>{paragraph}</p>)}</div></details>)}</div></Modal>
+    <DocumentDetailModal open={Boolean(approvalSelected)} onClose={() => setApprovalSelected(null)} doc={approvalSelected} onApprove={approveOfficialDocument} onRetire={() => {}} onDelete={() => {}} canApprove={canApprove} canDelete={false} />
   </div>
 }

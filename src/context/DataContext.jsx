@@ -2335,15 +2335,20 @@ export function DataProvider({ children }) {
       if (patch.summary !== undefined) docPatch.summary = patch.summary
 
       const query = supabase.from('documents').update(docPatch)
+      let result
       if (identifier && !isNaN(Number(identifier))) {
-        await query.eq('document_id', Number(identifier))
+        result = await query.eq('document_id', Number(identifier))
       } else {
-        await query.eq('title', String(identifier))
+        result = await query.eq('title', String(identifier))
       }
+      if (result.error) throw result.error
 
       await fetchData()
+      return { success: true }
     } catch (err) {
       console.error('Error updating document:', err)
+      await fetchData()
+      return { success: false, error: err.message }
     }
   }
 

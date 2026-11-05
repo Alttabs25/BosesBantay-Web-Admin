@@ -168,7 +168,6 @@ export default function Dashboard() {
           {isFullOverview && <div className="dashboard-chart-grid is-wide">
             <MiniBarChart title="Insidente ayon sa Klasipikasyon" data={classificationData} />
             <MiniBarChart title="Insidente ayon sa Kalubhaan" data={severityData} />
-            <StatTile icon={Clock} label="Avg. turnaround (submission to resolution)" value="3.5 araw" accent="blue" />
             <MiniBarChart title="Kabuuan ng Rehistradong Residente" data={registrationData} />
             <MiniBarChart title="Kabuuan ng Blotter Reports" data={blotterData} />
             <MiniBarChart title="Chatbot Query Volume (sample)" data={chatbotQueryData} />
