@@ -1,5 +1,5 @@
 const PROGRESS = [
-  ['all', 'All reports'], ['pending', 'Under review'], ['active', 'In progress'], ['closed', 'Closed'],
+  ['all', 'All reports'], ['pending', 'Pending'], ['active', 'Investigating'], ['closed', 'Closed'],
 ]
 const ATTENTION = [
   ['needs_schedule', 'Needs hearing schedule'], ['scheduled', 'Hearing scheduled'],
@@ -13,7 +13,7 @@ export default function BlotterFilterFields({ variant = 'blotter', status, onSta
   })}</div></fieldset>
   return <div className="blotter-filter-layout">
     <div className="blotter-filter-progress">
-      {choices(variant === 'complaint' ? [['all','All complaints'],['pending','Under review'],['active','In progress'],['closed','Completed / closed']] : PROGRESS, variant === 'complaint' ? 'Complaint status' : 'Report status')}
+      {choices(variant === 'complaint' ? [['all','All complaints'],['pending','Pending'],['active','Investigating'],['closed','Completed / closed']] : PROGRESS, variant === 'complaint' ? 'Complaint status' : 'Report status')}
       {choices([...(variant === 'complaint' ? [['spam','Spam'],['out_of_scope','Out of scope']] : ATTENTION), ...(counts.other ? [['other','Other status']] : [])], variant === 'complaint' ? 'Other classifications' : 'Hearing & follow-up')}
     </div>
     <div className="blotter-filter-scope">

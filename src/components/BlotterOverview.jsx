@@ -19,8 +19,8 @@ function formatHearingDate(value) {
 function statusBadge(report) {
   const progress = blotterProgress(report)
   if (progress.status === 'closed') return { label: 'Closed', color: '#596b82', bg: '#f2f5f8', border: '#d5dee9' }
-  if (progress.status === 'review') return { label: 'Under review', color: '#315f9f', bg: '#eef4fd', border: '#c4d5ee' }
-  if (progress.status === 'active') return { label: 'In progress', color: '#906017', bg: '#fff7e9', border: '#ead6b1' }
+  if (progress.status === 'review') return { label: 'Pending', color: '#92400e', bg: '#fef3c7', border: '#fcd34d' }
+  if (progress.status === 'active') return { label: 'Investigating', color: '#1d4ed8', bg: '#dbeafe', border: '#93c5fd' }
   return { label: progress.statusLabel, color: '#596b82', bg: '#f2f5f8', border: '#d5dee9' }
 }
 function titleFor(report) {
@@ -56,7 +56,7 @@ export default function BlotterOverview({ reports, allReports, selectedStatus, o
   const closed = allReports.filter(isResolved).length
   const needsSchedule = allReports.filter(r => ['schedule_pending','postponed','missed'].includes(blotterProgress(r).stageKey)).length
   const needsOutcome = allReports.filter(r => blotterProgress(r).stageKey === 'outcome_pending').length
-  const summaries = [{ key: 'pending', label: 'Under review', value: pending, tone: 'blue' }, { key: 'active', label: 'In progress', value: inProgress, tone: 'amber' }, { key: 'scheduled', label: 'Hearing scheduled', value: scheduled, tone: 'blue' }, { key: 'closed', label: 'Closed', value: closed, tone: 'slate' }, { key: 'escalated', label: 'CFA recorded', value: escalated, tone: 'violet' }]
+  const summaries = [{ key: 'pending', label: 'Pending', value: pending, tone: 'amber' }, { key: 'active', label: 'Investigating', value: inProgress, tone: 'blue' }, { key: 'scheduled', label: 'Hearing scheduled', value: scheduled, tone: 'blue' }, { key: 'closed', label: 'Closed', value: closed, tone: 'slate' }, { key: 'escalated', label: 'CFA recorded', value: escalated, tone: 'violet' }]
   return <div ref={columnsRef} className="blotter-overview-columns blotter-home">
     <section ref={listRef} aria-label="Blotter reports" className="blotter-registry-panel">
       <div className="complaint-registry-heading"><div className="service-list-title"><h2>Blotter reports</h2><span>{reports.length === allReports.length ? reports.length : `${reports.length} / ${allReports.length}`}</span></div></div>

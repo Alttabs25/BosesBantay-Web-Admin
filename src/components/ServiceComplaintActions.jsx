@@ -6,7 +6,7 @@ import { useToast } from '../context/ToastContext'
 import Modal from './Modal'
 import { can } from '../config/permissions'
 
-const stages = { received: 'Received · for review', in_progress: 'In progress', follow_up: 'Needs follow-up', resolved: 'Resolved', closed_unresolved: 'Closed · not resolved' }
+const stages = { received: 'Pending', in_progress: 'Investigating', follow_up: 'Needs follow-up', resolved: 'Resolved', closed_unresolved: 'Closed · not resolved' }
 const actions = { start: 'Kumpirmahin at simulan', note: 'Mag-record ng update', follow_up: 'Kailangan ng follow-up', resolve: 'Mark as resolved', spam: 'Mark as spam', out_of_scope: 'Out of scope', close_unresolved: 'Close without resolution', reopen: 'Reopen complaint' }
 const activityLabels = { start: 'Receipt confirmed', note: 'Progress update', follow_up: 'Follow-up required', resolve: 'Complaint resolved', spam: 'Marked as spam', out_of_scope: 'Marked out of scope', close_unresolved: 'Closed without resolution', reopen: 'Complaint reopened' }
 const quickNotes = {
@@ -93,7 +93,7 @@ export default function ServiceComplaintActions({ report }) {
   }
   return <section className="service-actions">
     <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-sm font-semibold text-slate-900">Current status</h3><span className={`rounded-full px-3 py-1 text-xs font-semibold ${stage === 'resolved' ? 'bg-emerald-50 text-emerald-800' : stage === 'closed_unresolved' ? 'bg-slate-100 text-slate-700' : stage === 'follow_up' ? 'bg-amber-50 text-amber-800' : 'bg-blue-50 text-bb-blue'}`}>{stageLabel}</span></div>
-    <ol className="service-progress">{['Received','In progress',closed ? stage === 'resolved' ? 'Resolved' : stageLabel : 'Completion'].map((label,index) => {
+    <ol className="service-progress">{['Pending','Investigating',closed ? stage === 'resolved' ? 'Resolved' : stageLabel : 'Completion'].map((label,index) => {
       const reached = index === 0 || index === 1 && stage !== 'received' || index === 2 && closed
       return <li key={index} className={`${reached ? 'is-reached' : ''} ${index === 2 && stage === 'resolved' ? 'is-resolved' : ''}`}><span className="service-step-number">{index === 2 && stage === 'resolved' ? '✓' : index + 1}</span><span>{label}</span></li>
     })}</ol>

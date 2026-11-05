@@ -17,7 +17,10 @@ const TABS = [['overview', 'Overview', FileText], ['meetings', 'Meetings', Users
 
 
 function CaseField({ label, value, children }) {
-  return <div className="min-w-0"><dt className="text-xs font-semibold text-slate-500">{label}</dt><dd className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-800">{children || value || <span className="text-slate-400">Hindi nakatala</span>}</dd></div>
+  const displayValue = label === 'Administrative status'
+    ? ({ Sinuri: 'Pending', 'Under Review': 'Pending', Pending: 'Pending', Inimbestigahan: 'Investigating', 'In progress': 'Investigating', Investigating: 'Investigating' }[value] || value)
+    : value
+  return <div className="min-w-0"><dt className="text-xs font-semibold text-slate-500">{label}</dt><dd className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-800">{children || displayValue || <span className="text-slate-400">Hindi nakatala</span>}</dd></div>
 }
 function Panel({ title, subtitle, children, action, printable = false }) {
   return <section data-case-minutes={printable ? '' : undefined} className="rounded-xl border border-slate-200 bg-white"><div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4"><div><h3 className="text-sm font-bold text-slate-900">{title}</h3>{subtitle && <p className="mt-1 text-xs leading-relaxed text-slate-500">{subtitle}</p>}</div>{action}</div><div className="p-5">{children}</div></section>

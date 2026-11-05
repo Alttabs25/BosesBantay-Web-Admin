@@ -66,9 +66,9 @@ export function isVerifiedReport(status) {
 }
 
 export function getStatusLabel(status) {
-  if (!status) return 'Under Review'
+  if (!status) return 'Pending'
   const s = String(status).trim().toLowerCase()
-  if (s === 'sinuri' || s === 'under review' || s === 'pending') return 'Under Review'
+  if (s === 'sinuri' || s === 'under review' || s === 'pending') return 'Pending'
   if (s === 'inimbestigahan' || s === 'investigating' || s === 'iniimbestigahan') return 'Investigating'
   if (s === 'nareselba' || s === 'resolved' || s === 'nalutas') return 'Resolved'
   if (s === 'spam') return 'Spam'

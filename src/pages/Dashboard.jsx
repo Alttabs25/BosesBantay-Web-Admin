@@ -67,8 +67,8 @@ export default function Dashboard() {
   ]
 
   const blotterData = [
-    { label: 'Sinuri (Pending)', value: underReview, color: 'orange' },
-    { label: 'Inimbestigahan', value: investigating, color: 'blue' },
+    { label: 'Pending', value: underReview, color: 'orange' },
+    { label: 'Investigating', value: investigating, color: 'blue' },
     { label: 'Nareselba', value: resolved, color: 'green' },
     { label: 'Spam', value: blotterReports.filter((report) => report.status === 'Spam').length, color: 'red' },
   ]
@@ -87,15 +87,15 @@ export default function Dashboard() {
         <div className="dashboard-metric-grid">
           {isFullOverview && <>
             <StatTile icon={UserCheck} label="Naghihintay na Verification" value={pendingVerifications} accent="orange" />
-            <StatTile icon={ClipboardList} label="Sinuri (Under Review)" value={underReview} accent="blue" />
-            <StatTile icon={Gavel} label="Inimbestigahan" value={investigating} accent="orange" />
+            <StatTile icon={ClipboardList} label="Pending" value={underReview} accent="orange" />
+            <StatTile icon={Gavel} label="Investigating" value={investigating} accent="blue" />
             <StatTile icon={CheckCircle2} label="Nareselba" value={resolved} accent="green" />
           </>}
           {user?.role === ROLES.TANOD && <>
             <StatTile icon={MapPin} label="Insidente Ngayong Araw" value={todayIncidents} accent="blue" />
-            <StatTile icon={ClipboardList} label="Sinuri (Under Review)" value={underReview} accent="orange" />
+            <StatTile icon={ClipboardList} label="Pending" value={underReview} accent="orange" />
           </>}
-          {user?.role === ROLES.LUPON && <StatTile icon={Gavel} label="Nakatalagang Kaso (Investigating)" value={investigating} accent="orange" />}
+          {user?.role === ROLES.LUPON && <StatTile icon={Gavel} label="Nakatalagang Kaso (Investigating)" value={investigating} accent="blue" />}
           {user?.role === ROLES.KAGAWAD && <StatTile icon={TrendingUp} label="Kabuuang Insidente" value={incidents.length} accent="blue" />}
           {user?.role === ROLES.ADMIN && <>
             <StatTile icon={Users} label="Kabuuang Account" value={users.length} accent="blue" />

@@ -64,8 +64,8 @@ export default function Reports() {
   const typeData = useMemo(() => countBy(scopedIncidents, (incident) => incident.classification), [scopedIncidents])
   const sectorData = useMemo(() => countBy(scopedIncidents, (incident) => incident.sector), [scopedIncidents])
   const statusData = useMemo(() => [
-    { label: 'Sinuri', value: blotterReports.filter((report) => report.status === 'Sinuri').length, color: 'orange' },
-    { label: 'Inimbestigahan', value: blotterReports.filter((report) => report.status === 'Inimbestigahan').length, color: 'blue' },
+    { label: 'Pending', value: blotterReports.filter((report) => report.status === 'Sinuri').length, color: 'orange' },
+    { label: 'Investigating', value: blotterReports.filter((report) => report.status === 'Inimbestigahan').length, color: 'blue' },
     { label: 'Nareselba', value: blotterReports.filter((report) => report.status === 'Nareselba').length, color: 'green' },
     { label: 'Spam', value: blotterReports.filter((report) => report.status === 'Spam').length, color: 'red' },
   ], [blotterReports])

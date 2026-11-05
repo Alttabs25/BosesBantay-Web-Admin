@@ -19,5 +19,5 @@ export function blotterProgress(report) {
     else if (report.hearingDate && Number.isFinite(Date.parse(report.hearingDate))) { stage = 'Hearing scheduled'; next = 'Record hearing result or change schedule'; key = 'scheduled' }
     else { stage = 'Awaiting hearing schedule'; next = 'Schedule the first hearing'; key = 'schedule_pending' }
   }
-  return { status, statusLabel: { review: 'Under review', active: 'In progress', closed: 'Closed', spam: 'Spam', unknown: 'Not recorded' }[status], stage, stageKey: key, outcome, next }
+  return { status, statusLabel: { review: 'Pending', active: 'Investigating', closed: 'Closed', spam: 'Spam', unknown: 'Not recorded' }[status], stage, stageKey: key, outcome, next }
 }

@@ -19,8 +19,8 @@ function submissionDate(report) {
 const text = value => typeof value === 'string' && value.trim() && value !== 'N/A' ? value.trim() : 'Not provided'
 function complaintStatus(status) {
   const value = String(status || '').trim().toLowerCase()
-  if (['sinuri','under review','pending','for review'].includes(value)) return { label: 'Under review', tone: 'blue', accent: '#315f9f', tint: '#eef4fd', border: '#c4d5ee' }
-  if (['inimbestigahan','investigating','in progress','assigned','processing'].includes(value)) return { label: 'In progress', tone: 'amber', accent: '#906017', tint: '#fff7e9', border: '#ead6b1' }
+  if (['sinuri','under review','pending','for review'].includes(value)) return { label: 'Pending', tone: 'amber', accent: '#92400e', tint: '#fef3c7', border: '#fcd34d' }
+  if (['inimbestigahan','investigating','in progress','assigned','processing'].includes(value)) return { label: 'Investigating', tone: 'blue', accent: '#1d4ed8', tint: '#dbeafe', border: '#93c5fd' }
   if (['nareselba','resolved','completed','done'].includes(value)) return { label: 'Resolved', tone: 'green', accent: '#2d7450', tint: '#eff8f2', border: '#c5dfcf' }
   if (value === 'spam') return { label: 'Spam', tone: 'red', accent: '#a74450', tint: '#fff2f3', border: '#ebc9ce' }
   if (value === 'out of scope') return { label: 'Out of scope', tone: 'violet', accent: '#755399', tint: '#f6f1fc', border: '#ddd0ed' }
@@ -142,8 +142,8 @@ export default function ServiceComplaintWorkspace({ reports, selectedId, onSelec
       <div className="complaint-scroll service-summary-body">
         <button type="button" aria-pressed={activeStatus === 'all'} onClick={() => onStatusSelect?.('all')} className={`service-summary-total ${activeStatus === 'all' ? 'is-active' : ''}`}><span>Total complaints</span><strong>{allReports.length}</strong></button>
         <section className="service-summary-section" aria-label="Filter by complaint status"><h3>Status</h3><div className="service-summary-statuses">{[
-          { id: 'pending', label: 'Under review', tone: 'blue' },
-          { id: 'active', label: 'In progress', tone: 'amber' },
+          { id: 'pending', label: 'Pending', tone: 'amber' },
+          { id: 'active', label: 'Investigating', tone: 'blue' },
           { id: 'closed', label: 'Closed', tone: 'green' },
           { id: 'spam', label: 'Spam', tone: 'red' },
           { id: 'out_of_scope', label: 'Out of scope', tone: 'violet' },

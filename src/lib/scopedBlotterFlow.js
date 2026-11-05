@@ -1,5 +1,5 @@
 import { blotterProgress } from './blotterProgress.js'
-export const SIMPLE_STATUS = { Sinuri: 'Under Review', Inimbestigahan: 'Investigating', Nareselba: 'Resolved', Spam: 'Spam' }
+export const SIMPLE_STATUS = { Sinuri: 'Pending', Inimbestigahan: 'Investigating', Nareselba: 'Resolved', Spam: 'Spam' }
 export function hearingVenue(note = '') {
   return [...note.matchAll(/^Venue: ([^\r\n]+)$/gm)].at(-1)?.[1]?.trim() || ''
 }
@@ -17,7 +17,7 @@ export function scopedNextActions(report, now = Date.now(), { ignoreDateConstrai
 export function validateScopedAction(action, draft, report, now = Date.now(), { ignoreDateConstraints = false } = {}) {
   const errors = []
   if (!scopedNextActions(report, now, { ignoreDateConstraints }).actions.includes(action)) errors.push('Hindi pa naaangkop ang aksyong ito. Sundin ang kasalukuyang susunod na hakbang.')
-  if (action === 'review' && report.status !== 'Sinuri') errors.push('Ang draft na Under Review lamang ang maaaring kumpirmahin.')
+  if (action === 'review' && report.status !== 'Sinuri') errors.push('Ang Pending draft lamang ang maaaring kumpirmahin.')
   if (['schedule', 'note', 'finalize'].includes(action) && report.status !== 'Inimbestigahan') errors.push('Kailangang Investigating ang report bago gawin ito.')
   if (action === 'schedule') {
     if (!draft.venue?.trim()) errors.push('Ilagay ang venue ng pagdinig.')

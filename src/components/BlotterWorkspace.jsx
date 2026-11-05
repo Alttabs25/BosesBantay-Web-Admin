@@ -156,7 +156,7 @@ export default function BlotterWorkspace({
               <span className="block truncate text-[11px] font-bold tabular-nums text-bb-blue">{report.id}</span>
               <span className="mt-1 block line-clamp-2 text-sm font-semibold leading-snug text-gray-900">{report.title || 'Blotter report'}</span>
               <span className="mt-1.5 block truncate text-xs text-gray-500">{report.location && report.location !== 'N/A' ? report.location : report.filedBy || 'Walang lokasyon'}</span>
-              <span className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-gray-500"><span>{report.datetime || 'Walang petsa'}</span><Pill color={meta.color} solid>{report.status}</Pill></span>
+              <span className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-gray-500"><span>{report.datetime || 'Walang petsa'}</span><Pill color={meta.color} solid>{blotterProgress(report).statusLabel}</Pill></span>
             </button>
           })}
           {reports.length === 0 && <p className="rounded-xl border border-dashed border-gray-200 p-5 text-center text-sm text-gray-500">Walang tugmang blotter report.</p>}
