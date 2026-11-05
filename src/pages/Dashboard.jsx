@@ -17,6 +17,7 @@ import { useData } from '../context/DataContext'
 import { ROLES } from '../config/permissions'
 import StatTile from '../components/StatTile'
 import MiniBarChart from '../components/MiniBarChart'
+import SubmissionTrendChart from '../components/SubmissionTrendChart'
 
 const SEVERITY_COLOR = { Mataas: 'red', Katamtaman: 'orange', Mababa: 'green' }
 
@@ -31,17 +32,25 @@ function isToday(dateISO) {
 
 export default function Dashboard() {
   const { user } = useAuth()
-  const { users, incidents, blotterReports, serviceComplaints, documents, auditLog } = useData()
+  const { users, incidents, blotterReports, serviceComplaints, dashboardSubmissionDates = [], dashboardSubmissionCounts, documents, auditLog } = useData()
 
   const pendingVerifications = users.filter((account) => account.status === 'Pending').length
   const underReview = blotterReports.filter((report) => report.status === 'Sinuri').length
   const investigating = blotterReports.filter((report) => report.status === 'Inimbestigahan').length
   const resolved = blotterReports.filter((report) => report.status === 'Nareselba').length
-  const intakeReports = [...new Map([...blotterReports, ...serviceComplaints]
-    .map(report => [report.ref || report.id, report])).values()]
-  const todayIncidents = intakeReports.filter((report) => isToday(
-    report.rawDate || report.submittedAt || report.createdAt || report.dateISO,
+  const visiblePendingReports = Array.from(new Map(
+    [...blotterReports, ...serviceComplaints]
+      .map(report => [`${report.sourceTable || report.reportType}:${report.dbId || report.id || report.ref}`, report]),
+  ).values()).filter(report => (
+    ['sinuri', 'under review', 'pending', 'for review', ''].includes(String(report.status || '').trim().toLowerCase())
   )).length
+  const todayKey = (() => {
+    const date = new Date()
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  })()
+  const todayIncidents = Array.isArray(dashboardSubmissionCounts)
+    ? (dashboardSubmissionCounts.find(item => item.date === todayKey)?.count || 0)
+    : dashboardSubmissionDates.filter(isToday).length
 
   const classificationData = Object.entries(
     incidents.reduce((counts, incident) => {
@@ -82,20 +91,21 @@ export default function Dashboard() {
     { label: 'Spam', value: blotterReports.filter((report) => report.status === 'Spam').length, color: 'red' },
   ]
 
-  const reportDateKey = (report) => {
-    const value = report.rawDate || report.submittedAt || report.createdAt || report.dateISO
+  const reportDateKey = (value) => {
     const date = value ? new Date(value) : null
     if (!date || Number.isNaN(date.getTime())) return null
-    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
   }
   const reportsSubmittedData = Array.from({ length: 7 }, (_, index) => {
     const date = new Date()
     date.setHours(0, 0, 0, 0)
     date.setDate(date.getDate() - (6 - index))
-    const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
     return {
       label: date.toLocaleDateString('fil-PH', { month: 'short', day: 'numeric' }),
-      value: intakeReports.filter((report) => reportDateKey(report) === key).length,
+      value: Array.isArray(dashboardSubmissionCounts)
+        ? (dashboardSubmissionCounts.find(item => item.date === key)?.count || 0)
+        : dashboardSubmissionDates.filter((value) => reportDateKey(value) === key).length,
       color: 'blue',
     }
   })
@@ -120,7 +130,7 @@ export default function Dashboard() {
           </>}
           {user?.role === ROLES.TANOD && <>
             <StatTile icon={MapPin} label="Mga Ulat Ngayong Araw" value={todayIncidents} accent="blue" />
-            <StatTile icon={ClipboardList} label="Pending" value={underReview} accent="orange" />
+            <StatTile icon={ClipboardList} label="Pending" value={visiblePendingReports} accent="orange" />
           </>}
           {user?.role === ROLES.LUPON && <StatTile icon={Gavel} label="Nakatalagang Kaso (Investigating)" value={investigating} accent="blue" />}
           {user?.role === ROLES.KAGAWAD && <StatTile icon={TrendingUp} label="Kabuuang Insidente" value={incidents.length} accent="blue" />}
@@ -151,7 +161,7 @@ export default function Dashboard() {
           </div>}
 
           {user?.role === ROLES.KAGAWAD && <div className="dashboard-chart-grid single"><MiniBarChart title="Insidente ayon sa Klasipikasyon (Committee View)" data={classificationData} /></div>}
-          {user?.role === ROLES.TANOD && <div className="dashboard-chart-grid single"><MiniBarChart title="Mga Ulat na Isinumite (Huling 7 Araw)" data={reportsSubmittedData} /></div>}
+          {user?.role === ROLES.TANOD && <div className="dashboard-chart-grid single"><SubmissionTrendChart data={reportsSubmittedData} /></div>}
           {user?.role === ROLES.ADMIN && <div className="dashboard-chart-grid">
             <MiniBarChart title="Kabuuan ng Rehistradong Residente" data={registrationData} />
             <MiniBarChart title="Kabuuan ng Blotter Reports" data={blotterData} />

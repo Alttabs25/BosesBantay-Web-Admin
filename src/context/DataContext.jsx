@@ -189,6 +189,7 @@ export function DataProvider({ children }) {
   const [auditLog, setAuditLog] = useState([])
   const [roleModuleAccess, setRoleModuleAccess] = useState(defaultModuleAccessMap)
   const [emergencyContacts, setEmergencyContacts] = useState([])
+  const [dashboardSubmissionCounts, setDashboardSubmissionCounts] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const assertCan = (moduleKey, action) => {
@@ -206,6 +207,18 @@ export function DataProvider({ children }) {
   // Fetch all tables from Supabase
   const fetchData = async () => {
     try {
+      const { data: submissionCounts, error: submissionCountsError } = await supabase
+        .rpc('bb_report_submission_counts', { p_days: 7 })
+      if (!submissionCountsError) {
+        setDashboardSubmissionCounts((submissionCounts || []).map(row => ({
+          date: row.submission_day,
+          count: Number(row.report_count) || 0,
+        })))
+      } else {
+        setDashboardSubmissionCounts(null)
+        console.warn('[dashboard] Aggregate submission analytics unavailable; using visible-report fallback.', submissionCountsError.message)
+      }
+
       // 1. Fetch Users
       const { data: usersData, error: usersErr } = await supabase
         .from('users')
@@ -2469,6 +2482,16 @@ export function DataProvider({ children }) {
     return { users: [], incidents: [], blotterReports: [], serviceComplaints: [], documents: [], auditLog: [] }
   }, [user, users, incidents, blotterReports, serviceComplaints, documents, auditLog])
 
+  // Dashboard aggregates intentionally contain dates only. Keeping this outside
+  // role-scoped report details preserves submission history after a report moves
+  // from Pending to a restricted workflow state such as Investigating.
+  const dashboardSubmissionDates = useMemo(() => Array.from(
+    new Map([...blotterReports, ...serviceComplaints]
+      .map(report => [report.ref || report.id, report])).values(),
+  ).map(report => (
+    report.rawDate || report.submittedAt || report.createdAt || report.dateISO
+  )).filter(Boolean), [blotterReports, serviceComplaints])
+
   return (
     <DataContext.Provider
       value={{
@@ -2487,6 +2510,8 @@ export function DataProvider({ children }) {
         unmapIncidentLocation,
         blotterReports: scopedData.blotterReports,
         serviceComplaints: scopedData.serviceComplaints,
+        dashboardSubmissionDates,
+        dashboardSubmissionCounts,
         serviceComplaintsError,
         addBlotterReport,
         updateBlotterReport,
