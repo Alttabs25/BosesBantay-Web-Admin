@@ -69,7 +69,7 @@ export default function Reports() {
     { label: 'Nareselba', value: blotterReports.filter((report) => report.status === 'Nareselba').length, color: 'green' },
     { label: 'Spam', value: blotterReports.filter((report) => report.status === 'Spam').length, color: 'red' },
   ], [blotterReports])
-  const assignedCases = useMemo(() => blotterReports.filter((report) => report.status === 'Inimbestigahan'), [blotterReports])
+  const assignedCases = useMemo(() => blotterReports, [blotterReports])
 
   function handleGenerate() {
     if (dateRange === 'Custom Range' && (!startDate || !endDate)) {
@@ -96,8 +96,8 @@ export default function Reports() {
   }
 
   if (user.role === ROLES.LUPON) return <div className="reports-page">
-    <section className="assigned-case-summary"><header><span><FileBarChart size={20} /></span><div><p>Assigned case report</p><h2>Buod ng Nakatalagang Kaso</h2><small>Mga kasong kasalukuyang nasa investigation.</small></div><strong>{assignedCases.length}</strong></header>
-      <div className="assigned-case-list">{assignedCases.map((report) => <article key={report.id}><div><span>{report.id}</span><h3>{report.title}</h3><p>{report.hearingNote || 'Wala pang tala ng session.'}</p></div><em>Investigating</em></article>)}{!assignedCases.length && <div className="reports-empty-state">Walang kasalukuyang nakatalagang kaso.</div>}</div>
+    <section className="assigned-case-summary"><header><span><FileBarChart size={20} /></span><div><p>Assigned case report</p><h2>Buod ng Nakatalagang Kaso</h2><small>Mga kasong nakatalaga lamang sa iyong account.</small></div><strong>{assignedCases.length}</strong></header>
+      <div className="assigned-case-list">{assignedCases.map((report) => <article key={report.id}><div><span>{report.id}</span><h3>{report.title}</h3><p>{report.hearingNote || 'Wala pang tala ng session.'}</p></div><em>{report.status === 'Inimbestigahan' ? 'Investigating' : report.status}</em></article>)}{!assignedCases.length && <div className="reports-empty-state">Walang kasong nakatalaga sa iyo.</div>}</div>
     </section>
   </div>
 

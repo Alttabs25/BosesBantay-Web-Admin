@@ -39,6 +39,10 @@ export default function Dashboard() {
   const underReview = blotterReports.filter((report) => report.status === 'Sinuri').length
   const investigating = blotterReports.filter((report) => report.status === 'Inimbestigahan').length
   const resolved = blotterReports.filter((report) => report.status === 'Nareselba').length
+  const assignedActiveCases = blotterReports.filter((report) => (
+    ['inimbestigahan', 'investigating', 'in progress', 'assigned', 'processing']
+      .includes(String(report.status || '').trim().toLowerCase())
+  )).length
   const visiblePendingReports = Array.from(new Map(
     [...blotterReports, ...serviceComplaints]
       .map(report => [`${report.sourceTable || report.reportType}:${report.dbId || report.id || report.ref}`, report]),
@@ -146,7 +150,10 @@ export default function Dashboard() {
             <StatTile icon={MapPin} label="Mga Ulat Ngayong Araw" value={todayIncidents} accent="blue" />
             <StatTile icon={ClipboardList} label="Pending" value={visiblePendingReports} accent="orange" />
           </>}
-          {user?.role === ROLES.LUPON && <StatTile icon={Gavel} label="Nakatalagang Kaso (Investigating)" value={investigating} accent="blue" />}
+          {user?.role === ROLES.LUPON && <>
+            <StatTile icon={Gavel} label="Aktibong Nakatalagang Kaso" value={assignedActiveCases} accent="blue" />
+            <StatTile icon={ClipboardList} label="Lahat ng Nakatalagang Kaso" value={blotterReports.length} accent="orange" />
+          </>}
           {user?.role === ROLES.KAGAWAD && <StatTile icon={TrendingUp} label="Kabuuang Insidente" value={committeeReports.length} accent="blue" />}
           {user?.role === ROLES.ADMIN && <>
             <StatTile icon={Users} label="Kabuuang Account" value={users.length} accent="blue" />

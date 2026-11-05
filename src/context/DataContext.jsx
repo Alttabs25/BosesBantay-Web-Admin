@@ -2489,7 +2489,7 @@ export function DataProvider({ children }) {
 
     if (role === ROLES.LUPON) return {
       users: [], incidents: [], serviceComplaints: [],
-      blotterReports: blotterReports.filter(report => assigned(report) && report.status === 'Inimbestigahan'),
+      blotterReports: blotterReports.filter(assigned),
       documents: [], auditLog: [],
     }
     if (role === ROLES.TANOD) return {

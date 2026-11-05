@@ -9,13 +9,15 @@ import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import BlotterWorkspace from './BlotterWorkspace'
 import { hearingVenue, scopedNextActions, scopedPatch, validateScopedAction } from '../lib/scopedBlotterFlow'
-import { can } from '../config/permissions'
+import { can, ROLES, roleDisplayName } from '../config/permissions'
 import CommitteeAssignment from './CommitteeAssignment'
+import useBlotterLifecycle from '../hooks/useBlotterLifecycle'
 
 export default function ScopedBlotterWorkspace({ report, onFlagSpam }) {
-  const { user } = useAuth()
-  const { updateBlotterReport, addAuditEntry } = useData()
+  const { user, accounts = [] } = useAuth()
+  const { updateBlotterReport, addAuditEntry, fetchData } = useData()
   const { showToast } = useToast()
+  const caseLifecycle = useBlotterLifecycle(report)
   const root = useRef(null)
   const quickFilledNote = useRef('')
   const [action, setAction] = useState('')
@@ -25,11 +27,17 @@ export default function ScopedBlotterWorkspace({ report, onFlagSpam }) {
   const [saving, setSaving] = useState(false)
   const [editingDate, setEditingDate] = useState(false)
   const [clock, setClock] = useState(Date.now)
+  const [handlerId, setHandlerId] = useState('')
+  const [assigning, setAssigning] = useState(false)
+  const [assignmentError, setAssignmentError] = useState('')
   useEffect(() => { const timer = setInterval(() => setClock(Date.now()), 30000); return () => clearInterval(timer) }, [])
   const dateTesting = true
   const canUpdate = can(user?.role, 'blotter', 'update')
   const canConfirm = can(user?.role, 'blotter', 'confirm')
   const canFinalize = can(user?.role, 'blotter', 'finalize')
+  const canAssign = [ROLES.ADMIN, ROLES.CAPTAIN, ROLES.SECRETARY].includes(user?.role)
+  const luponAccounts = accounts.filter(account => account.role === ROLES.LUPON)
+  const assignedName = caseLifecycle.state.assignment?.assigned_name || ''
   const canPerform = value => value === 'review' ? canConfirm : value === 'finalize' ? canFinalize : canUpdate
   const rawFlow = scopedNextActions(report, clock, { ignoreDateConstraints: dateTesting })
   const flow = { ...rawFlow, actions: rawFlow.actions.filter(canPerform) }
@@ -41,6 +49,24 @@ export default function ScopedBlotterWorkspace({ report, onFlagSpam }) {
   const input = 'mt-2 block w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-200'
   const titles = { review: 'Confirm report', schedule: progress.stageKey === 'outcome_pending' ? 'Schedule another hearing' : progress.stageKey === 'schedule_pending' ? 'Schedule first hearing' : 'Reschedule hearing', note: 'Record hearing result', past_note: 'Record previous hearing', finalize: 'Record final outcome' }
   const select = (next) => { setEditingDate(false); setAction(next); setDraft({ date: '', venue: hearingVenue(report.hearingNote), note: '', outcome: '', confirmed: false, sessionResult: '' }); setReview(false); setErrors([]) }
+  async function assignHandler() {
+    const handler = luponAccounts.find(account => account.id === handlerId)
+    if (!handler) { setAssignmentError('Pumili muna ng Lupon member.'); return }
+    setAssigning(true); setAssignmentError('')
+    try {
+      await caseLifecycle.record('assignment', {
+        assigned_to: handler.id,
+        assigned_name: handler.name,
+        occurred_at: new Date().toISOString(),
+        notes: `Assigned to ${handler.name} (${roleDisplayName(handler.role)}).`,
+      })
+      await fetchData()
+      setHandlerId('')
+      showToast(`Naitalaga ang kaso kay ${handler.name}.`)
+    } catch (error) {
+      setAssignmentError(error.message || 'Hindi na-save ang case assignment.')
+    } finally { setAssigning(false) }
+  }
   const change = (key, value) => { setDraft((old) => ({ ...old, [key]: value, ...(key === 'outcome' ? { confirmed: false, ...(old.note === quickFilledNote.current ? { note: '' } : {}) } : {}) })); setReview(false); setErrors([]) }
   async function save(event) {
     event.preventDefault()
@@ -70,6 +96,18 @@ export default function ScopedBlotterWorkspace({ report, onFlagSpam }) {
     <section className="scoped-blotter-report min-w-0" aria-label="Kumpletong report"><BlotterWorkspace detailOnly readOnly reports={[]} selectedReport={report} /></section>
     <aside className="scoped-blotter-process space-y-4" aria-label="Pagsusuri at pag-update ng report">
       <CommitteeAssignment report={report} />
+      {canAssign && <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <h2 className="text-sm font-bold text-slate-900">Assigned case handler</h2>
+        <p className="mt-1 text-xs leading-relaxed text-slate-500">Italaga ang investigating case sa Lupon member para lumabas ito sa kanilang dashboard at case list.</p>
+        <p className="mt-3 text-xs text-slate-600">Kasalukuyan: <strong>{assignedName || 'Wala pang nakatalaga'}</strong></p>
+        <select className={input} value={handlerId} disabled={assigning || caseLifecycle.loading} onChange={event => { setHandlerId(event.target.value); setAssignmentError('') }}>
+          <option value="">Pumili ng Lupon member</option>
+          {luponAccounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+        </select>
+        {assignmentError && <p role="alert" className="mt-2 text-xs text-red-700">{assignmentError}</p>}
+        {!luponAccounts.length && !caseLifecycle.loading && <p className="mt-2 text-xs text-amber-700">Walang aktibong Lupon Member account na available.</p>}
+        <button type="button" disabled={!handlerId || assigning || caseLifecycle.loading} onClick={assignHandler} className="mt-3 w-full rounded-lg bg-bb-blue px-3 py-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{assigning ? 'Itinatalaga…' : 'Italaga ang handler'}</button>
+      </section>}
       <section className="blotter-progress-card rounded-xl border border-slate-200 bg-white p-4"><div className="blotter-panel-heading"><h2>Report progress</h2><span className="blotter-report-state">{progress.statusLabel}</span></div><dl className="blotter-progress-values"><div><dt>Stage</dt><dd>{progress.stage}</dd></div>{progress.outcome && <div><dt>Outcome</dt><dd className={progress.outcome === 'CFA recorded' ? 'text-violet-700' : progress.outcome === 'Settled' ? 'text-emerald-700' : ''}>{progress.outcome}</dd></div>}</dl>{report.hearingDate && stage !== 2 && <div className="blotter-hearing-inline"><div><span>Latest hearing</span><p>{new Date(report.hearingDate).toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' })}</p></div><div><span>Venue</span><p>{hearingVenue(report.hearingNote) || 'Not recorded'}</p></div></div>}</section>
       {(!action || stage === 2) && <section className="relative rounded-xl border border-slate-200 bg-white p-4"><h3 className={`text-sm font-bold text-slate-900 ${stage === 2 ? 'pr-36' : ''}`}>{stage === 2 ? 'Final outcome' : 'Next action'}</h3>
         {stage === 0 && <div className="mt-3 space-y-2"><button type="button" onClick={() => select('review')} className="w-full rounded-lg bg-bb-blue px-3 py-2.5 text-xs font-semibold text-white">Confirm report</button><button type="button" onClick={() => onFlagSpam(report)} className="w-full rounded-lg border border-red-200 px-3 py-2.5 text-xs font-semibold text-red-700">Review as spam</button></div>}
