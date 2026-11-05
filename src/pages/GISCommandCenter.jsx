@@ -358,10 +358,13 @@ export default function GISCommandCenter() {
     return grouped
   }, [filtered, colorHeatByType])
 
-  function focusIncident(incident) {
-    // Re-selecting an active report highlights its marker without moving the map.
-    if (selectedRef === incident.ref) return
-    setSelectedRef(incident.ref)
+  function focusIncident(incident, { toggle = true } = {}) {
+    const isSelected = selectedRef === incident.ref
+    if (isSelected && toggle) {
+      setSelectedRef(null)
+      return
+    }
+    if (!isSelected) setSelectedRef(incident.ref)
     if (mapRef.current && hasValidCoordinates(incident)) {
       const map = mapRef.current
       const target = L.latLng(Number(incident.lat), Number(incident.lng))
@@ -838,7 +841,7 @@ export default function GISCommandCenter() {
 
         </div>
 
-        <div className="gis-side-workspace flex min-w-0 w-full flex-col rounded-xl border border-gray-200 p-4 lg:h-[clamp(460px,62vh,680px)] xl:grid xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] xl:gap-3 xl:border-0 xl:p-0">
+        <div className={`gis-side-workspace ${selectedIncident ? 'gis-has-selection' : 'gis-list-only'} flex min-w-0 w-full flex-col rounded-xl border border-gray-200 p-4 lg:h-[clamp(460px,62vh,680px)] xl:grid xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] xl:gap-3 xl:border-0 xl:p-0`}>
           {view === 'heatmap' && !isFormMode && <GISHeatmapAnalysis
             incidents={filtered}
             typeColors={typeColorMap}
@@ -965,17 +968,8 @@ export default function GISCommandCenter() {
 
           </div>
 
-          <div className={`gis-details-panel min-w-0 xl:overflow-y-auto xl:rounded-2xl xl:border xl:border-gray-200 xl:bg-white xl:p-4 xl:shadow-sm ${isFormMode || view === 'heatmap' ? 'hidden' : ''}`} >
-          {mode === 'view' && !selectedIncident && (
-            <div className="mt-3 rounded-lg border border-dashed border-blue-200 bg-blue-50/40 px-4 py-6 text-center xl:mt-0">
-              <h3 className="text-sm font-semibold text-gray-800">Incident details</h3>
-              <p className="mt-2 text-xs leading-relaxed text-gray-600">{visibleIncidents.length > 0
-                ? 'Select a report or map pin.'
-                : view === 'pending' ? 'No locations are waiting for approval.' : 'No incidents match this view.'}</p>
-            </div>
-          )}
-
-          {mode === 'view' && selectedIncident && (
+          {mode === 'view' && selectedIncident && view !== 'heatmap' && (
+          <div className="gis-details-panel min-w-0 xl:overflow-y-auto xl:rounded-2xl xl:border xl:border-gray-200 xl:bg-white xl:p-4 xl:shadow-sm">
             <section className="mt-3 shrink-0 rounded-xl border border-blue-200 bg-blue-50/40 p-3 lg:max-h-[52%] lg:overflow-y-auto xl:mt-0 xl:max-h-none xl:overflow-visible xl:border-0 xl:bg-transparent xl:p-0" aria-label="Detalye ng napiling insidente">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -988,7 +982,7 @@ export default function GISCommandCenter() {
               </div>
               <p className="mt-2 text-sm leading-relaxed text-gray-700">{selectedIncident.excerpt || 'Walang nakatalang buod.'}</p>
               {hasValidCoordinates(selectedIncident)
-                ? <button type="button" className="gis-locate-button" onClick={() => focusIncident(selectedIncident)}><MapPin size={16} /> Locate on map</button>
+                ? <button type="button" className="gis-locate-button" onClick={() => focusIncident(selectedIncident, { toggle: false })}><MapPin size={16} /> Locate on map</button>
                 : <p className="gis-location-warning">No valid map coordinates are recorded. Location approval is unavailable until the pin is confirmed.</p>}
               <dl className="mt-3 space-y-2 border-t border-blue-100 pt-3">
                 <div><dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Classification</dt><dd className="mt-0.5 text-sm font-medium text-gray-800">{selectedIncident.classification || 'Hindi natukoy'}</dd></div>
@@ -1010,8 +1004,8 @@ export default function GISCommandCenter() {
                 )}
               </div>}
             </section>
-          )}
           </div>
+          )}
 
           {isFormMode && (
             <form

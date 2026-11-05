@@ -63,6 +63,7 @@
   .gis-workspace.gis-browsing .gis-map-panel,
   .gis-workspace.gis-browsing .gis-side-workspace { height: clamp(560px,72vh,900px); }
   .gis-workspace.gis-browsing .gis-side-workspace { display: grid; grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(240px,1fr) minmax(210px,.85fr); gap: 14px; padding: 0; border: 0; }
+  .gis-workspace.gis-browsing .gis-side-workspace.gis-list-only { grid-template-rows: minmax(0,1fr); }
   .gis-workspace.gis-browsing .gis-incident-panel,
   .gis-workspace.gis-browsing .gis-details-panel { min-height: 0; border: 1px solid #dce4ed; border-radius: 14px; padding: 16px; background: white; }
   .gis-workspace.gis-browsing .gis-details-panel { overflow-y: auto; overscroll-behavior: contain; }
@@ -71,6 +72,7 @@
 @media (min-width: 1600px) {
   .gis-workspace.gis-browsing .gis-panels { grid-template-columns: minmax(0,1.1fr) minmax(680px,1fr); }
   .gis-workspace.gis-browsing .gis-side-workspace { grid-template-columns: minmax(0,1fr) minmax(0,1fr); grid-template-rows: minmax(0,1fr); }
+  .gis-workspace.gis-browsing .gis-side-workspace.gis-list-only { grid-template-columns: minmax(0,1fr); }
 }
 @media (max-width: 1023px) {
   .gis-workspace .gis-side-workspace { border: 0; padding: 0; gap: 16px; }
