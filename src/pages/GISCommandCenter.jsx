@@ -32,7 +32,6 @@ import {
   formatDisplayDateTime,
   toDatetimeLocalValue,
   generateRef,
-  isVerifiedReport,
   getStatusLabel,
 } from '../lib/incidentUtils'
 import { reverseGeocode, searchAddress } from '../lib/geocode'
@@ -250,20 +249,20 @@ export default function GISCommandCenter() {
     row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [selectedRef, view])
 
-  // Retrieve strictly verified and mapped incidents
+  // A GIS pin is official when mapping was approved. Workflow status is scoped
+  // separately (for example, Tanod may see Pending intake pins).
   const mappedIncidents = useMemo(() => {
     return incidents.filter(
       (i) =>
-        isVerifiedReport(i.status) &&
         (i.is_mapped === true || i.isMapped === true || i.mapStatus === 'Approved') &&
         hasValidCoordinates(i),
     )
   }, [incidents])
 
-  // Unmapped verified blotter reports available to be mapped via "Pumili ng Verified Blotter Report"
+  // Pending intake reports may also be explicitly promoted to official GIS pins.
   const unmappedBlotterReports = useMemo(() => {
     return blotterReports.filter((b) => {
-      if (!isVerifiedReport(b.status)) return false
+      if (String(b.status || '').toLowerCase() === 'spam') return false
       if (b.is_mapped === true || b.isMapped === true) return false
       if (b.mapStatus === 'Approved' && b.lat != null && b.lng != null) return false
       const alreadyMapped = mappedIncidents.some(

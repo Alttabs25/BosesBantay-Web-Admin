@@ -264,6 +264,7 @@ export function DataProvider({ children }) {
             id: b.reference_no,
             ref: b.reference_no,
             blotterId: b.blotter_id,
+            sourceTable: 'pre_blotters',
             title: json.what || b.ai_extractions?.incident_type || 'Kaso',
             classification: json.classification || b.ai_extractions?.incident_type || 'Kaso',
             severity: json.severity || 'Katamtaman',
@@ -385,13 +386,18 @@ export function DataProvider({ children }) {
           const rawDateStr = r.created_at || r.submitted_at || new Date().toISOString()
 
           const residentPin = r.full_details?.staffLocationPin || r.full_details?.locationPin
-          const hasStaffCoordinates = r.latitude != null && r.longitude != null
+          const detailsMapApproved = r.full_details?.gisMapped === true || r.full_details?.mapStatus === 'Approved'
+          const hasApprovedDetailsCoordinates = detailsMapApproved &&
+            typeof r.full_details?.staffLocationPin?.latitude === 'number' &&
+            typeof r.full_details?.staffLocationPin?.longitude === 'number'
+          const hasStaffCoordinates = (r.latitude != null && r.longitude != null) || hasApprovedDetailsCoordinates
           const rawRepLat = typeof r.full_details?.staffLocationPin?.latitude === 'number' ? r.full_details.staffLocationPin.latitude : hasStaffCoordinates ? parseFloat(r.latitude) : (typeof residentPin?.latitude === 'number' ? residentPin.latitude : null)
           const rawRepLng = typeof r.full_details?.staffLocationPin?.longitude === 'number' ? r.full_details.staffLocationPin.longitude : hasStaffCoordinates ? parseFloat(r.longitude) : (typeof residentPin?.longitude === 'number' ? residentPin.longitude : null)
           const repValid = rawRepLat != null && rawRepLng != null && !isNaN(rawRepLat) && !isNaN(rawRepLng) && rawRepLat >= -90 && rawRepLat <= 90 && rawRepLng >= -180 && rawRepLng <= 180
           const repIsMapped = repValid && (
             r.is_mapped === true ||
             r.map_status === 'Approved' ||
+            detailsMapApproved ||
             // A resident's pin is a location suggestion until staff approve its GIS mapping.
             (hasStaffCoordinates && r.is_mapped !== false && r.map_status !== 'Pending' && r.map_status !== 'Rejected')
           )
@@ -556,6 +562,15 @@ export function DataProvider({ children }) {
         const key = `${row.source_table}:${row.reference_no}`
         if (!assignments.has(key)) assignments.set(key, row.payload?.assigned_to || null)
       })
+
+      // GIS uses the same case assignment as the report workspaces. This lets a
+      // Tanod keep an Investigating pin only when the case is assigned to them.
+      mappedIncidents = mappedIncidents.map(incident => ({
+        ...incident,
+        assignedTo: incident.assignedTo || assignments.get(
+          `${incident.sourceTable || 'pre_blotters'}:${incident.ref || incident.id}`,
+        ) || null,
+      }))
 
       // Combine and sort by newest date first
       const combinedBlotter = Array.from(blotterReportsMap.values()).map(report => ({
@@ -1171,7 +1186,7 @@ export function DataProvider({ children }) {
       if (isUuid) {
         const { data } = await supabase
           .from('reports')
-          .select('id, reference_no, status')
+          .select('id, reference_no, status, full_details')
           .eq('id', dbTarget)
           .maybeSingle()
         if (data) rep = data
@@ -1181,7 +1196,7 @@ export function DataProvider({ children }) {
         for (const refCandidate of candidateRefs) {
           const { data } = await supabase
             .from('reports')
-            .select('id, reference_no, status')
+            .select('id, reference_no, status, full_details')
             .eq('reference_no', refCandidate)
             .maybeSingle()
           if (data) {
@@ -1191,8 +1206,9 @@ export function DataProvider({ children }) {
         }
       }
 
-      // 4. Ensure a pre_blotters record exists (GIS coordinates live in pre_blotters)
-      if (!pb) {
+      // 4. Standalone blotters store GIS data in pre_blotters. Reports remain in
+      // reports and receive explicit GIS metadata below; do not duplicate them.
+      if (!pb && !rep) {
         let refNo = rep?.reference_no || existingReport?.ref || existingReport?.id || (typeof refOrId === 'string' ? refOrId : `SC-${Math.floor(100000 + Math.random() * 900000)}`)
 
         // Quick check if a pre_blotter already exists with this reference_no
@@ -1252,7 +1268,7 @@ export function DataProvider({ children }) {
               .insert([{
                 reference_no: refNo,
                 extraction_id: ext[0].extraction_id,
-                status: existingReport?.status && existingReport.status !== 'Sinuri' ? existingReport.status : 'Inimbestigahan',
+                status: existingReport?.status || rep?.status || 'Sinuri',
                 latitude: parsedLat,
                 longitude: parsedLng,
                 map_status: 'Approved',
@@ -1273,7 +1289,7 @@ export function DataProvider({ children }) {
                 .insert([{
                   reference_no: altRef,
                   extraction_id: ext[0].extraction_id,
-                  status: existingReport?.status && existingReport.status !== 'Sinuri' ? existingReport.status : 'Inimbestigahan',
+                  status: existingReport?.status || rep?.status || 'Sinuri',
                   latitude: parsedLat,
                   longitude: parsedLng,
                   map_status: 'Approved',
@@ -1332,16 +1348,48 @@ export function DataProvider({ children }) {
         }
       }
 
-      // If there's an associated record in `reports` table, update its location without touching non-existent columns (latitude/longitude/map_status)
+      // Publish an existing report directly. GIS metadata lives in full_details so
+      // this remains compatible with databases that do not yet have map columns
+      // on reports.
       if (rep) {
-        try {
-          await supabase
+        const currentDetails = rep.full_details || existingReport?.intakeDetails || {}
+        let { data: savedReport, error: repErr } = await supabase.rpc('bb_publish_report_gis', {
+          p_report_id: rep.id,
+          p_latitude: parsedLat,
+          p_longitude: parsedLng,
+          p_location: targetLocation,
+        })
+        // Compatibility while the migration is being deployed.
+        if (repErr && ['42883', 'PGRST202'].includes(repErr.code)) {
+          const fallback = await supabase
             .from('reports')
-            .update({ location: targetLocation })
+            .update({
+              location: targetLocation,
+              full_details: {
+                ...currentDetails,
+                staffLocationPin: { latitude: parsedLat, longitude: parsedLng },
+                gisMapped: true,
+                mapStatus: 'Approved',
+                gisMappedAt: new Date().toISOString(),
+              },
+            })
             .eq('id', rep.id)
-        } catch (repErr) {
-          console.warn('Non-fatal update reports table:', repErr)
+            .select('id, reference_no, status, location, full_details')
+            .maybeSingle()
+          savedReport = fallback.data
+          repErr = fallback.error
         }
+        if (repErr) {
+          throw new Error(repErr.message || 'Hindi na-save ang GIS pin ng report.')
+        }
+        if (!savedReport || savedReport.full_details?.gisMapped !== true) {
+          throw new Error('Hindi tinanggap ng database ang GIS pin. Walang report na na-update.')
+        }
+        rep = savedReport
+      }
+
+      if (!pb && !rep) {
+        throw new Error('Hindi nagawa ang GIS record. Pakisubukan muli o tingnan ang database migration.')
       }
 
       const matchId = pb?.reference_no || rep?.reference_no || refOrId
@@ -1435,10 +1483,10 @@ export function DataProvider({ children }) {
         after: auditOptions.after ?? { mapped: true, map_status: 'Approved', location_updated: Boolean(targetLocation) },
       })
 
-      // Immediately refetch from backend so database is the absolute source of truth
-      await fetchData()
-
-      return { success: true }
+      // The mutation above is verified through a database read-back. Keep the
+      // synchronized local record visible instead of replacing it with a second,
+      // overlapping full-page fetch.
+      return { success: true, ref: matchId }
     } catch (err) {
       console.error('Error in mapIncidentLocation:', err)
       throw err
@@ -2332,7 +2380,8 @@ export function DataProvider({ children }) {
   const scopedData = useMemo(() => {
     const role = normalizeRole(user?.role)
     const assigned = report => report.assignedTo === user?.id
-    const intake = report => report.submittedById === user?.id || ['Sinuri', 'Under Review', 'Pending'].includes(report.status)
+    const pendingIntake = report => ['Sinuri', 'Under Review', 'Pending'].includes(report.status)
+    const tanodScope = report => pendingIntake(report) || report.assignedTo === user?.id
     const committee = record => Boolean(user?.committeeId) && record.committeeId === user.committeeId
 
     if (role === ROLES.LUPON) return {
@@ -2341,8 +2390,8 @@ export function DataProvider({ children }) {
       documents: [], auditLog: [],
     }
     if (role === ROLES.TANOD) return {
-      users: [], incidents: incidents.filter(intake),
-      blotterReports: blotterReports.filter(intake), serviceComplaints: serviceComplaints.filter(intake),
+      users: [], incidents: incidents.filter(tanodScope),
+      blotterReports: blotterReports.filter(tanodScope), serviceComplaints: serviceComplaints.filter(tanodScope),
       documents: [], auditLog: [],
     }
     if (role === ROLES.KAGAWAD) return {
