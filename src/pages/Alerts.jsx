@@ -5,7 +5,7 @@ import { Bell, Clock, Info, Search, Send, ShieldAlert, Trash2, Users } from 'luc
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
-import { ROLES, can } from '../config/permissions'
+import { ROLES, can, roleDisplayName } from '../config/permissions'
 import Pill from '../components/Pill'
 import ConfirmDialog from '../components/ConfirmDialog'
 
@@ -155,7 +155,7 @@ export default function Alerts() {
       </section>
     </div>
 
-    {!canCompose && <div className="alert-readonly-note"><Info size={17} /><p><strong>Read-only access.</strong> Naka-log in ka bilang {user.role}. Maaari mong basahin ang mga abiso ngunit hindi gumawa ng bago.</p></div>}
+    {!canCompose && <div className="alert-readonly-note"><Info size={17} /><p><strong>Read-only access.</strong> Naka-log in ka bilang {roleDisplayName(user.role)}. Maaari mong basahin ang mga abiso ngunit hindi gumawa ng bago.</p></div>}
 
     <ConfirmDialog open={confirmingSend} onClose={() => setConfirmingSend(false)} onConfirm={confirmSend} title="I-dispatch ang Abiso?" message={`Ipapadala ang abisong "${title}" sa ${target}. Hindi na ito mababawi kapag naipadala na.`} confirmLabel="Ipadala" danger={level === 'Emergency'} />
     <ConfirmDialog open={confirmingDelete} onClose={() => { setConfirmingDelete(false); setAlertToDelete(null) }} onConfirm={confirmDelete} title="Burahin ang Abiso?" message={alertToDelete?.title ? `Sigurado ka bang nais mong burahin ang abisong "${alertToDelete.title}"? Permanenteng mawawala ito sa talaan.` : 'Sigurado ka bang nais mong burahin ang abisong ito?'} confirmLabel="Burahin" danger />

@@ -5,7 +5,7 @@ import { BarChart3, CalendarDays, Download, FileBarChart, FileSpreadsheet, FileT
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
-import { ROLES, can } from '../config/permissions'
+import { ROLES, can, roleDisplayName } from '../config/permissions'
 import { ALL_CLASSIFICATIONS } from '../data/mockIncidents'
 import { downloadCSV } from '../lib/csvExport'
 import StatTile from '../components/StatTile'
@@ -119,7 +119,7 @@ export default function Reports() {
     {!generated && <section className="report-ready-state print:hidden"><FileSpreadsheet size={28} /><h3>Handa nang bumuo ng report</h3><p>I-set ang petsa at uri ng insidente, pagkatapos piliin ang “Bumuo ng Report”.</p></section>}
 
     {generated && <section className="report-output-panel">
-      <header className="report-output-heading print:hidden"><div><p>Generated records summary</p><h2>Barangay Incident Report</h2><dl><div><dt>Saklaw</dt><dd>{scopeLabel}</dd></div><div><dt>Klasipikasyon</dt><dd>{classification}</dd></div><div><dt>Inihanda para sa</dt><dd>{user.role}</dd></div></dl></div>
+      <header className="report-output-heading print:hidden"><div><p>Generated records summary</p><h2>Barangay Incident Report</h2><dl><div><dt>Saklaw</dt><dd>{scopeLabel}</dd></div><div><dt>Klasipikasyon</dt><dd>{classification}</dd></div><div><dt>Inihanda para sa</dt><dd>{roleDisplayName(user.role)}</dd></div></dl></div>
         <div className="report-output-controls">
           <div className="report-view-switch" aria-label="Report view"><button type="button" aria-pressed={viewMode === 'details'} onClick={() => setViewMode('details')}><LayoutDashboard size={15} /> Complete details</button><button type="button" aria-pressed={viewMode === 'paper'} onClick={() => setViewMode('paper')}><FileText size={15} /> Paper view</button></div>
           {canExport && <div className="report-export-actions"><button type="button" onClick={handleExportCSV}><Download size={16} /> Spreadsheet (CSV)</button><button type="button" onClick={handlePrint}><Printer size={16} /> PDF / Print</button></div>}
@@ -139,11 +139,11 @@ export default function Reports() {
         <article className="report-paper-sheet" data-report-paper>
           <header className="report-paper-letterhead"><img src="/logo-icon.png" alt="" /><div><p>Republic of the Philippines</p><p>Quezon City</p><h1>Barangay Milagrosa</h1><span>Office of the Barangay Administration</span></div></header>
           <div className="report-paper-title"><p>Official Records Summary</p><h2>Barangay Incident Report</h2><span>Generated from the BosesBantay administrative system</span></div>
-          <dl className="report-paper-meta"><div><dt>Report reference</dt><dd>BB-RPT-{new Date(generatedAt || Date.now()).toISOString().slice(0, 10).replaceAll('-', '')}-{scopedIncidents.length}</dd></div><div><dt>Date prepared</dt><dd>{new Date(generatedAt || Date.now()).toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' })}</dd></div><div><dt>Coverage</dt><dd>{scopeLabel}</dd></div><div><dt>Classification</dt><dd>{classification}</dd></div><div><dt>Prepared for</dt><dd>{user.role}</dd></div><div><dt>Prepared by</dt><dd>{user.name || 'BosesBantay Administrator'}</dd></div></dl>
+          <dl className="report-paper-meta"><div><dt>Report reference</dt><dd>BB-RPT-{new Date(generatedAt || Date.now()).toISOString().slice(0, 10).replaceAll('-', '')}-{scopedIncidents.length}</dd></div><div><dt>Date prepared</dt><dd>{new Date(generatedAt || Date.now()).toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' })}</dd></div><div><dt>Coverage</dt><dd>{scopeLabel}</dd></div><div><dt>Classification</dt><dd>{classification}</dd></div><div><dt>Prepared for</dt><dd>{roleDisplayName(user.role)}</dd></div><div><dt>Prepared by</dt><dd>{user.name || 'BosesBantay Administrator'}</dd></div></dl>
           <section className="report-paper-overview"><h3>Executive summary</h3><div><article><span>Total incidents</span><strong>{scopedIncidents.length}</strong></article><article><span>Blotter records</span><strong>{blotterReports.length}</strong></article><article><span>Resolved records</span><strong>{statusData[2].value}</strong></article></div></section>
           <div className="report-paper-columns"><PaperBreakdown title="Incidents by classification" rows={typeData} /><PaperBreakdown title="Incidents by sector" rows={sectorData} /></div>
           <PaperBreakdown title="Blotter status breakdown" rows={statusData} />
-          <footer className="report-paper-footer"><div><span>Prepared by</span><strong>{user.name || 'BosesBantay Administrator'}</strong><small>{user.role}</small></div><div><span>Reviewed / certified by</span><strong>____________________________</strong><small>Authorized barangay official</small></div></footer>
+          <footer className="report-paper-footer"><div><span>Prepared by</span><strong>{user.name || 'BosesBantay Administrator'}</strong><small>{roleDisplayName(user.role)}</small></div><div><span>Reviewed / certified by</span><strong>____________________________</strong><small>Authorized barangay official</small></div></footer>
           <p className="report-paper-note">This system-generated document reflects the records available in BosesBantay at the time shown above.</p>
         </article>
       </div>

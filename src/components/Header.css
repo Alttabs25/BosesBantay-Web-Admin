@@ -9,7 +9,7 @@
 .admin-header-account:hover { background:#ffffff08; }
 .admin-header-avatar { display:flex; align-items:center; justify-content:center; width:42px; height:42px; flex-shrink:0; overflow:hidden; border-radius:50%; border:2px solid #ffffff36; background:#ffffff10; color:#e2effb; }
 .admin-header-avatar img { width:100%; height:100%; object-fit:cover; }
-.admin-header-user { display:block; min-width:0; max-width:220px; }
+.admin-header-user { display:block; min-width:0; max-width:340px; }
 .admin-header-user strong { display:block; font-size:15px; font-weight:600; line-height:22px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 .admin-header-user > span { display:block; margin-top:2px; font-size:12px; line-height:19px; color:#c5d9e9; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 .admin-account-chevron { color:#b8cede; margin-left:4px; }

@@ -9,6 +9,7 @@
 .profile-identity-card > h2 { margin-top:16px; color:#1f2937; font-size:20px; line-height:28px; font-weight:750; }
 .profile-role,.profile-email { display:flex; align-items:center; justify-content:center; gap:6px; }
 .profile-role { margin-top:5px; color:var(--profile-blue); font-size:13px; line-height:20px; font-weight:700; }
+.profile-committee { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:4px; color:#5c7085; font-size:12px; line-height:19px; font-weight:650; text-align:center; }
 .profile-email { margin-top:9px; color:#6b7280; font-size:13px; line-height:20px; overflow-wrap:anywhere; }
 .profile-avatar-actions { display:flex; justify-content:center; flex-wrap:wrap; gap:8px; margin-top:18px; padding-top:18px; border-top:1px solid #e5e7eb; }
 .profile-avatar-actions button { display:inline-flex; min-height:38px; align-items:center; gap:6px; padding:8px 11px; border:1px solid var(--profile-blue); border-radius:9px; background:var(--profile-blue); color:#fff; font-size:12px; font-weight:700; }

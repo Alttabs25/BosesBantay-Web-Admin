@@ -28,6 +28,11 @@ export function normalizeRole(role) {
   return ROLE_ALIASES[String(role || '').trim()] || String(role || '').trim()
 }
 
+export function roleDisplayName(role) {
+  const normalized = normalizeRole(role)
+  return normalized === ROLES.KAGAWAD ? 'Barangay Kagawad' : normalized
+}
+
 export function roleLookupNames(role) {
   const canonical = normalizeRole(role)
   return [...new Set(Object.entries(ROLE_ALIASES)

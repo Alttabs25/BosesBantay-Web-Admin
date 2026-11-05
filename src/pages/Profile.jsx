@@ -1,11 +1,12 @@
 import './Profile.css'
 import { useEffect, useRef, useState } from 'react'
-import { BadgeCheck, CalendarDays, Camera, KeyRound, Mail, MapPin, Phone, Save, ShieldCheck, Trash2, User as UserIcon } from 'lucide-react'
+import { BadgeCheck, CalendarDays, Camera, KeyRound, Landmark, Mail, MapPin, Phone, Save, ShieldCheck, Trash2, User as UserIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { supabase } from '../lib/supabaseClient'
+import { ROLES, roleDisplayName } from '../config/permissions'
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024
 
@@ -133,18 +134,19 @@ export default function Profile() {
         <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarChange} hidden />
       </div>
       <h2>{user?.name}</h2>
-      <p className="profile-role"><BadgeCheck size={15} />{user?.role}</p>
+      <p className="profile-role"><BadgeCheck size={15} />{roleDisplayName(user?.role)}</p>
+      {user?.role === ROLES.KAGAWAD && <p className="profile-committee"><Landmark size={15} />{user?.committeeName || (user?.committeeId ? `Committee ${user.committeeId}` : 'No committee assigned')}</p>}
       <p className="profile-email"><Mail size={15} />{user?.email}</p>
       <div className="profile-avatar-actions"><button type="button" onClick={() => fileInputRef.current?.click()}><Camera size={15} /> Palitan ang larawan</button>{user?.avatarUrl && <button type="button" onClick={() => setConfirmingRemoveAvatar(true)} className="is-remove"><Trash2 size={15} /> Alisin</button>}</div>
       <p className="profile-file-note">JPG o PNG, hanggang 2MB.</p>
-      <dl className="profile-account-summary"><div><dt>Account status</dt><dd><i /> Active</dd></div><div><dt>Security</dt><dd className={is2faDisabled ? 'is-warning' : ''}>{user?.role === 'System Administrator' ? (is2faDisabled ? '2FA disabled' : '2FA protected') : 'Protected'}</dd></div></dl>
+      <dl className="profile-account-summary"><div><dt>Account status</dt><dd><i /> Active</dd></div>{user?.role === ROLES.KAGAWAD && <div><dt>Committee scope</dt><dd className={!user?.committeeId ? 'is-warning' : ''}>{user?.committeeName || (user?.committeeId ? `Committee ${user.committeeId}` : 'Unassigned')}</dd></div>}<div><dt>Security</dt><dd className={is2faDisabled ? 'is-warning' : ''}>{user?.role === 'System Administrator' ? (is2faDisabled ? '2FA disabled' : '2FA protected') : 'Protected'}</dd></div></dl>
     </aside>
 
     <main className="profile-settings-column">
       <form onSubmit={saveInfo} className="profile-settings-panel">
         <header><span><UserIcon size={19} /></span><div><p>Account details</p><h2>Profile Information</h2><small>I-update ang opisyal at personal na impormasyon ng iyong account.</small></div></header>
         <div className="profile-form-body">
-          <div className="profile-field-grid"><label><span>Pangalan ng Administrator</span><input value={name} onChange={(event) => setName(event.target.value)} /></label><label><span>Authority Role</span><input value={user?.role ?? ''} disabled /><small>System Administrator lamang ang maaaring magtakda nito.</small></label></div>
+          <div className="profile-field-grid"><label><span>Pangalan ng Administrator</span><input value={name} onChange={(event) => setName(event.target.value)} /></label><label><span>Authority Role</span><input value={roleDisplayName(user?.role)} disabled /><small>System Administrator lamang ang maaaring magtakda nito.</small></label>{user?.role === ROLES.KAGAWAD && <label><span>Assigned Committee</span><div className="profile-input-icon"><Landmark size={16} /><input value={user?.committeeName || (user?.committeeId ? `Committee ${user.committeeId}` : 'No committee assigned')} disabled /></div><small>Ito ang committee scope ng Dashboard, GIS, complaints, at reports.</small></label>}</div>
           <label><span>Email Address</span><div className="profile-input-icon"><Mail size={16} /><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></div></label>
 
           <div className="profile-form-section-heading"><div><h3>Personal information</h3><p>Optional ang mga field na ito. Mananatiling blangko para sa bagong staff hanggang makumpleto nila ang profile.</p></div></div>

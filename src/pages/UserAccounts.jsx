@@ -34,6 +34,7 @@ import {
   ROLES_REQUIRING_PB_APPROVAL,
   ASSIGNABLE_MODULES,
   ASSIGNABLE_MODULE_ROLES,
+  roleDisplayName,
 } from '../config/permissions'
 
 const PORTAL_ROLES = [
@@ -994,7 +995,7 @@ export default function UserAccounts() {
                       </td>
                       <td className="px-4 py-3 text-gray-700 font-semibold">{a.name}</td>
                       <td className="px-4 py-3 text-gray-500">{a.email}</td>
-                      <td className="px-4 py-3 text-gray-500">{a.role}</td>
+                      <td className="px-4 py-3 text-gray-500">{roleDisplayName(a.role)}</td>
                       <td className="px-4 py-3">
                         {a.mustChangePassword ? (
                           <Pill color="orange" solid>
@@ -1117,7 +1118,7 @@ export default function UserAccounts() {
                         idx !== ASSIGNABLE_MODULE_ROLES.length - 1 ? 'border-r' : ''
                       }`}
                     >
-                      {role}
+                      {roleDisplayName(role)}
                     </th>
                   ))}
                 </tr>
@@ -1139,7 +1140,7 @@ export default function UserAccounts() {
                             type="button"
                             role="switch"
                             aria-checked={enabled}
-                            aria-label={`${label} para sa ${role}`}
+                            aria-label={`${label} para sa ${roleDisplayName(role)}`}
                             onClick={() => requestModuleToggle(role, key, label, !enabled)}
                             className={`group relative inline-flex h-6 w-12 items-center rounded-full border transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
                               enabled
@@ -1357,7 +1358,7 @@ export default function UserAccounts() {
               <div className="account-create-section-heading"><span><ShieldCheck size={18} /></span><div><h4>Portal identity</h4><p>Opisyal at tungkuling bibigyan ng access.</p></div></div>
               <label><span>Buong Pangalan</span><div className="account-create-input-icon"><Users size={16} /><input type="text" required value={newAdminAccount.name} onChange={(e) => setNewAdminAccount((a) => ({ ...a, name: e.target.value }))} placeholder="Juan Dela Cruz" /></div></label>
               <label><span>Opisyal na Email</span><div className="account-create-input-icon"><Mail size={16} /><input type="email" required value={newAdminAccount.email} onChange={(e) => setNewAdminAccount((a) => ({ ...a, email: e.target.value }))} placeholder="juan@barangay.gov.ph" /></div></label>
-              <label><span>Tungkulin</span><select value={newAdminAccount.role} onChange={(e) => setNewAdminAccount((a) => ({ ...a, role: e.target.value }))}>{PORTAL_ROLES.map((role) => <option key={role} value={role}>{role}</option>)}</select></label>
+              <label><span>Tungkulin</span><select value={newAdminAccount.role} onChange={(e) => setNewAdminAccount((a) => ({ ...a, role: e.target.value }))}>{PORTAL_ROLES.map((role) => <option key={role} value={role}>{roleDisplayName(role)}</option>)}</select></label>
             </section>
 
             <section className="account-create-section account-create-access">
@@ -1502,7 +1503,7 @@ export default function UserAccounts() {
                 </div>
                 <div className="text-right">
                   <span className="text-[11px] font-semibold text-gray-400 block mb-0.5">Kasalukuyan:</span>
-                  <Pill color="blue" solid={false}>{editingRoleAdmin.role}</Pill>
+                  <Pill color="blue" solid={false}>{roleDisplayName(editingRoleAdmin.role)}</Pill>
                 </div>
               </div>
             </div>

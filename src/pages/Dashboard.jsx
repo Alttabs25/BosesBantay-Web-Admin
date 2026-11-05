@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
-import { ROLES } from '../config/permissions'
+import { ROLES, roleDisplayName } from '../config/permissions'
 import StatTile from '../components/StatTile'
 import MiniBarChart from '../components/MiniBarChart'
 import SubmissionTrendChart from '../components/SubmissionTrendChart'
@@ -133,7 +133,7 @@ export default function Dashboard() {
       <section className="dashboard-metric-section" aria-label="Mahahalagang bilang">
         <div className="dashboard-section-label">
           <div><span>Priority indicators</span><p>Mga bilang na nangangailangan ng mabilis na pagtingin</p></div>
-          <strong>{user?.role}</strong>
+          <strong>{roleDisplayName(user?.role)}</strong>
         </div>
         <div className="dashboard-metric-grid">
           {isFullOverview && <>
