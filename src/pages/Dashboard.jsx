@@ -18,6 +18,7 @@ import { ROLES } from '../config/permissions'
 import StatTile from '../components/StatTile'
 import MiniBarChart from '../components/MiniBarChart'
 import SubmissionTrendChart from '../components/SubmissionTrendChart'
+import { isServiceComplaint } from '../lib/reportType'
 
 const SEVERITY_COLOR = { Mataas: 'red', Katamtaman: 'orange', Mababa: 'green' }
 
@@ -44,6 +45,11 @@ export default function Dashboard() {
   ).values()).filter(report => (
     ['sinuri', 'under review', 'pending', 'for review', ''].includes(String(report.status || '').trim().toLowerCase())
   )).length
+  const committeeReports = Array.from(new Map(
+    [...blotterReports, ...serviceComplaints]
+      .filter(isServiceComplaint)
+      .map(report => [`${report.sourceTable || report.reportType}:${report.dbId || report.id || report.ref}`, report]),
+  ).values())
   const todayKey = (() => {
     const date = new Date()
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
@@ -55,6 +61,14 @@ export default function Dashboard() {
   const classificationData = Object.entries(
     incidents.reduce((counts, incident) => {
       counts[incident.classification] = (counts[incident.classification] ?? 0) + 1
+      return counts
+    }, {}),
+  ).map(([label, value]) => ({ label, value, color: 'blue' }))
+
+  const committeeClassificationData = Object.entries(
+    committeeReports.reduce((counts, report) => {
+      const classification = report.classification || report.title || 'Iba pa'
+      counts[classification] = (counts[classification] ?? 0) + 1
       return counts
     }, {}),
   ).map(([label, value]) => ({ label, value, color: 'blue' }))
@@ -133,7 +147,7 @@ export default function Dashboard() {
             <StatTile icon={ClipboardList} label="Pending" value={visiblePendingReports} accent="orange" />
           </>}
           {user?.role === ROLES.LUPON && <StatTile icon={Gavel} label="Nakatalagang Kaso (Investigating)" value={investigating} accent="blue" />}
-          {user?.role === ROLES.KAGAWAD && <StatTile icon={TrendingUp} label="Kabuuang Insidente" value={incidents.length} accent="blue" />}
+          {user?.role === ROLES.KAGAWAD && <StatTile icon={TrendingUp} label="Kabuuang Insidente" value={committeeReports.length} accent="blue" />}
           {user?.role === ROLES.ADMIN && <>
             <StatTile icon={Users} label="Kabuuang Account" value={users.length} accent="blue" />
             <StatTile icon={UserCheck} label="Naghihintay na Verification" value={pendingVerifications} accent="orange" />
@@ -160,7 +174,7 @@ export default function Dashboard() {
             <MiniBarChart title="Chatbot Query Volume (sample)" data={chatbotQueryData} />
           </div>}
 
-          {user?.role === ROLES.KAGAWAD && <div className="dashboard-chart-grid single"><MiniBarChart title="Insidente ayon sa Klasipikasyon (Committee View)" data={classificationData} /></div>}
+          {user?.role === ROLES.KAGAWAD && <div className="dashboard-chart-grid single"><MiniBarChart title="Insidente ayon sa Klasipikasyon (Committee View)" data={committeeClassificationData} /></div>}
           {user?.role === ROLES.TANOD && <div className="dashboard-chart-grid single"><SubmissionTrendChart data={reportsSubmittedData} /></div>}
           {user?.role === ROLES.ADMIN && <div className="dashboard-chart-grid">
             <MiniBarChart title="Kabuuan ng Rehistradong Residente" data={registrationData} />

@@ -15,7 +15,7 @@ const TYPE_COLOR = { 'Governance Notice': 'blue', 'Safety Advisory': 'orange', '
 const CONFIGS_BY_ROLE = {
   [ROLES.SECRETARY]: { allowedTypes: ['Governance Notice', 'Safety Advisory', 'Community Announcement'], allowedTargets: ['Lahat ng Residente', 'Mga Kagawad', 'Lupon Members', 'Field Patrol Tanods Lamang'], canCompose: true },
   [ROLES.CAPTAIN]: { allowedTypes: ['Governance Notice', 'Safety Advisory', 'Community Announcement'], allowedTargets: ['Lahat ng Residente', 'Mga Kagawad', 'Lupon Members', 'Field Patrol Tanods Lamang'], canCompose: true },
-  [ROLES.KAGAWAD]: { allowedTypes: ['Committee-scoped Advisory'], allowedTargets: ['Mga Kasapi ng Komite'], canCompose: true },
+  [ROLES.KAGAWAD]: { allowedTypes: [], allowedTargets: [], canCompose: false },
   [ROLES.ADMIN]: { allowedTypes: ['System-level Broadcast'], allowedTargets: ['System-wide Broadcast'], canCompose: true },
   [ROLES.TANOD]: { allowedTypes: [], allowedTargets: [], canCompose: false },
 }

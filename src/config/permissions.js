@@ -76,7 +76,7 @@ export const PERMISSIONS = Object.freeze({
   },
   alerts: {
     [SECRETARY]: ['create', 'read'], [TANOD]: ['read'], [LUPON]: ['read'],
-    [KAGAWAD]: ['create', 'read'], [CAPTAIN]: ['create', 'read'],
+    [KAGAWAD]: ['read'], [CAPTAIN]: ['create', 'read'],
     [ADMIN]: ['create', 'read', 'delete'],
   },
   reports: {
