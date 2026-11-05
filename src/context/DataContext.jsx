@@ -206,6 +206,8 @@ export function DataProvider({ children }) {
             id: u.id,
             name: `${u.first_name} ${u.last_name}`.trim(),
             role: normalizeRole(u.roles?.role_name || 'Residente'),
+            committeeId: u.committee_id || u.committee?.committee_id || null,
+            committeeName: u.committee?.committee_name || '',
             verified: u.verification_status === 'Verified' || u.verification_status === 'pb_authorized' ? 'Verified' : 'Pending',
             barangayIdStatus: u.verification_status || 'unverified',
             status: u.approval_status === 'Suspended' || u.approval_status === 'Deactivated'
@@ -225,9 +227,14 @@ export function DataProvider({ children }) {
 
       // 2. Fetch Pre Blotters & Incidents
       // 2. Fetch Pre Blotters & Incidents
-      const { data: pbsData, error: pbsErr } = await supabase
+      let { data: pbsData, error: pbsErr } = await supabase
         .from('pre_blotters')
-        .select('*, ai_extractions(*), barangay_sectors(*)')
+        .select('*, ai_extractions(*), barangay_sectors(*), committee:barangay_committees(committee_id,committee_name)')
+      if (pbsErr && /barangay_committees|committee_id|relationship|schema cache/i.test(pbsErr.message || '')) {
+        const fallback = await supabase.from('pre_blotters').select('*, ai_extractions(*), barangay_sectors(*)')
+        pbsData = fallback.data
+        pbsErr = fallback.error
+      }
 
       let mappedBlotter = []
       let mappedIncidents = []
@@ -269,6 +276,8 @@ export function DataProvider({ children }) {
             latitude: lat,
             longitude: lng,
             sector: b.barangay_sectors?.sector_name || 'Sector 1',
+            committeeId: b.committee_id || b.committee?.committee_id || null,
+            committeeName: b.committee?.committee_name || '',
             mapStatus: isMapped ? 'Approved' : (b.map_status || 'Pending'),
             is_mapped: isMapped,
             isMapped,
@@ -324,6 +333,8 @@ export function DataProvider({ children }) {
             how: sanitizeText(json.how || b.ai_extractions?.narrative_summary, 'N/A'),
             severity: sanitizeText(json.severity, 'Katamtaman'),
             sector: b.barangay_sectors?.sector_name || 'Sector 1',
+            committeeId: b.committee_id || b.committee?.committee_id || null,
+            committeeName: b.committee?.committee_name || '',
             lat,
             lng,
             latitude: lat,
@@ -347,10 +358,15 @@ export function DataProvider({ children }) {
       }
 
       // 3. Fetch Mobile Form Reports submitted by residents from `reports` table
-      const { data: reportsData, error: reportsErr } = await supabase
+      let { data: reportsData, error: reportsErr } = await supabase
         .from('reports')
-        .select('*')
+        .select('*, committee:barangay_committees(committee_id,committee_name)')
         .order('created_at', { ascending: false })
+      if (reportsErr && /barangay_committees|committee_id|relationship|schema cache/i.test(reportsErr.message || '')) {
+        const fallback = await supabase.from('reports').select('*').order('created_at', { ascending: false })
+        reportsData = fallback.data
+        reportsErr = fallback.error
+      }
 
       let mappedReports = []
       if (!reportsErr && reportsData) {
@@ -403,6 +419,8 @@ export function DataProvider({ children }) {
             }).toUpperCase(),
             filedBy,
             submittedById: r.user_id || null,
+            committeeId: r.committee_id || r.committee?.committee_id || null,
+            committeeName: r.committee?.committee_name || '',
             what: sanitizeText(r.full_details?.what || r.category || r.summary, 'Unspecified Incident'),
             who: sanitizeText(r.full_details?.respondentName || r.full_details?.who || r.other_party || r.respondent || r.full_details?.otherParties, 'Hindi Alam'),
             where: sanitizeText(r.location || r.full_details?.where || r.full_details?.location, 'N/A'),
@@ -441,10 +459,15 @@ export function DataProvider({ children }) {
 
       // Older service complaints have their own table; current mobile submissions
       // are identified by full_details.type in reports above.
-      const { data: complaintsData, error: complaintsErr } = await supabase
+      let { data: complaintsData, error: complaintsErr } = await supabase
         .from('service_complaints')
-        .select('*')
+        .select('*, committee:barangay_committees(committee_id,committee_name)')
         .order('created_at', { ascending: false })
+      if (complaintsErr && /barangay_committees|committee_id|relationship|schema cache/i.test(complaintsErr.message || '')) {
+        const fallback = await supabase.from('service_complaints').select('*').order('created_at', { ascending: false })
+        complaintsData = fallback.data
+        complaintsErr = fallback.error
+      }
 
       if (complaintsErr) {
         console.error('Error loading service complaints:', complaintsErr)
@@ -472,6 +495,8 @@ export function DataProvider({ children }) {
             photoPaths: row.image_url ? [row.image_url] : [],
             assignedTo: row.assigned_to || null,
             submittedById: row.user_id || null,
+            committeeId: row.committee_id || row.committee?.committee_id || null,
+            committeeName: row.committee?.committee_name || '',
           }
         }))
       }
@@ -2271,6 +2296,21 @@ export function DataProvider({ children }) {
     }
   }
 
+  const assignRecordCommittee = async (report, committeeId) => {
+    if (normalizeRole(user?.role) !== ROLES.ADMIN) return { success: false, error: 'Only the System Administrator may tag committee records.' }
+    const source = report?.sourceTable
+    const recordKey = String(report?.dbId || report?.blotterId || report?.ref || report?.id || '')
+    if (!source || !recordKey) return { success: false, error: 'Record source is unavailable.' }
+    const { data, error } = await supabase.rpc('bb_assign_record_committee', {
+      p_source: source,
+      p_record_key: recordKey,
+      p_committee_id: committeeId ? Number(committeeId) : null,
+    })
+    if (error || !data) return { success: false, error: error?.message || 'Committee tag was not saved.' }
+    await fetchData()
+    return { success: true }
+  }
+
   const setModuleAccess = (role, moduleKey, enabled) => {
     if (!ASSIGNABLE_MODULE_ROLES.includes(role)) return
     setRoleModuleAccess((prev) => ({
@@ -2345,6 +2385,7 @@ export function DataProvider({ children }) {
         alertHistory,
         addAlert,
         deleteAlert,
+        assignRecordCommittee,
         auditLog: scopedData.auditLog,
         addAuditEntry,
         roleModuleAccess,

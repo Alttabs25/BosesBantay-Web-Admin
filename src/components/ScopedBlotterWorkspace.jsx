@@ -10,6 +10,7 @@ import { useToast } from '../context/ToastContext'
 import BlotterWorkspace from './BlotterWorkspace'
 import { hearingVenue, scopedNextActions, scopedPatch, validateScopedAction } from '../lib/scopedBlotterFlow'
 import { can } from '../config/permissions'
+import CommitteeAssignment from './CommitteeAssignment'
 
 export default function ScopedBlotterWorkspace({ report, onFlagSpam }) {
   const { user } = useAuth()
@@ -68,6 +69,7 @@ export default function ScopedBlotterWorkspace({ report, onFlagSpam }) {
   return <div ref={root} className="scoped-blotter-workspace mt-1">
     <section className="scoped-blotter-report min-w-0" aria-label="Kumpletong report"><BlotterWorkspace detailOnly readOnly reports={[]} selectedReport={report} /></section>
     <aside className="scoped-blotter-process space-y-4" aria-label="Pagsusuri at pag-update ng report">
+      <CommitteeAssignment report={report} />
       <section className="blotter-progress-card rounded-xl border border-slate-200 bg-white p-4"><div className="blotter-panel-heading"><h2>Report progress</h2><span className="blotter-report-state">{progress.statusLabel}</span></div><dl className="blotter-progress-values"><div><dt>Stage</dt><dd>{progress.stage}</dd></div>{progress.outcome && <div><dt>Outcome</dt><dd className={progress.outcome === 'CFA recorded' ? 'text-violet-700' : progress.outcome === 'Settled' ? 'text-emerald-700' : ''}>{progress.outcome}</dd></div>}</dl>{report.hearingDate && stage !== 2 && <div className="blotter-hearing-inline"><div><span>Latest hearing</span><p>{new Date(report.hearingDate).toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' })}</p></div><div><span>Venue</span><p>{hearingVenue(report.hearingNote) || 'Not recorded'}</p></div></div>}</section>
       {(!action || stage === 2) && <section className="relative rounded-xl border border-slate-200 bg-white p-4"><h3 className={`text-sm font-bold text-slate-900 ${stage === 2 ? 'pr-36' : ''}`}>{stage === 2 ? 'Final outcome' : 'Next action'}</h3>
         {stage === 0 && <div className="mt-3 space-y-2"><button type="button" onClick={() => select('review')} className="w-full rounded-lg bg-bb-blue px-3 py-2.5 text-xs font-semibold text-white">Confirm report</button><button type="button" onClick={() => onFlagSpam(report)} className="w-full rounded-lg border border-red-200 px-3 py-2.5 text-xs font-semibold text-red-700">Review as spam</button></div>}

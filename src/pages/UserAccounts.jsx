@@ -199,6 +199,8 @@ export default function UserAccounts() {
     resetAdminAccountPassword,
     deleteAdminAccount,
     updateAdminAccountRole,
+    updateAdminAccountCommittee,
+    committees,
   } = useAuth()
   const { users, updateUser, removeUser, addAuditEntry, roleModuleAccess, setModuleAccess, fetchData } = useData()
   const { showToast } = useToast()
@@ -222,6 +224,7 @@ export default function UserAccounts() {
   const [resetPasswordValue, setResetPasswordValue] = useState('')
   const [editingRoleAdmin, setEditingRoleAdmin] = useState(null)
   const [selectedNewRole, setSelectedNewRole] = useState('')
+  const [selectedCommitteeId, setSelectedCommitteeId] = useState('')
   const [pendingAdminDeleteId, setPendingAdminDeleteId] = useState(null)
   const [pendingModuleToggle, setPendingModuleToggle] = useState(null)
   const [pendingStatusActionId, setPendingStatusActionId] = useState(null)
@@ -534,26 +537,44 @@ export default function UserAccounts() {
 
   async function handleAdminRoleChangeSubmit(e) {
     e.preventDefault()
-    if (!isAdmin || !editingRoleAdmin || !selectedNewRole || selectedNewRole === editingRoleAdmin.role) return
+    if (!isAdmin || !editingRoleAdmin || !selectedNewRole) return
 
     const targetAccount = editingRoleAdmin
     const oldRole = targetAccount.role
     const newRole = selectedNewRole
-
-    const res = await updateAdminAccountRole(targetAccount.id, newRole)
-    if (res && !res.success) {
-      showToast(res.error || 'Hindi nabago ang tungkulin.', 'error')
+    const nextCommitteeId = newRole === ROLES.KAGAWAD ? selectedCommitteeId : ''
+    const roleChanged = newRole !== oldRole
+    const committeeChanged = String(targetAccount.committeeId || '') !== String(nextCommitteeId || '')
+    if (!roleChanged && !committeeChanged) return
+    if (newRole === ROLES.KAGAWAD && !nextCommitteeId) {
+      showToast('Pumili ng komite para sa Kagawad account.', 'error')
       return
+    }
+
+    if (roleChanged) {
+      const res = await updateAdminAccountRole(targetAccount.id, newRole)
+      if (res && !res.success) {
+        showToast(res.error || 'Hindi nabago ang tungkulin.', 'error')
+        return
+      }
+    }
+    if (committeeChanged) {
+      const committeeResult = await updateAdminAccountCommittee(targetAccount.id, nextCommitteeId || null)
+      if (!committeeResult?.success) {
+        showToast(committeeResult?.error || 'Hindi na-save ang komite.', 'error')
+        return
+      }
     }
 
     addAuditEntry(
       `Binago ang tungkulin ni ${targetAccount.name} mula "${oldRole}" patungong "${newRole}"`,
-      { color: 'blue', targetTable: 'users', targetKey: targetAccount.id, before: { role: oldRole }, after: { role: newRole } }
+      { color: 'blue', targetTable: 'users', targetKey: targetAccount.id, before: { role: oldRole, committee_id: targetAccount.committeeId || null }, after: { role: newRole, committee_id: nextCommitteeId ? Number(nextCommitteeId) : null } }
     )
     showToast(`Matagumpay na nabago ang tungkulin ni ${targetAccount.name} bilang ${newRole}.`)
     fetchData()
     setEditingRoleAdmin(null)
     setSelectedNewRole('')
+    setSelectedCommitteeId('')
   }
 
   async function confirmDeleteAdminAccount() {
@@ -1016,6 +1037,7 @@ export default function UserAccounts() {
                                       setOpenMenuId(null)
                                       setEditingRoleAdmin(a)
                                       setSelectedNewRole(a.role)
+                                      setSelectedCommitteeId(String(a.committeeId || ''))
                                     }}
                                     disabled={a.id === user.id}
                                     title={a.id === user.id ? 'Hindi mo maaaring palitan ang sarili mong tungkulin.' : undefined}
@@ -1466,6 +1488,7 @@ export default function UserAccounts() {
         onClose={() => {
           setEditingRoleAdmin(null)
           setSelectedNewRole('')
+          setSelectedCommitteeId('')
         }}
         title="Palitan ang Tungkulin ng Admin"
       >
@@ -1501,6 +1524,15 @@ export default function UserAccounts() {
               </select>
             </label>
 
+            {selectedNewRole === ROLES.KAGAWAD && <label className="block">
+              <span className="mb-1.5 block text-sm font-semibold text-gray-700">Assigned Committee</span>
+              <select required value={selectedCommitteeId} onChange={(e) => setSelectedCommitteeId(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-bb-blue focus:outline-none focus:ring-1 focus:ring-bb-blue">
+                <option value="">Pumili ng komite</option>
+                {(committees || []).map((committee) => <option key={committee.committee_id} value={committee.committee_id}>{committee.committee_id} — {committee.committee_name}</option>)}
+              </select>
+              <small className="mt-1 block text-xs text-gray-500">Committee ID ang gagamitin sa pag-filter ng dashboard, GIS, at complaints.</small>
+            </label>}
+
             <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3 text-xs text-blue-700 leading-relaxed">
               * Ang pagpapalit ng tungkulin ay magbabago sa mga module at permissions na maaaring ma-access ng admin na ito sa Command Center.
             </div>
@@ -1511,6 +1543,7 @@ export default function UserAccounts() {
                 onClick={() => {
                   setEditingRoleAdmin(null)
                   setSelectedNewRole('')
+                  setSelectedCommitteeId('')
                 }}
                 className="w-1/2 rounded-lg border border-gray-300 py-2.5 font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
               >
@@ -1518,7 +1551,7 @@ export default function UserAccounts() {
               </button>
               <button
                 type="submit"
-                disabled={!selectedNewRole || selectedNewRole === editingRoleAdmin.role}
+                disabled={!selectedNewRole || (selectedNewRole === ROLES.KAGAWAD && !selectedCommitteeId) || (selectedNewRole === editingRoleAdmin.role && String(editingRoleAdmin.committeeId || '') === String(selectedCommitteeId || ''))}
                 className="w-1/2 rounded-lg bg-gradient-to-b from-bb-blue to-bb-blue/90 border border-bb-blue/10 shadow-sm hover:shadow hover:from-bb-blue-dark hover:to-bb-blue-dark py-2.5 font-semibold text-white transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 I-save ang Tungkulin

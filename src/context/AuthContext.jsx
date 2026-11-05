@@ -18,15 +18,26 @@ const authAdminClient = createClient(supabaseUrl, supabaseAnonKey, {
   }
 })
 
+const isMissingCommitteeSchema = error => /barangay_committees|committee_id|relationship|schema cache/i.test(error?.message || '')
+
+async function fetchProfile(userId) {
+  let result = await supabase.from('users').select('*, roles(role_name), committee:barangay_committees(committee_id,committee_name)').eq('id', userId).single()
+  if (result.error && isMissingCommitteeSchema(result.error)) {
+    result = await supabase.from('users').select('*, roles(role_name)').eq('id', userId).single()
+  }
+  return result
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [accounts, setAccounts] = useState([])
+  const [committees, setCommittees] = useState([])
   const [loading, setLoading] = useState(true)
 
   // Fetch all admin/staff accounts (users who are not 'Residente')
   const fetchAccounts = async () => {
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('users')
         .select(`
           id,
@@ -35,8 +46,14 @@ export function AuthProvider({ children }) {
           email,
           roles (
             role_name
-          )
+          ),
+          committee:barangay_committees (committee_id, committee_name)
         `)
+      if (error && isMissingCommitteeSchema(error)) {
+        const fallback = await supabase.from('users').select('id,first_name,last_name,email,roles(role_name)')
+        data = fallback.data
+        error = fallback.error
+      }
       
       if (error) throw error
 
@@ -48,10 +65,14 @@ export function AuthProvider({ children }) {
             name: `${u.first_name} ${u.last_name}`.trim(),
             role: normalizeRole(u.roles?.role_name || 'System Administrator'),
             email: u.email,
+            committeeId: u.committee_id || u.committee?.committee_id || null,
+            committeeName: u.committee?.committee_name || '',
             mustChangePassword: false,
           }))
         setAccounts(mapped)
       }
+      const { data: committeeRows } = await supabase.from('barangay_committees').select('committee_id,committee_name,is_active').eq('is_active', true).order('committee_id')
+      setCommittees(committeeRows || [])
     } catch (err) {
       console.error('Error fetching admin accounts:', err)
     }
@@ -63,17 +84,15 @@ export function AuthProvider({ children }) {
       setTimeout(async () => {
       if (session?.user) {
         // Fetch matching profile details
-        const { data: profile, error } = await supabase
-          .from('users')
-          .select('*, roles(role_name)')
-          .eq('id', session.user.id)
-          .single()
+        const { data: profile, error } = await fetchProfile(session.user.id)
 
         if (!error && profile) {
           setUser({
             id: session.user.id,
             name: `${profile.first_name} ${profile.last_name}`.trim(),
             role: normalizeRole(profile.roles?.role_name || 'System Administrator'),
+            committeeId: profile.committee_id || profile.committee?.committee_id || null,
+            committeeName: profile.committee?.committee_name || '',
             email: session.user.email,
             avatarUrl: profile.avatar_url || null,
             gender: profile.gender || '',
@@ -134,16 +153,14 @@ export function AuthProvider({ children }) {
       return { success: false, error: error.message }
     }
 
-    const { data: profile } = await supabase
-      .from('users')
-      .select('*, roles(role_name)')
-      .eq('id', data.user.id)
-      .single()
+    const { data: profile } = await fetchProfile(data.user.id)
 
     const loggedInUser = {
       id: data.user.id,
       name: profile ? `${profile.first_name} ${profile.last_name}`.trim() : 'Admin User',
       role: normalizeRole(profile?.roles?.role_name || data.user.user_metadata?.role || 'Unassigned'),
+      committeeId: profile?.committee_id || profile?.committee?.committee_id || null,
+      committeeName: profile?.committee?.committee_name || '',
       email: data.user.email,
       avatarUrl: profile?.avatar_url || null,
       gender: profile?.gender || '',
@@ -446,6 +463,17 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const updateAdminAccountCommittee = async (accountId, committeeId) => {
+    if (user?.role !== ROLES.ADMIN) return { success: false, error: 'Only the System Administrator may assign committees.' }
+    const { data, error } = await supabase.rpc('bb_assign_user_committee', {
+      target_user_id: accountId,
+      target_committee_id: committeeId ? Number(committeeId) : null,
+    })
+    if (error || !data) return { success: false, error: error?.message || 'Committee assignment was not saved.' }
+    await fetchAccounts()
+    return { success: true }
+  }
+
   // Trigger password reset email via native Supabase Auth
   const requestPasswordReset = async (email) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
@@ -474,6 +502,7 @@ export function AuthProvider({ children }) {
       value={{
         user,
         accounts,
+        committees,
         login,
         logout,
         updateUser,
@@ -484,6 +513,7 @@ export function AuthProvider({ children }) {
         resetAdminAccountPassword,
         deleteAdminAccount,
         updateAdminAccountRole,
+        updateAdminAccountCommittee,
         requestPasswordReset,
         resetPasswordWithCode,
         fetchAccounts,

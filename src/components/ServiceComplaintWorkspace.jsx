@@ -10,6 +10,7 @@ import ComplaintLocationMap from './ComplaintLocationMap'
 import { ArrowLeft, ChevronLeft, ChevronRight, MapPin, LocateFixed } from 'lucide-react'
 import ReportEvidenceGallery from './ReportEvidenceGallery'
 import { can } from '../config/permissions'
+import CommitteeAssignment from './CommitteeAssignment'
 
 function submissionDate(report) {
   const date = new Date(report.rawDate || '')
@@ -152,7 +153,7 @@ export default function ServiceComplaintWorkspace({ reports, selectedId, onSelec
 
       </div>
     </aside>}
-    {selected && <aside className="complaint-actions-panel overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label="Progress at actions"><div className="border-b border-slate-200 bg-slate-50/70 px-5 py-3.5"><h2 className="text-sm font-semibold text-slate-900">Manage complaint</h2></div><div className="complaint-scroll p-5"><ServiceComplaintActions key={selectedKey} report={selected} /></div></aside>}
+    {selected && <aside className="complaint-actions-panel overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label="Progress at actions"><div className="border-b border-slate-200 bg-slate-50/70 px-5 py-3.5"><h2 className="text-sm font-semibold text-slate-900">Manage complaint</h2></div><div className="complaint-scroll space-y-4 p-5"><CommitteeAssignment report={selected} /><ServiceComplaintActions key={selectedKey} report={selected} /></div></aside>}
     <BlotterMapModal correction open={Boolean(correctionReport)} report={correctionReport} onClose={() => setCorrectionReport(null)} onSave={saveCorrection} />
   </div>
 }
