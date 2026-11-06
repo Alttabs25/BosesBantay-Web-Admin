@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 const LETTERS = [
   { char: 'B', accent: false },
@@ -16,6 +16,11 @@ const LETTERS = [
 
 export default function LoginLoadingScreen({ onComplete }) {
   const [isExiting, setIsExiting] = useState(false)
+  const onCompleteRef = useRef(onComplete)
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete
+  }, [onComplete])
 
   useEffect(() => {
     // Start exit transition after letters fold up and settle
@@ -25,14 +30,14 @@ export default function LoginLoadingScreen({ onComplete }) {
 
     // Complete navigation callback
     const doneTimer = setTimeout(() => {
-      if (onComplete) onComplete()
+      onCompleteRef.current?.()
     }, 1500)
 
     return () => {
       clearTimeout(exitTimer)
       clearTimeout(doneTimer)
     }
-  }, [onComplete])
+  }, [])
 
   return (
     <div

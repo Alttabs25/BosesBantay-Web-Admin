@@ -42,12 +42,12 @@ export default function TwoFactorAuth() {
 
   // Countdown timer logic
   useEffect(() => {
-    if (timer <= 0) return
+    if (timer <= 0 || isSuccessLoading) return
     const interval = setInterval(() => {
       setTimer((prev) => prev - 1)
     }, 1000)
     return () => clearInterval(interval)
-  }, [timer])
+  }, [timer, isSuccessLoading])
 
   // Call Supabase RPC to trigger sending the OTP via Resend
   const sendOtpCode = async () => {
